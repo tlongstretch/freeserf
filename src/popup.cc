@@ -378,6 +378,17 @@ PopupBox::draw_box_background(BackgroundPattern sprite) {
   }
 }
 
+/* Fill the background of the large type popup frame. */
+void
+PopupBox::draw_large_box_background(BackgroundPattern sprite) {
+  // double-wide, normal height (ix is doubled)
+  for (int iy = 0; iy < 144; iy += 16) {
+    for (int ix = 0; ix < 33; ix += 2) {
+      draw_popup_icon(ix, iy, sprite);
+    }
+  }
+}
+
 /* Fill one row of a popup frame. */
 void
 PopupBox::draw_box_row(int sprite, int iy) {
