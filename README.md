@@ -4,7 +4,7 @@ Freeserf
 Build status
 ------------
 Freeserf-with-AI-plus:
----appveyor not working yet---
+[![Build Status](https://ci.appveyor.com/api/projects/status/github/tlongstretch/freeserf-with-ai-plus?branch=clean_AI_addition&svg=true)](https://ci.appveyor.com/project/tlongstretch/freeserf-with-ai-plus)
   
 Freeserf:
 [![Build Status](https://travis-ci.org/freeserf/freeserf.svg?branch=master)](https://travis-ci.org/freeserf/freeserf)
