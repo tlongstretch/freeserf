@@ -545,7 +545,6 @@ GameInitBox::handle_player_click(unsigned int player_index, int cx, int cy) {
         player->set_supplies(value);
       } else if (cx > 6 && cx < 12) {
         /* Intelligence */
-        player->set_intelligence(value);
         // tlongstretch - disallow changing intelligence as it does nothing and this could be confusing to players
         //player->set_intelligence(value);
         play_sound(Audio::TypeSfxNotAccepted);
