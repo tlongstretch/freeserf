@@ -337,6 +337,22 @@ PopupBox::draw_popup_box_frame() {
   frame->draw_sprite(136, 9, Data::AssetFramePopup, 3);
 }
 
+/* Draw larger frame used for extra options screen */
+void
+PopupBox::draw_large_popup_box_frame() {
+  //sprite index 0: top bar, decorated (~2 pixels thicker than the others!)
+  //sprite index 1: bottom bar, plain
+  //sprite index 2: left bar, plain
+  //sprite index 3: right bar, plain
+  //  using bottom bar's (undecorated) sprite because the normal one looks funny doubled), shifted down 2 pixels to avoid a gap
+  frame->draw_sprite(0, 2, Data::AssetFramePopup, 1); // top bar, left
+  frame->draw_sprite(144, 2, Data::AssetFramePopup, 1); // top bar, right
+  frame->draw_sprite(0, 153, Data::AssetFramePopup, 1); // bottom bar, left
+  frame->draw_sprite(144, 153, Data::AssetFramePopup, 1); // bottom bar, right
+  frame->draw_sprite(0, 9, Data::AssetFramePopup, 2); // left bar
+  frame->draw_sprite(280, 9, Data::AssetFramePopup, 3);  // right bar
+}
+
 /* Draw icon in a popup frame. */
 void
 PopupBox::draw_popup_icon(int x_, int y_, int sprite) {
