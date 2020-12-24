@@ -378,7 +378,7 @@ PopupBox::draw_green_string(int sx, int sy, const std::string &str) {
 
 /* Draw a green number in a popup frame.
    n must be non-negative. If > 999 simply draw three characters xxT or Mx thousands, xxM or Mx for millions, xxB for bilions. */
-// includes p1plp1's "millions and billions"... though likely only Thousands ever seen  
+// includes p1plp1's "millions and billions"... though likely only Thousands ever see
 void
 PopupBox::draw_green_number(int sx, int sy, int n) {
   if (n >= 1000000000) {
