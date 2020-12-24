@@ -123,6 +123,22 @@ Interface::open_popup(int box) {
     add_float(popup, 0, 0);
   }
   layout();
+  if (box == PopupBox::TypeAIPlusOptions){
+    // double wide, normal height
+    popup->set_size(288, 160);
+    // recenter the popup
+    //   because the popup->get_position call requires providing pointers to ints,
+    //   we must create those ints and pointers and then check them after the call
+    int options_pos_x = 0;
+    int options_pos_y = 0;
+    int *ptoptions_pos_x = &options_pos_x;
+    int *ptoptions_pos_y = &options_pos_y;
+    popup->get_position(ptoptions_pos_x, ptoptions_pos_y);
+    options_pos_x = *ptoptions_pos_x;
+    // shift left half of one "normal width", keep same height
+    options_pos_x -= 72;
+    popup->move_to(options_pos_x, options_pos_y);
+  }
   popup->show((PopupBox::Type)box);
   if (panel != nullptr) {
     panel->update();
@@ -177,8 +193,20 @@ Interface::close_game_init() {
   viewport->set_enabled(true);
   layout();
   update_map_cursor_pos(map_cursor_pos);
+  // print AIPlus game options
+  //   there is no way to iterate over a bitfield or an enum so this must be hardcoded
+  //   and it must be updated any time an option is added!
+  Log::Info["interface"] << " AIOption::Foo is " << std::to_string(aiplus_options.test(AIPlusOption::Foo));
+  Log::Info["interface"] << " AIOption::Bar is " << std::to_string(aiplus_options.test(AIPlusOption::Bar));
+  Log::Info["interface"] << " AIOption::Baz is " << std::to_string(aiplus_options.test(AIPlusOption::Baz));
   // start any AI threads
   initialize_AI();
+}
+
+AIPlusOptions &
+Interface::get_aiplus_options() {
+  static AIPlusOptions aiplus_options;
+  return aiplus_options;
 }
 
 // Initialize AI for non-human players
@@ -196,7 +224,7 @@ Interface::initialize_AI() {
       //  the AI thread "takes" the file handle but the main game filehandle still works even though they all
       //    use the same static function???  and the class is a singleton??
       Log::set_file(new std::ofstream("ai_Player" + std::to_string(index) + ".txt"));
-      AI *ai = new AI(game, index);
+      AI *ai = new AI(game, index, aiplus_options);
       game->ai_thread_starting();
       // store AI pointer in game so it can be fetched by other functions (viewport, at least, for AI overlay)
       set_ai_ptr(index, ai);

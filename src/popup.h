@@ -97,7 +97,8 @@ class PopupBox : public GuiObject {
     TypeJsCalibUpLeft,
     TypeJsCalibDownRight,
     TypeJsCalibCenter,
-    TypeCtrlsInfo
+    TypeCtrlsInfo,
+    TypeAIPlusOptions
   } Type;
 
   typedef enum BackgroundPattern {
@@ -217,6 +218,7 @@ class PopupBox : public GuiObject {
   void draw_quit_confirm_box();
   void draw_no_save_quit_confirm_box();
   void draw_options_box();
+  void draw_aiplus_options_box();
   void draw_castle_res_box();
   void draw_mine_output_box();
   void draw_ordered_building_box();
@@ -246,6 +248,7 @@ class PopupBox : public GuiObject {
 
   void handle_box_close_clk(int x, int y);
   void handle_box_options_clk(int x, int y);
+  void handle_box_aiplusoptions_clk(int x, int y);
   void handle_mine_building_clk(int x, int y);
   void handle_basic_building_clk(int x, int y, int flip);
   void handle_adv_1_building_clk(int x, int y);

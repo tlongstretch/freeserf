@@ -7,10 +7,11 @@
 
 #include "src/ai.h"
 
-AI::AI(PGame current_game, unsigned int _player_index) {
+AI::AI(PGame current_game, unsigned int _player_index, AIPlusOptions _aiplus_options) {
 
   ai_status = "INITIALIZING";
   player_index = _player_index;
+  aiplus_options = _aiplus_options;
   name = "Player" + std::to_string(player_index);
 
   AILogInfo["init"] << name << " inside AI::AI constructor with player_index: " << player_index;
@@ -79,6 +80,12 @@ AI::AI(PGame current_game, unsigned int _player_index) {
 void
 AI::start() {
   AILogInfo["start"] << name << " AI is starting, thread_id: " << std::this_thread::get_id();
+
+  // the Interface must pass the options bitset to each AI thread when initializing them
+  AILogInfo["start"] << name << " AIOption::Foo is " << std::to_string(aiplus_options.test(AIPlusOption::Foo));
+  AILogInfo["start"] << name << " AIOption::Bar is " << std::to_string(aiplus_options.test(AIPlusOption::Bar));
+  AILogInfo["start"] << name << " AIOption::Baz is " << std::to_string(aiplus_options.test(AIPlusOption::Baz));
+
   while (true) {
     //AILogDebug["start"] << name << " start AI::start while(true)";
     if (game->should_ai_stop() == true) {
