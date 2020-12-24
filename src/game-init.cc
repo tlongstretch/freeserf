@@ -102,7 +102,10 @@ GameInitBox::GameInitBox(Interface *interface)
   custom_mission = std::make_shared<GameInfo>(Random());
   custom_mission->remove_all_players();
   custom_mission->add_player(12, {0x00, 0xe3, 0xe3}, 40, 40, 40);
-  custom_mission->add_player(1, {0xcf, 0x63, 0x63}, 20, 30, 40);
+  // tlongstretch - set all AI players to default to full intelligence because the slider does nothing yet
+  //   and also set full reproduction because low reproduction is confusing and the mechanism adds little to the game
+  //custom_mission->add_player(1, {0xcf, 0x63, 0x63}, 20, 30, 40);
+  custom_mission->add_player(1, { 0xcf, 0x63, 0x63 }, 40, 30, 40);
   mission = custom_mission;
 
   minimap->set_displayed(true);
@@ -543,6 +546,9 @@ GameInitBox::handle_player_click(unsigned int player_index, int cx, int cy) {
       } else if (cx > 6 && cx < 12) {
         /* Intelligence */
         player->set_intelligence(value);
+        // tlongstretch - disallow changing intelligence as it does nothing and this could be confusing to players
+        //player->set_intelligence(value);
+        play_sound(Audio::TypeSfxNotAccepted);
       } else if (cx > 12 && cx < 18) {
         /* Reproduction */
         player->set_reproduction(value);
