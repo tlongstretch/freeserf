@@ -1973,8 +1973,11 @@ PopupBox::draw_options_box() {
   }
   draw_green_string(1, 94, "Messages");
   draw_green_string(11, 94, value);
+
   draw_green_string(1, 109, "AI-Plus");
   draw_green_string(1, 118, "Options");
+  draw_popup_icon(13, 109, 0x3d); /* flipbox to aiplus options */
+
   draw_popup_icon(14, 128, 60); /* exit */
 }
 
