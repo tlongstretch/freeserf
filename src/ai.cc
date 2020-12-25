@@ -94,12 +94,12 @@ AI::start() {
       return;
     }
     else if (game->get_game_speed() == 0) {
-      AILogInfo["start"] << name << " game is paused, not running AI loops until unpaused";
+      AILogDebug["start"] << name << " game is paused, not running AI loops until unpaused";
       ai_status.assign("AI_PAUSED");
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     else if (game->is_ai_locked()) {
-      AILogInfo["start"] << name << " AI is still locked, sleeping until game->unlock_ai called (when game init_box is closed)";
+      AILogDebug["start"] << name << " AI is still locked, sleeping until game->unlock_ai called (when game init_box is closed)";
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     else {

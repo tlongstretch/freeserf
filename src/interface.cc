@@ -573,27 +573,6 @@ Interface::update_map_cursor_pos(MapPos pos) {
   } else {
     determine_map_cursor_type();
   }
-  // with AI overlay on, mark any serf that is clicked on (for debugging serf states)
-  if (get_ai_ptr(player->get_index()) != nullptr) {
-    Serf *serf = game->get_serf_at_pos(pos);
-    if (serf == nullptr){
-      Log::Debug["interface"] << "no serf found at clicked pos";
-    }
-    else {
-      Log::Debug["interface"] << "evaluating clicked-on serf with index " << serf->get_index();
-      std::vector<int> *iface_ai_mark_serf = get_ai_ptr(get_player()->get_index())->get_ai_mark_serf();
-      if (serf->get_owner() == get_player()->get_index() && (serf->get_state() != Serf::StateIdleInStock)) {
-        Log::Info["interface"] << "adding serf with index " << serf->get_index() << " to ai_mark_serf";
-        iface_ai_mark_serf->push_back(serf->get_index());
-      }
-      else {
-        Log::Debug["interface"] << "not marking serf with index " << serf->get_index() << ", job " << serf->get_type() << ", state " << serf->get_state();
-      }
-    }
-  }
-  else {
-    Log::Debug["interface"] << "this player is not an AI, not marking clicked-on serf";
-  }
   update_interface();
 }
 

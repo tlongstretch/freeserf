@@ -4324,7 +4324,8 @@ PopupBox::handle_save_clk(int cx, int cy) {
 }
 
 bool
-PopupBox::handle_click_left(int cx, int cy) {
+//PopupBox::handle_click_left(int cx, int cy) {
+PopupBox::handle_click_left(int cx, int cy, int modifier) {
   cx -= 8;
   cy -= 8;
 

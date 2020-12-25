@@ -2487,12 +2487,31 @@ Viewport::internal_draw() {
 }
 
 bool
-Viewport::handle_click_left(int lx, int ly) {
+Viewport::handle_click_left(int lx, int ly, int modifier) {
   set_redraw();
-
   MapPos clk_pos = map_pos_from_screen_pix(lx, ly);
-  Log::Debug["interface"] << "======= clicked on pos " << clk_pos << " with x,y " << map->pos_col(clk_pos) << "," << map->pos_row(clk_pos) << " =======";
+
   ai_overlay_clicked_pos = clk_pos;
+  // CTRL-click:  KMOD_CTRL = (KMOD_LCTRL|KMOD_RCTRL) which is 64|128
+  if (modifier == 64 || modifier == 128){
+    Log::Debug["viewport"] << "CTRL-clicked on pos " << clk_pos << " with x,y " << map->pos_col(clk_pos) << "," << map->pos_row(clk_pos);
+  } else {
+    Log::Debug["viewport"] << "clicked on pos " << clk_pos << " with x,y " << map->pos_col(clk_pos) << "," << map->pos_row(clk_pos);
+  }
+  // with AI overlay on, mark any serf that is clicked on (for debugging serf states)
+  Serf *serf = interface->get_game()->get_serf_at_pos(clk_pos);
+  if (serf == nullptr){
+    Log::Debug["viewport"] << "no serf found at CTRL-clicked pos " << clk_pos;
+  } else {
+    unsigned int plnum = serf->get_owner();
+    if (interface->get_ai_ptr(plnum) == nullptr) {
+      Log::Debug["viewport"] << "CTRL-clicked serf at pos " << clk_pos << " is not owned by an AI player, not marking";
+    } else {
+      std::vector<int> *iface_ai_mark_serf = interface->get_ai_ptr(plnum)->get_ai_mark_serf();
+      Log::Info["viewport"] << "adding CTRL-clicked serf of type " << NameSerf[serf->get_type()] << " at pos " << clk_pos << " to Player" << plnum << "'s ai_mark_serf";
+      iface_ai_mark_serf->push_back(serf->get_index());
+    }
+  }
 
   if (interface->is_building_road()) {
     int dx = -map->dist_x(interface->get_map_cursor_pos(), clk_pos) + 1;

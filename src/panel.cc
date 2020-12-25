@@ -312,7 +312,7 @@ PanelBar::button_click(int button) {
 }
 
 bool
-PanelBar::handle_click_left(int cx, int cy) {
+PanelBar::handle_click_left(int cx, int cy, int modifier) {
   set_redraw();
 
   if (cx >= 41 && cx < 53) {
