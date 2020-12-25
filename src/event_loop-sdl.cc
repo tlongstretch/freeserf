@@ -123,7 +123,7 @@ EventLoopSDL::run() {
         if (drag_button == event.button.button) {
           drag_button = 0;
         }
-        
+
         if (event.button.button <= 3) {
           int x = static_cast<int>(static_cast<float>(event.button.x) *
                                    zoom_factor * screen_factor_x);
