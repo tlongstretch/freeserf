@@ -88,6 +88,7 @@ class Interface : public GuiObject, public GameManager::Handler {
   BuildPossibility build_possibility;
 
   unsigned int last_const_tick;
+  unsigned int last_autosave_tick;
 
   Road building_road;
   int building_road_valid_dir;

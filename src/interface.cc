@@ -43,7 +43,7 @@
 #include "src/ai.h"
 
 // Interval between automatic save games
-#define AUTOSAVE_INTERVAL  (10*60*TICKS_PER_SEC)
+#define AUTOSAVE_INTERVAL  (5*60*TICKS_PER_SEC)
 
 Interface::Interface()
   : building_road_valid_dir(0)
@@ -78,6 +78,7 @@ Interface::Interface()
   map_cursor_sprites[6].sprite = 33;
 
   last_const_tick = 0;
+  last_autosave_tick = 0;
 
   viewport = nullptr;
   panel = nullptr;
@@ -196,7 +197,7 @@ Interface::close_game_init() {
   // print AIPlus game options
   //   there is no way to iterate over a bitfield or an enum so this must be hardcoded
   //   and it must be updated any time an option is added!
-  Log::Info["interface"] << " AIOption::Foo is " << std::to_string(aiplus_options.test(AIPlusOption::Foo));
+  Log::Info["interface"] << " AIOption::EnableAutoSave is " << std::to_string(aiplus_options.test(AIPlusOption::EnableAutoSave));
   Log::Info["interface"] << " AIOption::Bar is " << std::to_string(aiplus_options.test(AIPlusOption::Bar));
   Log::Info["interface"] << " AIOption::Baz is " << std::to_string(aiplus_options.test(AIPlusOption::Baz));
   // start any AI threads
@@ -875,6 +876,29 @@ Interface::update() {
       player->pop_notification();
     }
   }
+
+  if (aiplus_options.test(AIPlusOption::EnableAutoSave)){
+    // auto-save if interval reached
+    if (game->get_const_tick() >= AUTOSAVE_INTERVAL + last_autosave_tick){
+      Log::Debug["interface"] << "auto-save interval reached, preparing to auto-save game...";
+      Log::Debug["interface"] << "thread #" << std::this_thread::get_id() << " is locking mutex before auto-saving game";
+      game->get_mutex()->lock();
+      Log::Debug["interface"] << "thread #" << std::this_thread::get_id() << " has locked mutex before auto-saving game";
+      std::string savename = "AUTOSAVE.save";
+      Log::Debug["interface"] << "savegame name is '" << savename << " '";
+      if (GameStore::get_instance().quick_save("autosave", game.get())){
+        Log::Info["interface"] << "successfully auto-saved game";
+      } else {
+        Log::Warn["interface"] << "FAILED TO SAVE GAME!";
+      }
+      Log::Debug["interface"] << "thread #" << std::this_thread::get_id() << " is unlocking mutex after auto-saving game";
+      game->get_mutex()->unlock();
+      Log::Debug["interface"] << "thread #" << std::this_thread::get_id() << " has unlocked mutex after auto-saving game";
+
+      last_autosave_tick = game->get_const_tick();
+    }
+  }
+
 
   viewport->update();
   set_redraw();

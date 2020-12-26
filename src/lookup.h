@@ -599,7 +599,7 @@ const unsigned int bad_score = 123123123;
 
 
 typedef enum AIPlusOption {
-  Foo = 0,
+  EnableAutoSave = 0,
   Bar,
   Baz,
 } AIPlusOption;

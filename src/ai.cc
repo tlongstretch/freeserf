@@ -82,7 +82,7 @@ AI::start() {
   AILogInfo["start"] << name << " AI is starting, thread_id: " << std::this_thread::get_id();
 
   // the Interface must pass the options bitset to each AI thread when initializing them
-  AILogInfo["start"] << name << " AIOption::Foo is " << std::to_string(aiplus_options.test(AIPlusOption::Foo));
+  AILogInfo["start"] << name << " AIOption::EnableAutoSave is " << std::to_string(aiplus_options.test(AIPlusOption::EnableAutoSave));
   AILogInfo["start"] << name << " AIOption::Bar is " << std::to_string(aiplus_options.test(AIPlusOption::Bar));
   AILogInfo["start"] << name << " AIOption::Baz is " << std::to_string(aiplus_options.test(AIPlusOption::Baz));
 
