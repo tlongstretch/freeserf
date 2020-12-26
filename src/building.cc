@@ -796,8 +796,8 @@ Building::update() {
         break;
       case TypePigFarm:
         if (holder) {
-          if (game->get_ai_options_ptr()->test(AIPlusOption::PigsRequireNoWheat)){
-            Log::Debug["building"] << "AIPlusOption::PigsRequireNoWheat set - not requesting grain for pig farm";
+          if (game->get_ai_options_ptr()->test(AIPlusOption::ImprovedPigFarms)){
+            Log::Debug["building"] << "AIPlusOption::ImprovedPigFarms set - not requesting grain for pig farm";
           }else{
             // Request more wheat.
             int total_stock = stock[0].requested + stock[0].available;

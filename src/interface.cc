@@ -198,7 +198,7 @@ Interface::close_game_init() {
   //   there is no way to iterate over a bitfield or an enum so this must be hardcoded
   //   and it must be updated any time an option is added!
   Log::Info["interface"] << " AIOption::EnableAutoSave is " << std::to_string(aiplus_options.test(AIPlusOption::EnableAutoSave));
-  Log::Info["interface"] << " AIOption::PigsRequireNoWheat is " << std::to_string(aiplus_options.test(AIPlusOption::PigsRequireNoWheat));
+  Log::Info["interface"] << " AIOption::ImprovedPigFarms is " << std::to_string(aiplus_options.test(AIPlusOption::ImprovedPigFarms));
   Log::Info["interface"] << " AIOption::Baz is " << std::to_string(aiplus_options.test(AIPlusOption::Baz));
   // start any AI threads
   initialize_AI();
@@ -507,15 +507,14 @@ Interface::set_game(PGame new_game) {
     viewport = nullptr;
   }
 
-  // ugly way to pass AIPlusOptions to functions that only have game but not interface
-  game->set_ai_options_ptr(&aiplus_options);
-
   game = std::move(new_game);
 
   if (game) {
     viewport = new Viewport(this, game->get_map());
     viewport->set_displayed(true);
     add_float(viewport, 0, 0);
+    // ugly way to pass AIPlusOptions to functions that only have game but not interface
+    game->set_ai_options_ptr(&aiplus_options);
   }
 
   layout();

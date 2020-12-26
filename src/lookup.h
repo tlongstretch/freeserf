@@ -600,7 +600,7 @@ const unsigned int bad_score = 123123123;
 
 typedef enum AIPlusOption {
   EnableAutoSave = 0,
-  PigsRequireNoWheat,
+  ImprovedPigFarms,
   Baz,
 } AIPlusOption;
 typedef std::bitset<3> AIPlusOptions;

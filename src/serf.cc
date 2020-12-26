@@ -1621,10 +1621,17 @@ Serf::handle_serf_entering_building_state() {
             Flag *flag = game->get_flag_at_pos(map->move_down_right(pos));
 
             // resource #1 is the pigs themselves
-            building->set_initial_res_in_stock(1, 1);
+            // start with two pigs if AIPlusOption::ImprovedPigFarms is set
+            //   how else could they reproduce?
+            if (game->get_ai_options_ptr()->test(AIPlusOption::ImprovedPigFarms)) {
+              building->set_initial_res_in_stock(1, 2);
+            } else {
+              // game default
+              building->set_initial_res_in_stock(1, 1);
+            }
 
             flag->clear_flags();
-            // resource #0 is the wheat that pigs consume
+            // resource #0 is the wheat that pigs consume (though it is bugged)
             building->stock_init(0, Resource::TypeWheat, 8);
 
             set_state(StatePigFarming);
@@ -3895,14 +3902,18 @@ void
 Serf::handle_serf_pigfarming_state() {
   /* When the serf is present there is also at least one
      pig present and at most eight. */
+  // NOTE - the original settlers1/serfcity game is bugged
+  //  In it, pig farms only ever use a single wheat resource, 
+  //  yet they will store up to four (or eight?) forever.
+  //  Freeserf replicates this bug.
   const int breeding_prob[] = {
     6000, 8000, 10000, 11000, 12000, 13000, 14000, 0
   };
 
   Building *building = game->get_building_at_pos(pos);
-
   if (s.pigfarming.mode == 0) {
-    if (game->get_ai_options_ptr()->test(AIPlusOption::PigsRequireNoWheat)
+
+    if (game->get_ai_options_ptr()->test(AIPlusOption::ImprovedPigFarms)
       || building->use_resource_in_stock(0)) {
         s.pigfarming.mode = 1;
         animation = 139;
@@ -3915,7 +3926,6 @@ Serf::handle_serf_pigfarming_state() {
     uint16_t delta = game->get_tick() - tick;
     tick = game->get_tick();
     counter -= delta;
-
     while (counter < 0) {
       s.pigfarming.mode += 1;
       if (s.pigfarming.mode & 1) {
@@ -3928,7 +3938,6 @@ Serf::handle_serf_pigfarming_state() {
                     ((20*game->random_int()) >> 16) < building->pigs_count())) {
           /* Pig is ready for the butcher. */
           building->send_pig_to_butcher();
-
           set_state(StateMoveResourceOut);
           s.move_resource_out.res = 1 + Resource::TypePig;
           s.move_resource_out.res_dest = 0;
