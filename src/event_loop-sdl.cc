@@ -174,7 +174,8 @@ EventLoopSDL::run() {
       case SDL_MOUSEWHEEL: {
         SDL_Keymod mod = SDL_GetModState();
         if ((mod & KMOD_CTRL) != 0) {
-          zoom(0.2f * static_cast<float>(event.wheel.y));
+          // the wheel zoom is backwards unless reversed
+          zoom(0.2f * static_cast<float>((event.wheel.y * -1)));
         }
         break;
       }
