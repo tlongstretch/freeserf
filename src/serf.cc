@@ -1620,9 +1620,11 @@ Serf::handle_serf_entering_building_state() {
             Building *building = game->get_building_at_pos(pos);
             Flag *flag = game->get_flag_at_pos(map->move_down_right(pos));
 
+            // resource #1 is the pigs themselves
             building->set_initial_res_in_stock(1, 1);
 
             flag->clear_flags();
+            // resource #0 is the wheat that pigs consume
             building->stock_init(0, Resource::TypeWheat, 8);
 
             set_state(StatePigFarming);
@@ -3900,13 +3902,14 @@ Serf::handle_serf_pigfarming_state() {
   Building *building = game->get_building_at_pos(pos);
 
   if (s.pigfarming.mode == 0) {
-    if (building->use_resource_in_stock(0)) {
-      s.pigfarming.mode = 1;
-      animation = 139;
-      counter = counter_from_animation[animation];
-      tick = game->get_tick();
+    if (game->get_ai_options_ptr()->test(AIPlusOption::PigsRequireNoWheat)
+      || building->use_resource_in_stock(0)) {
+        s.pigfarming.mode = 1;
+        animation = 139;
+        counter = counter_from_animation[animation];
+        tick = game->get_tick();
 
-      game->get_map()->set_serf_index(pos, index);
+        game->get_map()->set_serf_index(pos, index);
     }
   } else {
     uint16_t delta = game->get_tick() - tick;

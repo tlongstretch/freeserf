@@ -796,13 +796,17 @@ Building::update() {
         break;
       case TypePigFarm:
         if (holder) {
-          /* Request more wheat. */
-          int total_stock = stock[0].requested + stock[0].available;
-          if (total_stock < stock[0].maximum) {
-            Player *player = game->get_player(get_owner());
-            stock[0].prio = player->get_wheat_pigfarm() >> (8 + total_stock);
-          } else {
-            stock[0].prio = 0;
+          if (game->get_ai_options_ptr()->test(AIPlusOption::PigsRequireNoWheat)){
+            Log::Debug["building"] << "AIPlusOption::PigsRequireNoWheat set - not requesting grain for pig farm";
+          }else{
+            // Request more wheat.
+            int total_stock = stock[0].requested + stock[0].available;
+            if (total_stock < stock[0].maximum) {
+              Player *player = game->get_player(get_owner());
+              stock[0].prio = player->get_wheat_pigfarm() >> (8 + total_stock);
+            } else {
+              stock[0].prio = 0;
+            }
           }
         }
         break;

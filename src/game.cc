@@ -61,6 +61,7 @@ Game::Game()
   buildings = Buildings(this);
   serfs = Serfs(this);
   std::mutex mutex;
+  aiplus_options_ptr = new AIPlusOptions();
 
   /* Create NULL-serf */
   serfs.allocate();

@@ -288,8 +288,8 @@ typedef enum Action {
   ACTION_NEW_NAME,
   ACTION_OPTIONS_FLIP_TO_AIPLUS,
   ACTION_AIPLUS_NEXT_PAGE,
-  ACTION_AIPLUS_FOO,
-  ACTION_AIPLUS_BAR,
+  ACTION_AIPLUS_ENABLE_AUTOSAVE,
+  ACTION_AIPLUS_PIGS_REQUIRE_NO_WHEAT,
   ACTION_AIPLUS_BAZ
 } Action;
 
@@ -1985,11 +1985,11 @@ void
 PopupBox::draw_aiplus_options_box() {
   draw_large_box_background(PatternDiagonalGreen);
   AIPlusOptions aiplus_options = interface->get_aiplus_options();
-  draw_green_string(3, 10, "Foo");
-  draw_popup_icon(1, 7, (interface->test_aiplus_option(AIPlusOption::Foo)) ? 288 : 220);
+  draw_green_string(3, 10, "Auto Save Game");
+  draw_popup_icon(1, 7, (interface->test_aiplus_option(AIPlusOption::EnableAutoSave)) ? 288 : 220);
 
-  draw_green_string(3, 29, "Bar");
-  draw_popup_icon(1, 26, (interface->test_aiplus_option(AIPlusOption::Bar)) ? 288 : 220);
+  draw_green_string(3, 29, "Pigs Require No Wheat");
+  draw_popup_icon(1, 26, (interface->test_aiplus_option(AIPlusOption::PigsRequireNoWheat)) ? 288 : 220);
 
   draw_green_string(3, 48, "Baz");
   draw_popup_icon(1, 45, (interface->test_aiplus_option(AIPlusOption::Baz)) ? 288 : 220);
@@ -3418,18 +3418,18 @@ PopupBox::handle_action(int action, int x_, int /*y_*/) {
   //case ACTION_AIPLUS_NEXT_PAGE:
   //  interface->open_popup(TypeAIPlusOptions2);
   //  break;
-  case ACTION_AIPLUS_FOO:
-    if (interface->test_aiplus_option(AIPlusOption::Foo)){
-      interface->unset_aiplus_option(AIPlusOption::Foo);
+  case ACTION_AIPLUS_ENABLE_AUTOSAVE:
+    if (interface->test_aiplus_option(AIPlusOption::EnableAutoSave)){
+      interface->unset_aiplus_option(AIPlusOption::EnableAutoSave);
     } else{
-      interface->set_aiplus_option(AIPlusOption::Foo);
+      interface->set_aiplus_option(AIPlusOption::EnableAutoSave);
     }
     break;
-  case ACTION_AIPLUS_BAR:
-    if (interface->test_aiplus_option(AIPlusOption::Bar)){
-      interface->unset_aiplus_option(AIPlusOption::Bar);
+  case ACTION_AIPLUS_PIGS_REQUIRE_NO_WHEAT:
+    if (interface->test_aiplus_option(AIPlusOption::PigsRequireNoWheat)){
+      interface->unset_aiplus_option(AIPlusOption::PigsRequireNoWheat);
     } else{
-      interface->set_aiplus_option(AIPlusOption::Bar);
+      interface->set_aiplus_option(AIPlusOption::PigsRequireNoWheat);
     }
     break;
   case ACTION_AIPLUS_BAZ:
@@ -3740,21 +3740,9 @@ PopupBox::handle_box_options_clk(int cx, int cy) {
 
 void
 PopupBox::handle_box_aiplusoptions_clk(int cx, int cy) {
-  /*
-    draw_green_string(3, 10, "Foo");
-  draw_popup_icon(1, 7, (interface->get_game()->test_aiplus_option(AIPlusOption::Foo)) ? 288 : 220);
-
-  draw_green_string(3, 29, "Bar");
-  draw_popup_icon(1, 26, (interface->get_game()->test_aiplus_option(AIPlusOption::Bar)) ? 288 : 220);
-
-  draw_green_string(3, 48, "Baz");
-  draw_popup_icon(1, 45, (interface->get_game()->test_aiplus_option(AIPlusOption::Baz)) ? 288 : 220);
-
-  draw_popup_icon(32, 128, 60);
-  */
   const int clkmap[] = {
-    ACTION_AIPLUS_FOO, 7, 7, 16, 16,
-    ACTION_AIPLUS_BAR, 7, 26, 16, 16,
+    ACTION_AIPLUS_ENABLE_AUTOSAVE, 7, 7, 16, 16,
+    ACTION_AIPLUS_PIGS_REQUIRE_NO_WHEAT, 7, 26, 16, 16,
     ACTION_AIPLUS_BAZ, 7, 45, 16, 16,
     //ACTION_AIPLUS_NEXT_PAGE, 106, 110, 16, 16,
     ActionShowOptions, 255, 126, 16, 16,
