@@ -154,6 +154,8 @@ class Flag : public GameObject {
     return (other_end_dir[dir] >> 7) & 1; }
   bool pick_up_resource(unsigned int slot, Resource::Type *res,
                         unsigned int *dest);
+  // add support for AIPlusOption::CanTransportSerfsInBoats
+  bool pick_up_serf();
   bool drop_resource(Resource::Type res, unsigned int dest);
   bool has_empty_slot() const;
   void remove_all_resources();

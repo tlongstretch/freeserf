@@ -1359,6 +1359,7 @@ Viewport::draw_row_serf(int lx, int ly, bool shadow, const Color &color,
 /* Translate serf type into the corresponding sprite code. */
 int
 Viewport::serf_get_body(Serf *serf) {
+  /*
   const int transporter_type[] = {
     0, 0x3000, 0x3500, 0x3b00, 0x4100, 0x4600, 0x4b00, 0x1400,
     0x700, 0x5100, 0x800, 0x1c00, 0x1d00, 0x1e00, 0x1a00, 0x1b00,
@@ -1366,11 +1367,28 @@ Viewport::serf_get_body(Serf *serf) {
     0x6c00, 0x5700, 0x5600, 0, 0, 0, 0, 0
   };
 
+  // need to add more zeros here for AIPlusOption::CanTransportSerfsInBoats
   const int sailor_type[] = {
     0, 0x3100, 0x3600, 0x3c00, 0x4200, 0x4700, 0x4c00, 0x1500,
     0x900, 0x7700, 0xa00, 0x2100, 0x2200, 0x2300, 0x1f00, 0x2000,
     0x6e00, 0x6f00, 0x7000, 0x7100, 0x7200, 0x7300, 0x7400, 0x7500,
     0x7600, 0x5f00, 0x6000, 0, 0, 0, 0, 0
+  };
+  */
+
+  // extra zeros for added fake Resource types 
+  const int transporter_type[] = {
+    0, 0x3000, 0x3500, 0x3b00, 0x4100, 0x4600, 0x4b00, 0x1400,
+    0x700, 0x5100, 0x800, 0x1c00, 0x1d00, 0x1e00, 0x1a00, 0x1b00,
+    0x6800, 0x6d00, 0x6500, 0x6700, 0x6b00, 0x6a00, 0x6600, 0x6900,
+    0x6c00, 0x5700, 0x5600, 0, 0, 0, 0, 0, 0, 0
+  };
+
+  const int sailor_type[] = {
+    0, 0x3100, 0x3600, 0x3c00, 0x4200, 0x4700, 0x4c00, 0x1500,
+    0x900, 0x7700, 0xa00, 0x2100, 0x2200, 0x2300, 0x1f00, 0x2000,
+    0x6e00, 0x6f00, 0x7000, 0x7100, 0x7200, 0x7300, 0x7400, 0x7500,
+    0x7600, 0x5f00, 0x6000, 0, 0, 0, 0, 0, 0, 0
   };
 
   Data::Animation animation = data_source->get_animation(serf->get_animation(),
@@ -1414,7 +1432,22 @@ Viewport::serf_get_body(Serf *serf) {
       }
       t += 0x200;
     } else if (serf->get_state() == Serf::StateTransporting) {
-      t += sailor_type[serf->get_delivery()];
+      // add support for AIPlusOption::CanTransportSerfsInBoats
+      /// need to figure out this -1 +1 resource type stuff
+      if (serf->get_delivery() >= Resource::TypeSerf - 1){
+        // set the 0x200 "rowing empty boat" animation
+        Log::Info["viewport"] << "debug: sailor is transporting a serf, setting default +0x200 animation";
+        t += 0x200;
+      } else {
+        // I think this sets the animation/sprite to the right transported resource?
+        //  yes, that looks right.  Try simply adding another ,0,0 to that list
+        //  for now, try this hack
+        Log::Info["viewport"] << "debug: sailor is NOT transporting a serf, change animation to match the resource type";
+        t += sailor_type[serf->get_delivery()];
+      }
+      // try this way, now that extra zeroes added for fake resource types 26+
+      // nope this doesn't work... hmm figure it out later
+      //t += sailor_type[serf->get_delivery()];
     } else {
       t += 0x100;
     }
@@ -1889,6 +1922,35 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
   if (body > -1) {
     Color color = interface->get_player_color(serf->get_owner());
     draw_row_serf(lx, ly, true, color, body);
+
+
+    // add support for AIPlusOption::CanTransportSerfsInBoats
+    // also draw the transported serf in the boat
+    if (serf->get_type() == Serf::TypeSailor &&
+        serf->get_state() == Serf::StateTransporting &&
+        // serf->get_deliver() says it returns s.transporting.res + 1 ... why +1??? 
+        // for now accepting >this value also to be sure it detects it
+        //   hmmm, it seems when stored in serf struct the type is -1... maybe it is an array?
+        //     likely need to make get_serf_in_boat_type (and maybe index??) return + 1 also???
+        serf->get_delivery() >= Resource::TypeSerf){
+          //   hmmm, it seems when stored in serf struct the type is -1... maybe it is an array?
+          //     likely need to make get_serf_in_boat_type (and maybe index??) return + 1 also???
+          Serf::Type type = serf->get_serf_in_boat_type();
+          unsigned int index = serf->get_serf_in_boat_index();
+          Log::Info["viewport"] << "debug: a sailor has another serf of type " << type << " in his boat.  It has serf index " << index;
+          Serf *passenger = interface->get_game()->get_serf(index);
+          if (passenger == nullptr){
+            Log::Info["viewport"] << "got nullptr for boat passenger serf of type " << type << " with serf index " << index << "!";
+          }else{
+            Log::Info["viewport"] << "found passenger serf";
+            int passenger_body = serf_get_body(passenger);
+            draw_row_serf(lx+10, ly+10, false, color, passenger_body);
+          }
+        
+    }
+        
+
+
     if (layers & Layer::LayerGrid) {
       frame->draw_number(lx, ly, serf->get_index(), Color(0, 0, 128));
       frame->draw_string(lx, ly + 8, serf->print_state(),  Color(0, 0, 128));

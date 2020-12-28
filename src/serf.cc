@@ -246,6 +246,7 @@ static const char *serf_state_name[] = {
   "DEFENDING CASTLE",  // SERF_STATE_DEFENDING_CASTLE
   "KNIGHT ATTACKING DEFEAT FREE",  // SERF_STATE_KNIGHT_ATTACKING_DEFEAT_FREE
   "WAIT FOR BOAT",  // SERF_STATE_WAIT_FOR_BOAT
+  "PASSENGER IN BOAT",  // SERF_STATE_PASSENGER_IN_BOAT
 };
 
 
@@ -338,6 +339,14 @@ Serf::set_type(Serf::Type new_type) {
   if (new_type == TypeTransporter) {
     counter = 0;
   }
+}
+
+// added because set_state is actually some kind of macro definition I don't understand
+//  and I need this for AIPlusOption::CanTransportSerfsInBoats
+//   and probably other things eventually
+void
+Serf::set_serf_state(Serf::State state){
+  set_state(state);
 }
 
 void
@@ -997,6 +1006,18 @@ Serf::change_direction(Direction dir, int alt_end) {
       Log::Info["serf"] << "debug: a sailor inside change_direction, next pos " << new_pos << " does NOT have a serf blocking";
     }
     /* Change direction, not occupied. */
+    // 
+    // IMPORTANT - sailor serf pickup - map->set_serf_index clobbers the waiting serf, find a way to handle this
+    //
+    if (sailor_pickup_serf){
+      Serf *passenger_serf = game->get_serf_at_pos(new_pos);
+      if (passenger_serf == nullptr){
+        Log::Warn["serf"] << "got nullptr for passenger_serf during sailor boat pickup at pos " << pos << " and new_pos " << new_pos << "!";
+      }else{
+        s.transporting.serf_index = passenger_serf->get_index();
+        s.transporting.serf_type = passenger_serf->get_type();
+      }
+    }
     map->set_serf_index(pos, 0);
     animation = get_walking_animation(map->get_height(new_pos) -
                                       map->get_height(pos), (Direction)dir,
@@ -1061,6 +1082,9 @@ Serf::change_direction(Direction dir, int alt_end) {
 /* Precondition: serf state is in WALKING or TRANSPORTING state */
 void
 Serf::transporter_move_to_flag(Flag *flag) {
+  // is s.transporting.dir the direction that the transporter is travelling?
+  //  or, is it the direction that the res at the reached flag is heading (i.e. the reverse dir)?
+  //   it seems to be the latter, but that could be faulty logic in sailor transport serf code
   Direction dir = (Direction)s.transporting.dir;
   if (get_type() == Serf::TypeSailor){
     Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag, dir: " << NameDirection[dir];
@@ -1071,15 +1095,37 @@ Serf::transporter_move_to_flag(Flag *flag) {
     // adding support for AIPlusOption::CanTransportSerfsInBoats
     Direction other_dir = flag->get_other_end_dir(dir);
     Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag A, flag other_end_dir = " << NameDirection[other_dir];
-    // this is sketchy
-    Flag *other_flag = flag->get_other_end_flag(dir);
-    if (flag->is_water_path(other_dir)
-      //&& game->get_serf_at_pos(flag->get_position()) != nullptr
-        && game->get_serf_at_pos(other_flag->get_position()) != nullptr
-      //&& game->get_serf_at_pos(flag->get_position())->get_state() == Serf::StateWaitForBoat){
-        && game->get_serf_at_pos(other_flag->get_position())->get_state() == Serf::StateWaitForBoat){
-        //Log::Info["serf"] << "debug: a serf is waiting for a boat at pos " << flag->get_position() << ", in dir " << NameDirection[dir];
-        Log::Info["serf"] << "debug: sailor a serf is waiting for a boat at pos " << other_flag->get_position() << ", in dir " << NameDirection[dir];
+    if (flag->is_water_path(other_dir) &&
+        type == Serf::TypeSailor &&
+        flag->has_serf_waiting_for_boat()){
+          Log::Info["serf"] << "debug: sailor a serf is waiting for a boat at pos " << flag->get_position() << ", in dir " << NameDirection[other_dir];
+          // get in the boat!
+          //  I don't think this flag->pick_up_serf() function is needed after all, get rid of it
+          flag->pick_up_serf();
+          // can't get passenger this way because it was already removed from map
+          //Serf *passenger = game->get_serf_at_pos(flag->get_position());
+          // get it from the sailor
+          Serf *passenger = game->get_serf(s.transporting.serf_index);
+          if (passenger == nullptr){
+            Log::Info["serf"] << "failed to get passenger serf from sailor's s.transporting.serf_index value!";
+          }else{
+            Log::Info["serf"] << "found passenger serf from sailor's s.transporting.serf_index value";
+            passenger->set_serf_state(Serf::StateBoatPassenger);
+          }
+          s.transporting.res = Resource::TypeSerf;
+          /* this doesn't work, the issue is somewhere else
+          // delete the boat passenger from the map?
+          //  it still seems to thing is is at the flag in StateWaitForBoat
+          game->get_map()->set_serf_index(flag->get_position(), 0);
+          */
+
+          //s.transporting.res = Resource::TypeGoldBar;
+          //s.transporting.serf_type = ???  need to prevent it from being clobbered to be able to check
+          //s.transporting.serf_type = Serf::TypeKnight4;
+          //s.transporting.serf_index = 
+          //s.transporting.serf_index = 3;
+          change_direction(dir, 1);
+          return;
     }
     Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag B";
   }
@@ -1465,7 +1511,7 @@ Serf::handle_serf_transporting_state() {
     /* 31549 */
     if (map->has_flag(pos)) {
       if (type == Serf::TypeSailor){
-        Log::Info["serf"] << "debug: a sailor in transporting state B";
+        Log::Info["serf"] << "debug: a sailor in transporting state B, reached a flag";
       }
       /* Current position occupied by waiting transporter */
       if (s.transporting.wait_counter < 0) {

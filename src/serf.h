@@ -155,7 +155,8 @@ class Serf : public GameObject {
     /* Additional state: goes at the end to ease loading of
      original save game. */
     StateKnightAttackingDefeatFree,
-    StateWaitForBoat    // to support AIPlusOption::CanTransportSerfsInBoats
+    StateWaitForBoat,   // to support AIPlusOption::CanTransportSerfsInBoats
+    StateBoatPassenger  // to support AIPlusOption::CanTransportSerfsInBoats
   } State;
 
  protected:
@@ -188,6 +189,9 @@ class Serf : public GameObject {
       unsigned int dest; /* C */
       int dir; /* E */
       int wait_counter; /* F */
+      // add support for AIPlusOption::CanTransportSerfsInBoats
+      Type serf_type;
+      unsigned int serf_index;
     } transporting;
 
     struct {
@@ -384,6 +388,7 @@ class Serf : public GameObject {
 
   Type get_type() const { return type; }
   void set_type(Type type);
+  void set_serf_state(Serf::State state);
 
   bool playing_sfx() const { return sound; }
   void start_playing_sfx() { sound = true; }
@@ -421,6 +426,9 @@ class Serf : public GameObject {
   bool idle_to_wait_state(MapPos pos);
 
   int get_delivery() const;
+  // add support for AIPlusOption::CanTransportSerfsInBoats
+  Type get_serf_in_boat_type() const { return s.transporting.serf_type; }
+  unsigned int get_serf_in_boat_index() const { return s.transporting.serf_index; }
   int get_free_walking_neg_dist1() const { return s.free_walking.neg_dist1; }
   int get_free_walking_neg_dist2() const { return s.free_walking.neg_dist2; }
   int get_leaving_building_next_state() const {

@@ -194,6 +194,23 @@ Flag::pick_up_resource(unsigned int from_slot, Resource::Type *res,
   return true;
 }
 
+// support AIPlusOption::CanTransportSerfsInBoats
+//  is this function even necessary?  could just reset serf_waiting_for_boat directly
+bool
+Flag::pick_up_serf() {
+  if (!serf_waiting_for_boat){
+    throw ExceptionFreeserf("No serf is waiting for boat pickup at this flag!");
+  }
+  // clear the waiting for boat flag  
+  serf_waiting_for_boat = false;
+//  *res = slot[from_slot].type;
+//  *dest = slot[from_slot].dest;
+//  slot[from_slot].type = Resource::TypeNone;
+//  slot[from_slot].dir = DirectionNone;
+//  fix_scheduled();   look into what this does
+  return true;
+}
+
 bool
 Flag::drop_resource(Resource::Type res, unsigned int dest) {
   if (res < Resource::TypeNone || res > Resource::GroupFood) {
@@ -914,15 +931,6 @@ Flag::update() {
       }
     }
   }
-
-  /*
-  // look for Serf in StateWaitForBoat
-  if (has_serf_waiting_for_boat){
-    // wait... I don't think Flag::update actually calls the transporter out
-    //  rather, it sets the "called for" value which elsewhere triggers a transporter
-    //   to come
-  }
-  */
 
   /* Count of total resources waiting at flag */
   int waiting_count = 0;
