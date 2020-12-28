@@ -968,10 +968,31 @@ Serf::change_direction(Direction dir, int alt_end) {
   }
   PMap map = game->get_map();
   MapPos new_pos = map->move(pos, dir);
-
+  //
   // adding support for AIPlusOption::CanTransportSerfsInBoats
-  if (!map->has_serf(new_pos)
-     || game->get_serf_at_pos(new_pos)->get_state() == Serf::StateWaitForBoat) {
+  //
+  // if *this* serf is a sailor (who is already in transporting state and so must be in his boat)...
+  //  and if another serf is at the next pos in StateWaitForBoat AND is waiting in the direction of this serf
+  //   continue "through" the waiting serf to pick him up
+  //
+  bool sailor_pickup_serf = false;
+  // debugging
+  if (type == Serf::TypeSailor){
+    Log::Info["serf"] << "debug: a sailor inside change_direction, heading in dir " << NameDirection[dir];
+    if (game->get_serf_at_pos(new_pos)->get_state() == Serf::StateWaitForBoat){
+      Log::Info["serf"] << "debug: a sailor inside change_direction, there is a serf in wait_for_boat state in next pos with dir " << NameDirection[game->get_serf_at_pos(new_pos)->get_walking_dir()];
+      Log::Info["serf"] << "debug: a sailor inside change_direction, comparing sailor reversed-dir " << NameDirection[reverse_direction(Direction(dir))] << " to boat-wait serf dir " << NameDirection[game->get_serf_at_pos(new_pos)->get_walking_dir()];
+    }
+  }
+
+  if (type == Serf::TypeSailor 
+     && game->get_serf_at_pos(new_pos)->get_state() == Serf::StateWaitForBoat
+     && game->get_serf_at_pos(new_pos)->get_walking_dir() == reverse_direction(Direction(dir))){
+       Log::Info["serf"] << "debug: a sailor inside change_direction, next pos " << new_pos << ", setting sailor_pickup_serf to TRUE";
+       sailor_pickup_serf = true;
+  }
+
+  if (!map->has_serf(new_pos) || sailor_pickup_serf){
     if (type == Serf::TypeSailor){
       Log::Info["serf"] << "debug: a sailor inside change_direction, next pos " << new_pos << " does NOT have a serf blocking";
     }
@@ -1527,13 +1548,38 @@ Serf::handle_serf_transporting_state() {
           Log::Info["serf"] << "debug: a sailor in transporting state H0, wait_counter IS less than zero, it is: " << s.transporting.wait_counter;
         }
       }
+      
+      // add support for AIPlusOption::CanTransportSerfsInBoats
+      // if *this* serf is a sailor (who is already in transporting state and so must be in his boat)...
+      //  and if another serf is at the next pos in StateWaitForBoat AND is waiting in the direction of this serf
+      //   continue "through" the waiting serf to pick him up
+      //
+      bool sailor_pickup_serf = false;
+      MapPos new_pos = map->move(pos, dir);
+      // debugging
+      if (type == Serf::TypeSailor){
+        Log::Info["serf"] << "debug: a sailor inside handle_transporting_state, heading in dir " << NameDirection[dir];
+        if (game->get_serf_at_pos(new_pos)->get_state() == Serf::StateWaitForBoat){
+          Log::Info["serf"] << "debug: a sailor inside handle_serf_transporting_state, there is a serf in wait_for_boat state in next pos with dir " << NameDirection[game->get_serf_at_pos(new_pos)->get_walking_dir()];
+          Log::Info["serf"] << "debug: a sailor inside handle_serf_transporting_state, comparing sailor reversed-dir " << NameDirection[reverse_direction(Direction(dir))] << " to boat-wait serf dir " << NameDirection[game->get_serf_at_pos(new_pos)->get_walking_dir()];
+        }
+      }
+
+      if (type == Serf::TypeSailor 
+          && game->get_serf_at_pos(new_pos)->get_state() == Serf::StateWaitForBoat
+          && game->get_serf_at_pos(new_pos)->get_walking_dir() == reverse_direction(Direction(dir))){
+            Log::Info["serf"] << "debug: a sailor inside handle_serf_transporting_state, next pos " << new_pos << ", setting sailor_pickup_serf to TRUE";
+            sailor_pickup_serf = true;
+      }
+
       if (!map->has_flag(map->move(pos, dir)) ||
           s.transporting.res != Resource::TypeNone ||
-          s.transporting.wait_counter < 0) {
+          s.transporting.wait_counter < 0 ||
+          sailor_pickup_serf == true) {
             if (type == Serf::TypeSailor){
               Log::Info["serf"] << "debug: a sailor in transporting state H1, because at least one of previous H0s true, calling change_direction to dir " << NameDirection[dir];
             }
-        // this says change_direction but I think it can/is saying "keep going the same direction"
+        // this says change_direction but it is really "check the next direction in the path"
         change_direction(dir, 1);
         return;
       }
@@ -1541,6 +1587,7 @@ Serf::handle_serf_transporting_state() {
         Log::Info["serf"] << "debug: a sailor in transporting state I";
       }
 
+      // a flag is at the next pos (or previous function would have returned)
       Flag *flag = game->get_flag_at_pos(map->move(pos, dir));
       Direction rev_dir = reverse_direction(dir);
       Flag *other_flag = flag->get_other_end_flag(rev_dir);
@@ -1588,6 +1635,7 @@ Serf::handle_serf_transporting_state() {
           map->set_serf_index(pos, 0);
           return;
         }
+        Log::Info["serf"] << "debug: a sailor in transporting state N";
       }
     }
   }
@@ -5316,22 +5364,21 @@ Serf::handle_serf_defending_castle_state() {
 void
 Serf::handle_serf_wait_for_boat_state() {
   Log::Info["serf"] << "debug: a serf at pos " << pos << " is in state Serf::StateWaitForBoat";
+
   //
-  // for now, do nothing at all
+  // need to handle flag/path/sailor gone and set this serf to lost state
   //
-  
-  // temp - go away
-  //set_state(Serf::StateLost);
+
   /* Wait for the sailor to paddle over */
-      //animation = 81 + dir;
-      // need to figure out how to get the dir of the water path it is waiting for
-      //  and set animation = 81 + water path dir
-      animation = 81 + s.walking.dir;
-      //counter = counter_from_animation[animation];
-      counter = 0;
-      //s.walking.dir = dir-6;
-      //s.walking.dir = s.walking.dir-6;
-      return;
+  //animation = 81 + dir;
+  // need to figure out how to get the dir of the water path it is waiting for
+  //  and set animation = 81 + water path dir
+  animation = 81 + s.walking.dir;
+  //counter = counter_from_animation[animation];
+  counter = 0;
+  //s.walking.dir = dir-6;
+  //s.walking.dir = s.walking.dir-6;
+  return;
 }
 
 
