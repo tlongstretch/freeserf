@@ -104,8 +104,9 @@ class Interface : public GuiObject, public GameManager::Handler {
   int current_stat_8_mode;
   int current_stat_7_item;
 
-  int water_in_view;
-  int trees_in_view;
+  // these variables do not appear to actually be used
+  //int water_in_view;
+  //int trees_in_view;
 
   int return_timeout;
   int return_pos;

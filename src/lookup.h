@@ -267,7 +267,8 @@ const std::string NameResource[] = {
       "Resource::TypePick",
       "Resource::TypePincer",
       "Resource::TypeSword",
-      "Resource::TypeShield"
+      "Resource::TypeShield",
+      "Resource::TypeSerf"
 };
 
 

@@ -48,8 +48,9 @@
 Interface::Interface()
   : building_road_valid_dir(0)
   , sfx_queue{0}
-  , water_in_view(false)
-  , trees_in_view(false)
+  // these are not used
+  //, water_in_view(false)
+  //, trees_in_view(false)
   , return_pos(0) {
   displayed = true;
 

@@ -385,10 +385,11 @@ DataSourceBase::get_animation(size_t animation, size_t phase) {
   phase >>= 3;
   if ((animation >= animation_table.size()) ||
       (phase >= animation_table[animation].size())) {
-    Log::Error["data"] << "Failed to get animation #" << animation
-    << " phase #" << phase
-    << " (got only " << animation_table[animation].size()
-    << " phases)";
+        // tlongstretch TEMP disable this while debugging
+    //Log::Error["data"] << "Failed to get animation #" << animation
+    //<< " phase #" << phase
+    //<< " (got only " << animation_table[animation].size()
+    //<< " phases)";
     return {0, 0, 0};
   }
 

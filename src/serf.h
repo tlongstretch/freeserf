@@ -154,7 +154,8 @@ class Serf : public GameObject {
 
     /* Additional state: goes at the end to ease loading of
      original save game. */
-    StateKnightAttackingDefeatFree
+    StateKnightAttackingDefeatFree,
+    StateWaitForBoat    // to support AIPlusOption::CanTransportSerfsInBoats
   } State;
 
  protected:
@@ -465,10 +466,14 @@ class Serf : public GameObject {
 
   std::string print_state();
   // moved from protected
+  //   wait, does this still need to be moved?  I think I changed the approach to
+  //   serf wait timers
   bool is_waiting(Direction *dir);
 
  protected:
   // moved to public so AI can use it to check for stuck serfs
+  //   wait, does this still need to be moved?  I think I changed the approach to
+  //   serf wait timers
   //bool is_waiting(Direction *dir);
   int switch_waiting(Direction dir);
   int get_walking_animation(int h_diff, Direction dir, int switch_pos);
@@ -565,6 +570,7 @@ class Serf : public GameObject {
   void handle_serf_defending_tower_state();
   void handle_serf_defending_fortress_state();
   void handle_serf_defending_castle_state();
+  void handle_serf_wait_for_boat_state();
 };
 
 #endif  // SRC_SERF_H_
