@@ -1944,7 +1944,21 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
           }else{
             //Log::Info["viewport"] << "found passenger serf";
             int passenger_body = serf_get_body(passenger);
-            draw_row_serf(lx+10, ly+10, false, color, passenger_body);
+            int passenger_sprite_offset[] = {
+              // these seem backwards - north/south reversed
+              // x, y pixel offset from sailor sprite
+                5,  1,   // dir 0  "East / Right"
+                5,  5,   // dir 1  "SouthEast / DownRight"
+               -5,  5,   // dir 2  "SouthWest / Down"
+               -5,  1,   // dir 3  "West / Left"
+               -3, -3,   // dir 4  "NorthWest / UpLeft"
+                3, -3,   // dir 5  "NorthEast / Up"
+            };
+            //draw_row_serf(lx+10, ly+10, false, color, passenger_body);
+            int passenger_dir = passenger->get_walking_dir();
+            int x_offset = passenger_sprite_offset[passenger_dir * 2];
+            int y_offset = passenger_sprite_offset[passenger_dir * 2 + 1];
+            draw_row_serf(lx+x_offset, ly+y_offset, false, color, passenger_body);
           }
         
     }

@@ -981,6 +981,25 @@ Serf::change_direction(Direction dir, int alt_end) {
   //
   // adding support for AIPlusOption::CanTransportSerfsInBoats
   //
+
+  // handle sailor already has a passenger in his boat
+  if (type == Serf::TypeSailor && state == State::StateTransporting
+    && s.transporting.res == Resource::TypeSerf){
+      Log::Info["serf"] << "debug: a transporting sailor inside change_direction, already has a passenger in his boat";
+      Serf *passenger = game->get_serf(s.transporting.serf_index);
+      if (passenger == nullptr){
+        Log::Warn["serf"] << "got nullptr when fetching boat passenger serf with index " << s.transporting.serf_index << "!";
+      }else{
+        passenger->animation = get_walking_animation(map->get_height(new_pos) -
+                                      map->get_height(pos), (Direction)dir,
+                                      0);
+        // set the passenger's walking (facing) direction to match the sailor so its animation looks right
+        passenger->s.walking.dir = reverse_direction(dir);
+        // normally this would be handled in handle_serf_passenger_in_boat but that is never called because
+        ///  boat passengers are not attached to any map position
+      }
+  }
+
   // if *this* serf is a sailor (who is already in transporting state and so must be in his boat)...
   //  and if another serf is at the next pos in StateWaitForBoat AND is waiting in the direction of this serf
   //   continue "through" the waiting serf to pick him up
