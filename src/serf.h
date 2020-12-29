@@ -579,6 +579,7 @@ class Serf : public GameObject {
   void handle_serf_defending_fortress_state();
   void handle_serf_defending_castle_state();
   void handle_serf_wait_for_boat_state();
+  void handle_serf_boat_passenger_state();
 };
 
 #endif  // SRC_SERF_H_

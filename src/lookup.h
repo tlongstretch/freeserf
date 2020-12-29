@@ -305,12 +305,12 @@ const std::string NameResource[] = {
 
 
 const std::string NameDirection[]{
-    "East / Right",
-    "SouthEast / DownRight",
-    "SouthWest / Down",
-    "West / Left",
-    "NorthWest / UpLeft",
-    "NorthEast / Up"
+    "East / Right",            // 0
+    "SouthEast / DownRight",   // 1
+    "SouthWest / Down",        // 2
+    "West / Left",             // 3
+    "NorthWest / UpLeft",      // 4
+    "NorthEast / Up"           // 5
 };
 
 const std::string NamePlayerFace[]{

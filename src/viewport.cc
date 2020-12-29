@@ -1436,7 +1436,7 @@ Viewport::serf_get_body(Serf *serf) {
       /// need to figure out this -1 +1 resource type stuff
       if (serf->get_delivery() >= Resource::TypeSerf - 1){
         // set the 0x200 "rowing empty boat" animation
-        Log::Info["viewport"] << "debug: sailor is transporting a serf, setting default +0x200 animation";
+        //Log::Info["viewport"] << "debug: sailor is transporting a serf, setting default +0x200 animation";
         t += 0x200;
       } else {
         // I think this sets the animation/sprite to the right transported resource?
@@ -1942,7 +1942,7 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
           if (passenger == nullptr){
             Log::Info["viewport"] << "got nullptr for boat passenger serf of type " << type << " with serf index " << index << "!";
           }else{
-            Log::Info["viewport"] << "found passenger serf";
+            //Log::Info["viewport"] << "found passenger serf";
             int passenger_body = serf_get_body(passenger);
             draw_row_serf(lx+10, ly+10, false, color, passenger_body);
           }
