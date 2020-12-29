@@ -973,8 +973,8 @@ Serf::get_walking_animation(int h_diff, Direction dir, int switch_pos) {
 /* Preconditon: serf is in WALKING or TRANSPORTING state */
 void
 Serf::change_direction(Direction dir, int alt_end) {
-  if (type == Serf::TypeSailor){
-    Log::Info["serf"] << "debug: a sailor inside change_direction, dir: " << NameDirection[dir];
+  if (type == Serf::TypeSailor && state == State::StateTransporting){
+    Log::Info["serf"] << "debug: a transporting sailor inside change_direction, dir: " << NameDirection[dir];
   }
   PMap map = game->get_map();
   MapPos new_pos = map->move(pos, dir);
@@ -987,57 +987,61 @@ Serf::change_direction(Direction dir, int alt_end) {
   //
   bool sailor_pickup_serf = false;
   // debugging
-  if (type == Serf::TypeSailor){
-    Log::Info["serf"] << "debug: a sailor inside change_direction, heading in dir " << NameDirection[dir];
+  if (type == Serf::TypeSailor && state == State::StateTransporting){
+    Log::Info["serf"] << "debug: a transporting sailor inside change_direction, heading in dir " << NameDirection[dir];
     if (game->get_serf_at_pos(new_pos)->get_state() == Serf::StateWaitForBoat){
-      Log::Info["serf"] << "debug: a sailor inside change_direction, there is a serf in wait_for_boat state in next pos with dir " << NameDirection[game->get_serf_at_pos(new_pos)->get_walking_dir()];
-      Log::Info["serf"] << "debug: a sailor inside change_direction, comparing sailor reversed-dir " << NameDirection[reverse_direction(Direction(dir))] << " to boat-wait serf dir " << NameDirection[game->get_serf_at_pos(new_pos)->get_walking_dir()];
+      Log::Info["serf"] << "debug: a transporting sailor inside change_direction, there is a serf in wait_for_boat state in next pos with dir " << NameDirection[game->get_serf_at_pos(new_pos)->get_walking_dir()];
+      Log::Info["serf"] << "debug: a transporting sailor inside change_direction, comparing sailor reversed-dir " << NameDirection[reverse_direction(Direction(dir))] << " to boat-wait serf dir " << NameDirection[game->get_serf_at_pos(new_pos)->get_walking_dir()];
     }
   }
 
-  if (type == Serf::TypeSailor 
+  if (type == Serf::TypeSailor  && state == State::StateTransporting
      && game->get_serf_at_pos(new_pos)->get_state() == Serf::StateWaitForBoat
      && game->get_serf_at_pos(new_pos)->get_walking_dir() == reverse_direction(Direction(dir))){
-       Log::Info["serf"] << "debug: a sailor inside change_direction, next pos " << new_pos << ", setting sailor_pickup_serf to TRUE";
+       Log::Info["serf"] << "debug: a transporting sailor inside change_direction, next pos " << new_pos << ", setting sailor_pickup_serf to TRUE";
        sailor_pickup_serf = true;
   }
 
   if (!map->has_serf(new_pos) || sailor_pickup_serf){
-    if (type == Serf::TypeSailor){
-      Log::Info["serf"] << "debug: a sailor inside change_direction, next pos " << new_pos << " does NOT have a serf blocking";
+    if (type == Serf::TypeSailor && state == State::StateTransporting){
+      Log::Info["serf"] << "debug: a transporting sailor inside change_direction, next pos " << new_pos << " does NOT have a serf blocking";
     }
     /* Change direction, not occupied. */
     // 
     // IMPORTANT - sailor serf pickup - map->set_serf_index clobbers the waiting serf, find a way to handle this
     //   trying this way:
     if (sailor_pickup_serf){
-      Log::Info["serf"] << "debug: sailor_pickup_serf is TRUE";
+      Log::Info["serf"] << "debug: transporting sailor_pickup_serf is TRUE";
       Serf *passenger_serf = game->get_serf_at_pos(new_pos);
       if (passenger_serf == nullptr){
         Log::Warn["serf"] << "got nullptr for passenger_serf during sailor boat pickup at pos " << pos << " and new_pos " << new_pos << "!";
       }else{
-        Log::Info["serf"] << "debug: sailor_pickup_serf is TRUE, storing passenger_serf info";
+        Log::Info["serf"] << "debug: transporting sailor_pickup_serf is TRUE, storing passenger_serf info";
         // store passenger info for animation and for after unloading
         s.transporting.serf_index = passenger_serf->get_index();
         s.transporting.serf_type = passenger_serf->get_type();
+        /* moving these to transporter_move_to_flag so they only happen when sailor actually reaches the flag
         // must unset the passenger_serf->pos or any checks against it will show it still being at the flag        
         passenger_serf->pos = bad_map_pos;
+        // and update the passenger state
+        passenger_serf->set_serf_state(State::StateBoatPassenger);
+        */
       }
     }
-    if (type == Serf::TypeSailor){
-      Log::Info["serf"] << "debug: a sailor inside change_direction, about to change s.walking.dir from " << NameDirection[s.walking.dir];
+    if (type == Serf::TypeSailor && state == State::StateTransporting){
+      Log::Info["serf"] << "debug: a transporting sailor inside change_direction, about to change s.walking.dir from " << NameDirection[s.walking.dir];
     }
     map->set_serf_index(pos, 0);
     animation = get_walking_animation(map->get_height(new_pos) -
                                       map->get_height(pos), (Direction)dir,
                                       0);
     s.walking.dir = reverse_direction(dir);
-    if (type == Serf::TypeSailor){
-      Log::Info["serf"] << "debug: a sailor inside change_direction, just set s.walking.dir = reverse_direction(dir)" << ", was " << NameDirection[dir] << ", now is " << NameDirection[reverse_direction(dir)];
+    if (type == Serf::TypeSailor && state == State::StateTransporting){
+      Log::Info["serf"] << "debug: a transporting sailor inside change_direction, just set s.walking.dir = reverse_direction(dir)" << ", was " << NameDirection[dir] << ", now is " << NameDirection[reverse_direction(dir)];
     }
   } else {
-    if (type == Serf::TypeSailor){
-      Log::Info["serf"] << "debug: a sailor inside change_direction, next pos " << new_pos << " DOES have a serf blocking";
+    if (type == Serf::TypeSailor && state == State::StateTransporting){
+      Log::Info["serf"] << "debug: a transporting sailor inside change_direction, next pos " << new_pos << " DOES have a serf blocking";
     }
     /* Direction is occupied. */
     Serf *other_serf = game->get_serf_at_pos(new_pos);
@@ -1046,8 +1050,8 @@ Serf::change_direction(Direction dir, int alt_end) {
     if (other_serf->is_waiting(&other_dir) &&
         (other_dir == reverse_direction(dir) || other_dir == DirectionNone) &&
         other_serf->switch_waiting(reverse_direction(dir))) {
-        if (type == Serf::TypeSailor){
-          Log::Info["serf"] << "debug: a sailor inside change_direction, serf at next pos is eligible for switching";
+        if (type == Serf::TypeSailor && state == State::StateTransporting){
+          Log::Info["serf"] << "debug: a transporting sailor inside change_direction, serf at next pos is eligible for switching";
         }
       /* Do the switch */
       other_serf->pos = pos;
@@ -1063,8 +1067,8 @@ Serf::change_direction(Direction dir, int alt_end) {
                                         (Direction)dir, 1);
       s.walking.dir = reverse_direction(dir);
     } else {
-      if (type == Serf::TypeSailor){
-        Log::Info["serf"] << "debug: a sailor inside change_direction, serf at next pos is NOT eligible for switching, waiting";
+      if (type == Serf::TypeSailor && state == State::StateTransporting){
+        Log::Info["serf"] << "debug: a transporting sailor inside change_direction, serf at next pos is NOT eligible for switching, waiting";
       }
       /* Wait for other serf */
       animation = 81 + dir;
@@ -1074,8 +1078,8 @@ Serf::change_direction(Direction dir, int alt_end) {
     }
   }
 
-  if (type == Serf::TypeSailor){
-    Log::Info["serf"] << "debug: a sailor inside change_direction, FOO 1";
+  if (type == Serf::TypeSailor && state == State::StateTransporting){
+    Log::Info["serf"] << "debug: a transporting sailor inside change_direction, FOO 1";
   }
 
   if (!alt_end) s.walking.wait_counter = 0;
@@ -1101,13 +1105,13 @@ Serf::transporter_move_to_flag(Flag *flag) {
   if (get_type() == Serf::TypeSailor){
     Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag, dir: " << NameDirection[dir];
 
-    Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag A";
+    Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag A, this serf's type == " << NameSerf[type];
     Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag A, flag->is_water_path " << NameDirection[dir] << " = " << flag->is_water_path(dir);
-    Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag A, game->get_serf_at_pos(flag->get_position())->get_state() # " << game->get_serf_at_pos(flag->get_position())->get_state();
+    Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag A, flag->has_serf_waiting_for_boat() == " << flag->has_serf_waiting_for_boat();
     // adding support for AIPlusOption::CanTransportSerfsInBoats
     Direction other_dir = flag->get_other_end_dir(dir);
-    Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag A, flag other_end_dir = " << NameDirection[other_dir];
-    if (flag->is_water_path(other_dir) &&
+    //Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag A, flag other_end_dir = " << NameDirection[other_dir];
+    if (flag->is_water_path(dir) &&
         type == Serf::TypeSailor &&
         flag->has_serf_waiting_for_boat()){
           Log::Info["serf"] << "debug: sailor a serf is waiting for a boat at pos " << flag->get_position() << ", in dir " << NameDirection[other_dir];
@@ -1123,6 +1127,7 @@ Serf::transporter_move_to_flag(Flag *flag) {
           }else{
             Log::Info["serf"] << "found passenger serf from sailor's s.transporting.serf_index value";
             passenger->set_serf_state(Serf::StateBoatPassenger);
+            passenger->pos = bad_map_pos;
           }
           s.transporting.res = Resource::TypeSerf;
           /* this doesn't work, the issue is somewhere else
@@ -1532,6 +1537,7 @@ Serf::handle_serf_transporting_state() {
         s.walking.dir1 = -2;
         s.walking.dest = 0;
         counter = 0;
+        Log::Info["serf"] << "debug: a sailor in transporting state B0, returning";
         return;
       }
 
@@ -1559,9 +1565,8 @@ Serf::handle_serf_transporting_state() {
 
       Flag *flag = game->get_flag_at_pos(pos);
       if (type == Serf::TypeSailor){
-        Log::Info["serf"] << "debug: a sailor in transporting state D";
+        Log::Info["serf"] << "debug: a sailor in transporting state D, about to call transporter_move_to_flag at pos " << flag->get_position();
       }
-      Log::Info["serf"] << "debug: inside handle_serf_transporting_state, about to call transporter_move_to_flag at pos " << flag->get_position();
       transporter_move_to_flag(flag);
       if (type == Serf::TypeSailor){
         Log::Info["serf"] << "debug: a sailor in transporting state E";
@@ -1599,12 +1604,15 @@ Serf::handle_serf_transporting_state() {
         if (!map->has_flag(map->move(pos, dir))){
           Log::Info["serf"] << "debug: a sailor in transporting state H000, map in dir " << NameDirection[dir] << " from pos " << pos << " is NOT a flag";
         }
+        // i think it is crashing here, skipping this part for now
+        /*
         if (s.transporting.res != Resource::TypeNone){
           Log::Info["serf"] << "debug: a sailor in transporting state H00, s.transporter.res is NOT TypeNone, but is: " << NameResource[s.transporting.res];
         }
         if (s.transporting.wait_counter < 0) {
           Log::Info["serf"] << "debug: a sailor in transporting state H0, wait_counter IS less than zero, it is: " << s.transporting.wait_counter;
         }
+        */
       }
       
       Log::Info["serf"] << "debug: a sailor in transporting state H A";

@@ -112,7 +112,7 @@ class Flag : public GameObject {
 
   // true if a serf is waiting for a boat at this flag (next to water path)
   bool has_serf_waiting_for_boat() const { return serf_waiting_for_boat; }
-  bool set_serf_waiting_for_boat() { serf_waiting_for_boat = true; }
+  void set_serf_waiting_for_boat() { serf_waiting_for_boat = true; }
 
   /* Bitmap showing whether the outgoing paths have transporters
    servicing them. */
