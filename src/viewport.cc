@@ -1921,135 +1921,177 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
 
   if (body > -1) {
     Color color = interface->get_player_color(serf->get_owner());
-    draw_row_serf(lx, ly, true, color, body);
+    // moved to after the boat transport checks
+    //draw_row_serf(lx, ly, true, color, body);
 
 
     // add support for AIPlusOption::CanTransportSerfsInBoats
-    // also draw the transported serf in the boat
+    //
+    // this whole section should probably be moved outside of viewport and into serf, and instead update
+    //  viewport to support drawing multiple serfs per pos
+    //
+    // OBVIOUS BUG - if a sailor is transporting a serf, and there is also a serf at the end where the first is
+    //  to be dropped off also waiting to be picked up, the new serf will clobber the serf_type and serf_index
+    //  of the one already in the boat.  Need to handle this during the pickup phase?
+    //
     if (serf->get_type() == Serf::TypeSailor &&
         serf->get_state() == Serf::StateTransporting &&
-        // serf->get_deliver() says it returns s.transporting.res + 1 ... why +1??? 
-        // for now accepting >this value also to be sure it detects it
-        //   hmmm, it seems when stored in serf struct the type is -1... maybe it is an array?
-        //     likely need to make get_serf_in_boat_type (and maybe index??) return + 1 also???
-        serf->get_delivery() >= Resource::TypeSerf){
-          //   hmmm, it seems when stored in serf struct the type is -1... maybe it is an array?
-          //     likely need to make get_serf_in_boat_type (and maybe index??) return + 1 also???
+        serf->get_serf_in_boat_type() > 0 &&
+        serf->get_serf_in_boat_index() > 0){
+          Log::Info["viewport"] << "inside draw_active_serf: transporting sailor is either about to pick up or already transporting a passenger";
           Serf::Type type = serf->get_serf_in_boat_type();
           unsigned int index = serf->get_serf_in_boat_index();
-          Log::Info["viewport"] << "debug: a sailor has another serf of type " << type << " in his boat.  It has serf index " << index;
+          Log::Info["viewport"] << "inside draw_active_serf: transporting sailor is either about to pick up or already has a serf of type " << type << ", with serf index " << index;
           Serf *passenger = interface->get_game()->get_serf(index);
           if (passenger == nullptr){
-            Log::Info["viewport"] << "got nullptr for boat passenger serf of type " << type << " with serf index " << index << "!";
+              Log::Info["viewport"] << "got nullptr for boat passenger serf of type " << type << " with serf index " << index << "!";
           }else{
             //Log::Info["viewport"] << "found passenger serf";
             int passenger_body = serf_get_body(passenger);
-            int passenger_sprite_offset[] = {
-              // these seem backwards - north/south reversed
-              // x, y pixel offset from sailor sprite
-                5,  1,   // dir 0  "East / Right"
-                5,  5,   // dir 1  "SouthEast / DownRight"
-               -5,  5,   // dir 2  "SouthWest / Down"
-               -5,  1,   // dir 3  "West / Left"
-               -3, -3,   // dir 4  "NorthWest / UpLeft"
-                3, -3,   // dir 5  "NorthEast / Up"
-            };
-            //draw_row_serf(lx+10, ly+10, false, color, passenger_body);
-            int passenger_dir = passenger->get_walking_dir();
-            int x_offset = passenger_sprite_offset[passenger_dir * 2];
-            int y_offset = passenger_sprite_offset[passenger_dir * 2 + 1];
-            draw_row_serf(lx+x_offset, ly+y_offset, false, color, passenger_body);
-          }
-        
-    }
-        
 
+            // if sailor is already carrying a passenger, also draw the transported serf
+            if (serf->get_delivery() >= Resource::TypeSerf){
+              // serf->get_delivery() says it returns s.transporting.res + 1 ... why +1??? 
+              // for now accepting >this value also to be sure it detects it
+              //   hmmm, it seems when stored in serf struct the type is -1... maybe it is an array?
+              //     likely need to make get_serf_in_boat_type (and maybe index??) return + 1 also???
+              int passenger_sprite_offset[] = {
+                // these seem backwards - north/south reversed
+                // x, y pixel offset from sailor sprite
+                  5,  1,   // dir 0  "East / Right"
+                  5,  5,   // dir 1  "SouthEast / DownRight"
+                -5,  5,   // dir 2  "SouthWest / Down"
+                -5,  1,   // dir 3  "West / Left"
+                -3, -3,   // dir 4  "NorthWest / UpLeft"
+                  3, -3,   // dir 5  "NorthEast / Up"
+              };
+              int passenger_dir = passenger->get_walking_dir();
+              int x_offset = passenger_sprite_offset[passenger_dir * 2];
+              int y_offset = passenger_sprite_offset[passenger_dir * 2 + 1];
+              // first draw the sailor serf doing the transporting...
+              draw_row_serf(lx, ly, true, color, body);
+              // ...then draw the passenger serf on top of the boat
+              draw_row_serf(lx+x_offset, ly+y_offset, false, color, passenger_body);
+            }
+
+            // if a sailor is about to pick up a passenger, must also draw the waiting serf
+            //  otherwise, it will disappear as soon as the sailor is approaches it
+            PGame game = interface->get_game();
+            if (map->has_flag(pos) && game->get_flag_at_pos(pos)->has_serf_waiting_for_boat()){
+              Log::Info["viewport"] << "inside draw_active_serf: transporting sailor: a serf is waiting for a boat at flag pos " << pos;
+              // sanity check, these should always agree
+              //  NEVERMIND - change_direction replaces the serf at the flag/pos with the sailor as it approaches so this
+              //   test is no longer valid, simply rely on the previous checks 
+              //if (!map->has_serf(pos) || game->get_serf_at_pos(pos)->get_state() != Serf::StateWaitForBoat)
+              //  throw ExceptionFreeserf("flag->has_serf_waiting_for_boat is true but no serf found in StateWaitForBoat at that pos!");
+              //}
+              // also draw the waiting serf as-is, it should not need to change from its waiting animation
+              //**************************************************************************
+              // hmm, this results in the waiting serf being drawn overtop of the boat
+              // change the ordering of the draw_row_serf calls so that a boat is drawn over a waiting serf
+              //   BUT a in-boat passenger is drawn over the boat
+              //**************************************************************************
+              // attempt to fix:
+              // first the waiting passenger serf at the flag...
+              draw_row_serf(x_base, y_base, true, color, passenger_body);
+              // ... then draw the boat on top of it.  When the serf gets in the boat this reverses (see above)
+              draw_row_serf(lx, ly, true, color, body);
+            }
+          }
+    } else {
+      //
+      // **** draw any normal serf as usual ****
+      //
+      draw_row_serf(lx, ly, true, color, body);
+    } // end AIPlusOption::CanTransportSerfsInBoats stuff
+        
 
     if (layers & Layer::LayerGrid) {
       frame->draw_number(lx, ly, serf->get_index(), Color(0, 0, 128));
       frame->draw_string(lx, ly + 8, serf->print_state(),  Color(0, 0, 128));
     }
-  //
-  // AI overlay used for debugging AI
-  //
-  if (layers & Layer::LayerAI) {
-    unsigned int current_player_index = interface->get_player()->get_index();
-    AI *ai = interface->get_ai_ptr(current_player_index);
-    if (ai == NULL) {
-      // no AI running for this player, do nothing
-    }
-    else {
-      std::vector<int> ai_mark_serf = *(interface->get_ai_ptr(current_player_index)->get_ai_mark_serf());
-
-      // automatically mark waiting serfs
-      bool auto_mark_this_serf = false;
-      /*
-      if (serf->get_state() != Serf::StateIdleInStock) {
-              // direction is unknown until set by serf->is_waiting() in the ptr created here
-              //  actually, for this debugging we don't even care which dir is waiting but it seems to be mandatory
-              Direction dir = DirectionNone;
-              Direction *dir_ptr = &dir;
-              if (serf->is_waiting(dir_ptr)) {
-                      Direction dir = *(dir_ptr);
-                      MapPos serf_pos = bad_map_pos;
-                      serf_pos = serf->get_pos();
-                      //Log::Info["ai"] << "serf at pos " << serf_pos << " is waiting for direction " << dir << " / " << NameDirection[dir];
-                      //Log::Info["ai"] << "serf state: " << serf->print_state();
-                      //Log::Info["ai"] << "marking serf on AI overlay";
-                      //ai_mark_serf->push_back(serf->get_index());
-                      auto_mark_this_serf = true;
-              }
+    
+    //
+    // AI overlay used for debugging AI
+    //
+    if (layers & Layer::LayerAI) {
+      unsigned int current_player_index = interface->get_player()->get_index();
+      AI *ai = interface->get_ai_ptr(current_player_index);
+      if (ai == NULL) {
+        // no AI running for this player, do nothing
       }
-      */
+      else {
+        std::vector<int> ai_mark_serf = *(interface->get_ai_ptr(current_player_index)->get_ai_mark_serf());
 
-      if (std::count(ai_mark_serf.begin(), ai_mark_serf.end(), serf->get_index()) > 0
-        || auto_mark_this_serf == true) {
-        //frame->draw_number(lx, ly, serf->get_index(), Color(50, 50, 200));
-        std::string state_details = "";
-        //frame->draw_string(lx, ly + 8, serf->print_state(), Color(125, 125, 200));
-        // print state has some weird corruption at the end... try just getting the values we want
-        //state_details = serf->print_state();
-        state_details += serf->get_state_name(serf->get_state());
-        state_details += "\n";
-        //frame->draw_string(lx, ly + 16, "counter: " + std::to_string(serf->get_counter()) + "\n", Color(125, 125, 200));
-        // it seems "counter" is just animation frame counter and doesn't provide any useful information in detecting stuck serfs
-        //   as it keeps rolling even if serf is static
-        //state_details += "counter: " + std::to_string(serf->get_counter()) + "\n";
-
-        /* I don't think this is needed anymore, it seems that only serf->is_waiting check matters
-        int wait_counter = 0;
-        std::string wait_string;
-        if (serf->get_state() == Serf::StateWalking) {
-            wait_counter = serf->get_walking_wait_counter();
-            wait_string = "walking wait: ";
-        }
-        if (serf->get_state() == Serf::StateTransporting || serf->get_state() == Serf::StateDelivering) {
-            wait_counter = serf->get_transporting_wait_counter();
-            wait_string = "transporting wait: ";
-        }
-        // make text increasingly red as wait increases
-        int red = 150 + (25 * wait_counter);
-        if (red > 255) {
-            red = 255;
-        }
-        int green_blue = 150 - (25 * wait_counter);
-        if (green_blue < 0) {
-            green_blue = 0;
+        // automatically mark waiting serfs
+        bool auto_mark_this_serf = false;
+        /*
+        if (serf->get_state() != Serf::StateIdleInStock) {
+                // direction is unknown until set by serf->is_waiting() in the ptr created here
+                //  actually, for this debugging we don't even care which dir is waiting but it seems to be mandatory
+                Direction dir = DirectionNone;
+                Direction *dir_ptr = &dir;
+                if (serf->is_waiting(dir_ptr)) {
+                        Direction dir = *(dir_ptr);
+                        MapPos serf_pos = bad_map_pos;
+                        serf_pos = serf->get_pos();
+                        //Log::Info["ai"] << "serf at pos " << serf_pos << " is waiting for direction " << dir << " / " << NameDirection[dir];
+                        //Log::Info["ai"] << "serf state: " << serf->print_state();
+                        //Log::Info["ai"] << "marking serf on AI overlay";
+                        //ai_mark_serf->push_back(serf->get_index());
+                        auto_mark_this_serf = true;
                 }
+        }
+        */
 
-                state_details += wait_string + std::to_string(wait_counter) + "\n";
-                */
+        if (std::count(ai_mark_serf.begin(), ai_mark_serf.end(), serf->get_index()) > 0
+          || auto_mark_this_serf == true) {
+          //frame->draw_number(lx, ly, serf->get_index(), Color(50, 50, 200));
+          std::string state_details = "";
+          //frame->draw_string(lx, ly + 8, serf->print_state(), Color(125, 125, 200));
+          // print state has some weird corruption at the end... try just getting the values we want
+          //state_details = serf->print_state();
+          state_details += serf->get_state_name(serf->get_state());
+          state_details += "\n";
+          //frame->draw_string(lx, ly + 16, "counter: " + std::to_string(serf->get_counter()) + "\n", Color(125, 125, 200));
+          // it seems "counter" is just animation frame counter and doesn't provide any useful information in detecting stuck serfs
+          //   as it keeps rolling even if serf is static
+          //state_details += "counter: " + std::to_string(serf->get_counter()) + "\n";
 
-                // draw text box above the marked serf with its status
-                //  this red/green_blue stuff is related to darkening color effect as wait_counter increases, but is not actually needed
-                //frame->draw_string(lx, ly + 8, state_details, Color(red, green_blue, green_blue));
-                // just use a fixed color
-        frame->draw_string(lx, ly + 8, state_details, colors.at("white"));
-        //frame->draw_string(1, 1, status, ai->get_mark_color("white"));
+          /* I don't think this is needed anymore, it seems that only serf->is_waiting check matters
+          int wait_counter = 0;
+          std::string wait_string;
+          if (serf->get_state() == Serf::StateWalking) {
+              wait_counter = serf->get_walking_wait_counter();
+              wait_string = "walking wait: ";
+          }
+          if (serf->get_state() == Serf::StateTransporting || serf->get_state() == Serf::StateDelivering) {
+              wait_counter = serf->get_transporting_wait_counter();
+              wait_string = "transporting wait: ";
+          }
+          // make text increasingly red as wait increases
+          int red = 150 + (25 * wait_counter);
+          if (red > 255) {
+              red = 255;
+          }
+          int green_blue = 150 - (25 * wait_counter);
+          if (green_blue < 0) {
+              green_blue = 0;
+                  }
+
+                  state_details += wait_string + std::to_string(wait_counter) + "\n";
+                  */
+
+                  // draw text box above the marked serf with its status
+                  //  this red/green_blue stuff is related to darkening color effect as wait_counter increases, but is not actually needed
+                  //frame->draw_string(lx, ly + 8, state_details, Color(red, green_blue, green_blue));
+                  // just use a fixed color
+          frame->draw_string(lx, ly + 8, state_details, colors.at("white"));
+          //frame->draw_string(1, 1, status, ai->get_mark_color("white"));
+        }
       }
     }
-  }
-  // end LayerAI
+    // end LayerAI
 
   }
 
