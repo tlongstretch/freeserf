@@ -1934,10 +1934,16 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
     //  to be dropped off also waiting to be picked up, the new serf will clobber the serf_type and serf_index
     //  of the one already in the boat.  Need to handle this during the pickup phase?
     //
-    if (serf->get_type() == Serf::TypeSailor &&
-        serf->get_state() == Serf::StateTransporting &&
-        serf->get_serf_in_boat_type() > 0 &&
-        serf->get_serf_in_boat_index() > 0){
+    
+    // if this is sailor pickup/dropoff/passenger situation where multiple serfs must be drawn on the same tile...
+    if (serf->get_type() == Serf::TypeSailor && serf->get_state() == Serf::StateTransporting &&
+        (serf->get_serf_in_boat_type() > Serf::TypeNone && serf->get_serf_in_boat_index() > 0) ||
+        (serf->get_dropped_serf_type() > Serf::TypeNone && serf->get_dropped_serf_index() > 0)){
+
+        //
+        // handle picking up, carrying passenger states
+        //
+        if (serf->get_serf_in_boat_type() > Serf::TypeNone && serf->get_serf_in_boat_index() > 0){
           Log::Info["viewport"] << "inside draw_active_serf: transporting sailor is either about to pick up or already transporting a passenger";
           Serf::Type type = serf->get_serf_in_boat_type();
           unsigned int index = serf->get_serf_in_boat_index();
@@ -1960,15 +1966,15 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
                 // x, y pixel offset from sailor sprite
                   5,  1,   // dir 0  "East / Right"
                   5,  5,   // dir 1  "SouthEast / DownRight"
-                -5,  5,   // dir 2  "SouthWest / Down"
-                -5,  1,   // dir 3  "West / Left"
-                -3, -3,   // dir 4  "NorthWest / UpLeft"
+                 -5,  5,   // dir 2  "SouthWest / Down"
+                 -5,  1,   // dir 3  "West / Left"
+                 -3, -3,   // dir 4  "NorthWest / UpLeft"
                   3, -3,   // dir 5  "NorthEast / Up"
               };
               int passenger_dir = passenger->get_walking_dir();
               int x_offset = passenger_sprite_offset[passenger_dir * 2];
               int y_offset = passenger_sprite_offset[passenger_dir * 2 + 1];
-              // first draw the sailor serf doing the transporting...
+              // first draw the sailor & boat doing the transporting...
               draw_row_serf(lx, ly, true, color, body);
               // ...then draw the passenger serf on top of the boat
               draw_row_serf(lx+x_offset, ly+y_offset, false, color, passenger_body);
@@ -1985,19 +1991,88 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
               //if (!map->has_serf(pos) || game->get_serf_at_pos(pos)->get_state() != Serf::StateWaitForBoat)
               //  throw ExceptionFreeserf("flag->has_serf_waiting_for_boat is true but no serf found in StateWaitForBoat at that pos!");
               //}
-              // also draw the waiting serf as-is, it should not need to change from its waiting animation
-              //**************************************************************************
-              // hmm, this results in the waiting serf being drawn overtop of the boat
-              // change the ordering of the draw_row_serf calls so that a boat is drawn over a waiting serf
-              //   BUT a in-boat passenger is drawn over the boat
-              //**************************************************************************
-              // attempt to fix:
+
+              /*
               // first the waiting passenger serf at the flag...
               draw_row_serf(x_base, y_base, true, color, passenger_body);
-              // ... then draw the boat on top of it.  When the serf gets in the boat this reverses (see above)
+              // ... then draw the sailor & boat on top of it.  When the serf gets in the boat this reverses (see above)
               draw_row_serf(lx, ly, true, color, body);
+              */
+              
+              // it seems like dropping off is one way, and picking up is reversed?  I dunno
+              if (serf->get_walking_dir() >= 4){
+                // if the boat is picking up south (remember these dirs are backwards north/south for some reason)
+                //  then the boat must be drawn first and the serf next, so the serf occludes the boat
+                draw_row_serf(lx, ly, true, color, body);
+                draw_row_serf(x_base, y_base, true, color, passenger_body);
+              }else{
+                // if the boat is picking up north or west/east the boat should occlude the serf
+                //  so draw the serf first then the boat/sailor
+                draw_row_serf(x_base, y_base, true, color, passenger_body);
+                draw_row_serf(lx, ly, true, color, body);
+              }
             }
           }
+        }
+
+        //
+        // handle passenger dropped off at flag
+        //
+        if (serf->get_dropped_serf_type() > Serf::TypeNone && serf->get_dropped_serf_index() > 0){
+          Serf::Type type = serf->get_dropped_serf_type();
+          unsigned int index = serf->get_dropped_serf_index();
+          Log::Info["viewport"] << "inside draw_active_serf: transporting sailor has just dropped off a serf of type " << type << ", with serf index " << index;
+          Serf *dropped_serf = interface->get_game()->get_serf(index);
+          if (dropped_serf == nullptr){
+              Log::Info["viewport"] << "got nullptr for dropped off serf of type " << type << " with serf index " << index << "!";
+          }else{
+            //Log::Info["viewport"] << "found dropped serf";
+            int dropped_serf_body = serf_get_body(dropped_serf);
+            // if a sailor just dropped off a passenger, must also draw the passenger at the flag
+            //  because according to the Map the flag is still occupied by the sailor(?)
+            // this will cease once the sailor reaches the next pos on the water path and the
+            //  dropped serf will become "real" again - no longer attached to the sailor
+            PGame game = interface->get_game();
+            // as soon as the flag is reached the sailor's direction reverses and his position changes to the
+            //  next pos in the path, NOT the pos with the flag.  Must figure out what the flag pos is by
+            //  retracing the reverse of the current direction one tile
+            MapPos dropped_pos = map->move(pos, reverse_direction((Direction)dropped_serf->get_walking_dir()));
+            //Log::Info["viewport"] << "inside draw_active_serf: transporting sailor dropoff debug: map->has_flag at dropped_pos " << pos << " == " << map->has_flag(dropped_pos);
+            //Log::Info["viewport"] << "inside draw_active_serf: transporting sailor dropoff debug: game->get_flag_at_pos(dropped_pos)->has_boat_passenger_being_dropped == " << game->get_flag_at_pos(dropped_pos)->has_boat_passenger_being_dropped();
+            if (map->has_flag(dropped_pos) && game->get_flag_at_pos(dropped_pos)->has_boat_passenger_being_dropped()){
+              Log::Info["viewport"] << "inside draw_active_serf: transporting sailor has just dropped off a serf at flag pos " << dropped_pos;
+              //  because the x/y_base is the sailor pos, it needs to be adjusted 
+              //  the position is normally figured out by draw_serf_row and includes map height adjustment
+              //  however, because water and coast tiles are always flag and lowest height, it should be
+              //   safe to use a hardcoded table to find the relative flag pos in the next tile
+              int dropped_serf_sprite_offset[] = {
+                // these seem backwards - north/south reversed
+                // x, y pixel offset from sailor sprite
+                 -31,  0,   // dir 0  "East / Right"
+                 -15,-15,   // dir 1  "SouthEast / DownRight"
+                  15,-17,   // dir 2  "SouthWest / Down"
+                  31,  0,   // dir 3  "West / Left"
+                  16, 20,   // dir 4  "NorthWest / UpLeft"
+                 -15, 15,   // dir 5  "NorthEast / Up"
+              };
+              int dropped_serf_dir = dropped_serf->get_walking_dir();
+              int x_offset = dropped_serf_sprite_offset[dropped_serf_dir * 2];
+              int y_offset = dropped_serf_sprite_offset[dropped_serf_dir * 2 + 1];
+              if (serf->get_walking_dir() < 4){
+                // if the boat is dropping off south (remember these dirs are backwards north/south for some reason)
+                //  then the boat must be drawn first and the serf next, so the serf occludes the boat
+                draw_row_serf(lx, ly, true, color, body);
+                draw_row_serf(x_base+x_offset, y_base+y_offset, true, color, dropped_serf_body);
+              }else{
+                // if the boat is dropping off north or west/east the boat should occlude the serf
+                //  so draw the serf first then the boat/sailor
+                draw_row_serf(x_base+x_offset, y_base+y_offset, true, color, dropped_serf_body);
+                draw_row_serf(lx, ly, true, color, body);
+              }
+            }
+          }
+        }
+      
     } else {
       //
       // **** draw any normal serf as usual ****

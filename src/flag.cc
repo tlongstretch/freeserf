@@ -201,8 +201,21 @@ Flag::pick_up_serf() {
   if (!serf_waiting_for_boat){
     throw ExceptionFreeserf("No serf is waiting for boat pickup at this flag!");
   }
-  // clear the waiting for boat flag  
   serf_waiting_for_boat = false;
+//  *res = slot[from_slot].type;
+//  *dest = slot[from_slot].dest;
+//  slot[from_slot].type = Resource::TypeNone;
+//  slot[from_slot].dir = DirectionNone;
+//  fix_scheduled();   look into what this does
+  return true;
+}
+
+bool
+Flag::drop_off_serf() {
+  if (!boat_passenger_being_dropped){
+    throw ExceptionFreeserf("No serf was just dropped off at this flag!");
+  }
+  boat_passenger_being_dropped = false;
 //  *res = slot[from_slot].type;
 //  *dest = slot[from_slot].dest;
 //  slot[from_slot].type = Resource::TypeNone;

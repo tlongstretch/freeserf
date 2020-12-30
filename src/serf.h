@@ -192,6 +192,8 @@ class Serf : public GameObject {
       // add support for AIPlusOption::CanTransportSerfsInBoats
       Type serf_type;
       unsigned int serf_index;
+      Type dropped_serf_type;
+      unsigned int dropped_serf_index;
     } transporting;
 
     struct {
@@ -429,6 +431,8 @@ class Serf : public GameObject {
   // add support for AIPlusOption::CanTransportSerfsInBoats
   Type get_serf_in_boat_type() const { return s.transporting.serf_type; }
   unsigned int get_serf_in_boat_index() const { return s.transporting.serf_index; }
+  Type get_dropped_serf_type() const { return s.transporting.dropped_serf_type; }
+  unsigned int get_dropped_serf_index() const { return s.transporting.dropped_serf_index; }
   int get_free_walking_neg_dist1() const { return s.free_walking.neg_dist1; }
   int get_free_walking_neg_dist2() const { return s.free_walking.neg_dist2; }
   int get_leaving_building_next_state() const {

@@ -1014,7 +1014,7 @@ Serf::change_direction(Direction dir, int alt_end) {
     }
   }
 
-  if (type == Serf::TypeSailor  && state == State::StateTransporting
+  if (type == Serf::TypeSailor && state == State::StateTransporting
      && game->get_serf_at_pos(new_pos)->get_state() == Serf::StateWaitForBoat
      && game->get_serf_at_pos(new_pos)->get_walking_dir() == reverse_direction(Direction(dir))){
        Log::Info["serf"] << "debug: a transporting sailor inside change_direction, next pos " << new_pos << ", setting sailor_pickup_serf to TRUE";
@@ -1025,10 +1025,9 @@ Serf::change_direction(Direction dir, int alt_end) {
     if (type == Serf::TypeSailor && state == State::StateTransporting){
       Log::Info["serf"] << "debug: a transporting sailor inside change_direction, next pos " << new_pos << " does NOT have a serf blocking";
     }
+    
     /* Change direction, not occupied. */
-    // 
-    // IMPORTANT - sailor serf pickup - map->set_serf_index clobbers the waiting serf, find a way to handle this
-    //   trying this way:
+
     if (sailor_pickup_serf){
       Log::Info["serf"] << "debug: transporting sailor_pickup_serf is TRUE";
       Serf *passenger_serf = game->get_serf_at_pos(new_pos);
@@ -1149,17 +1148,8 @@ Serf::transporter_move_to_flag(Flag *flag) {
             passenger->pos = bad_map_pos;
           }
           s.transporting.res = Resource::TypeSerf;
-          /* this doesn't work, the issue is somewhere else
-          // delete the boat passenger from the map?
-          //  it still seems to thing is is at the flag in StateWaitForBoat
-          game->get_map()->set_serf_index(flag->get_position(), 0);
-          */
-
-          //s.transporting.res = Resource::TypeGoldBar;
-          //s.transporting.serf_type = ???  need to prevent it from being clobbered to be able to check
-          //s.transporting.serf_type = Serf::TypeKnight4;
-          //s.transporting.serf_index = 
-          //s.transporting.serf_index = 3;
+          // this is handled by the flag->pick_up_serf call above
+          //flag->clear_serf_waiting_for_boat();
           change_direction(dir, 1);
           return;
     }
@@ -1195,9 +1185,26 @@ Serf::transporter_move_to_flag(Flag *flag) {
     if (get_type() == Serf::TypeSailor){
       Log::Info["serf"] << "debug: inside Serf::transporter_move_to_flag C";
     }
-    /* Drop resource at flag */
-    if (flag->drop_resource(s.transporting.res, s.transporting.dest)) {
+    // add support for AIPlusOption::CanTransportSerfsInBoats
+    // drop passenger serf off at flag
+    if (get_type() == Serf::TypeSailor && s.transporting.res == Resource::TypeSerf){
+      Log::Info["serf"] << "debug: inside Serf::transporter_move_to_flag, dropping passenger off at flag at pos " << flag->get_position();
+      // because the map only allows one serf per tile, the dropped off serf cannot actually be placed yet
+      //  it remains a record in the sailor's s.transporting struct until the sailor reaches the next pos away from the flag
+      //  Also, this must support picking up another passenger at the same time the previous one is still in dropoff limbo!
+      s.transporting.dropped_serf_index = s.transporting.serf_index;
+      s.transporting.dropped_serf_type = s.transporting.serf_type;
+      // clear the passenger serf values
+      s.transporting.serf_index = 0;
+      s.transporting.serf_type == Serf::TypeNone;
       s.transporting.res = Resource::TypeNone;
+      // "hold" the flag so that another serf does not enter its tile yet, preventing the passenger from appearing there
+      flag->set_boat_passenger_being_dropped();
+    }else{
+      /* Drop resource at flag */
+      if (flag->drop_resource(s.transporting.res, s.transporting.dest)) {
+        s.transporting.res = Resource::TypeNone;
+      }
     }
   }
   if (get_type() == Serf::TypeSailor){

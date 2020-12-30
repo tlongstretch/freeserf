@@ -74,6 +74,7 @@ class Flag : public GameObject {
   int bld_flags;
   int bld2_flags;
   bool serf_waiting_for_boat;  // adding support for AIPlusOption::CanTransportSerfsInBoats
+  bool boat_passenger_being_dropped;  // adding support for AIPlusOption::CanTransportSerfsInBoats
 
  public:
   Flag(Game *game, unsigned int index);
@@ -113,6 +114,12 @@ class Flag : public GameObject {
   // true if a serf is waiting for a boat at this flag (next to water path)
   bool has_serf_waiting_for_boat() const { return serf_waiting_for_boat; }
   void set_serf_waiting_for_boat() { serf_waiting_for_boat = true; }
+  //void clear_serf_waiting_for_boat() { serf_waiting_for_boat = false; }
+  // true if a serf is being dropped off at this flag and the flag must be held
+  //  to prevent other serfs from entering its tile
+  bool has_boat_passenger_being_dropped() const { return boat_passenger_being_dropped; }
+  void set_boat_passenger_being_dropped() { boat_passenger_being_dropped = true; }
+  //void clear_boat_passenger_being_dropped() { boat_passenger_being_dropped = false; }
 
   /* Bitmap showing whether the outgoing paths have transporters
    servicing them. */
@@ -156,6 +163,7 @@ class Flag : public GameObject {
                         unsigned int *dest);
   // add support for AIPlusOption::CanTransportSerfsInBoats
   bool pick_up_serf();
+  bool drop_off_serf();
   bool drop_resource(Resource::Type res, unsigned int dest);
   bool has_empty_slot() const;
   void remove_all_resources();
