@@ -1006,8 +1006,21 @@ Serf::change_direction(Direction dir, int alt_end) {
     && s.transporting.dropped_serf_type > Type::TypeNone && s.transporting.dropped_serf_index > 0
     && !map->has_flag(pos)){
       Log::Info["serf"] << "debug: a transporting sailor inside change_direction, just reached the next water-path pos after dropping a passenger off";
+      
       // retrace back one tile to the flag where serf was dropped
-      MapPos dropped_pos = map->move(pos, reverse_direction(dir));
+      Direction tmpdir = DirectionNone;
+      for (Direction d : cycle_directions_cw()) {
+        // look for the path in the dir that is not the current dir
+        if (map->has_path(pos, d) && d != dir) {
+          tmpdir = d;
+          break;
+        }
+      }
+      if (tmpdir == DirectionNone){
+        throw ExceptionFreeserf("sailor dropped serf at at flag and is now one tile away could not retrace water path to find flag!");
+      }
+
+      MapPos dropped_pos = map->move(pos, tmpdir);
       if (map->has_serf(dropped_pos)){
         throw ExceptionFreeserf("sailor dropped serf at at flag and is now one tile away but flag pos is not empty, so cannot make dropped serf appear there!");
       }
@@ -1024,16 +1037,14 @@ Serf::change_direction(Direction dir, int alt_end) {
       } else {
         // is StateWalking a good default to use here?
         dropped_serf->set_serf_state(StateWalking);
-		// serf->pos is not derived from map, it is also stored separately in Serf* object
-		//  need to set it
-		dropped_serf->pos = dropped_pos;
+        // serf->pos is not derived from map, it is also stored separately in Serf* object
+        //  need to set it
+        dropped_serf->pos = dropped_pos;
         // I dunno why these walking states all seem backwards, ignoring for now
         //  reverse the direction so it isn't facing back towards the water road
         dropped_serf->s.walking.dir = reverse_direction((Direction)dropped_serf->s.walking.dir);
-        // need to set animation??
-        //dropped_serf->an
-        // wait... doesn't this make more sense?
-        //dropped_serf->change_direction(dir, false);
+        // update the dropped serf's stored tick to current game tick or its next animation will cut to its end
+        dropped_serf->tick = game->get_tick();
       }
 
       // clear the hold on this flag position
@@ -1045,7 +1056,8 @@ Serf::change_direction(Direction dir, int alt_end) {
       s.transporting.dropped_serf_type = Type::TypeNone;
       s.transporting.dropped_serf_index = 0;
 
-      // the dropped off passenger serf should now fully exist on the map at his destination and resume going to his original destination
+      // the dropped off passenger serf should now fully exist on the map at the flag at 
+      //  the end of the water path and resume going to his original destination
   }
 
 
@@ -1286,13 +1298,17 @@ Serf::handle_serf_walking_state_search_cb(Flag *flag, void *data) {
 
 void
 Serf::start_walking(Direction dir, int slope, int change_pos) {
+  //Log::Info["serf"] << "debug: inside start_walking";
   PMap map = game->get_map();
   MapPos new_pos = map->move(pos, dir);
+  //Log::Info["serf"] << "debug: inside start_walking, old pos: " << pos << ", new pos: " << new_pos;
   animation = get_walking_animation(map->get_height(new_pos) -
                                     map->get_height(pos), dir, 0);
   counter += (slope * counter_from_animation[animation]) >> 5;
 
+  //Log::Info["serf"] << "debug: inside start_walking, animation = " << animation;
   if (change_pos) {
+    //Log::Info["serf"] << "debug: inside start_walking, change_pos is TRUE, moving serf to new_pos " << new_pos;
     map->set_serf_index(pos, 0);
     map->set_serf_index(new_pos, get_index());
   }
@@ -1314,9 +1330,11 @@ static const int road_building_slope[] = {
    serf index cleared. */
 void
 Serf::enter_building(int field_B, int join_pos) {
+  //Log::Info["serf"] << "debug: inside enter_building, setting state to StateEnteringBuilding";
   set_state(StateEnteringBuilding);
-
+  //Log::Info["serf"] << "debug: inside enter_building, calling start_walking, join_pos = " << join_pos;
   start_walking(DirectionUpLeft, 32, !join_pos);
+  //Log::Info["serf"] << "debug: inside enter_building, back from start_walking";
   if (join_pos) game->get_map()->set_serf_index(pos, get_index());
 
   Building *building = game->get_building_at_pos(pos);
@@ -1343,22 +1361,29 @@ Serf::leave_building(int join_pos) {
 void
 Serf::handle_serf_walking_state_dest_reached() {
   /* Destination reached. */
+  Log::Info["serf"] << "debug: inside handle_serf_walking_state_dest_reached, A";
   if (s.walking.dir1 < 0) {
+    Log::Info["serf"] << "debug: inside handle_serf_walking_state_dest_reached, B";
     PMap map = game->get_map();
     Building *building = game->get_building_at_pos(map->move_up_left(pos));
     building->requested_serf_reached(this);
 
     if (map->has_serf(map->move_up_left(pos))) {
+      Log::Info["serf"] << "debug: inside handle_serf_walking_state_dest_reached, C";
       animation = 85;
       counter = 0;
       set_state(StateReadyToEnter);
     } else {
+      Log::Info["serf"] << "debug: inside handle_serf_walking_state_dest_reached, D";
       enter_building(s.walking.dir1, 0);
     }
+    Log::Info["serf"] << "debug: inside handle_serf_walking_state_dest_reached, E";
   } else if (s.walking.dir1 == 6) {
+    Log::Info["serf"] << "debug: inside handle_serf_walking_state_dest_reached, F";
     set_state(StateLookingForGeoSpot);
     counter = 0;
   } else {
+    Log::Info["serf"] << "debug: inside handle_serf_walking_state_dest_reached, G";
     Flag *flag = game->get_flag_at_pos(pos);
     if (flag == nullptr) {
       throw ExceptionFreeserf("Flag expected as destination of walking serf.");
@@ -1376,8 +1401,10 @@ Serf::handle_serf_walking_state_dest_reached() {
 
     if (get_type() == Serf::TypeSailor){
       Log::Info["serf"] << "debug: inside handle_serf_walking_state_dest_reached, a Sailor has reached destination";
+    }else{
+      Log::Info["serf"] << "debug: inside handle_serf_walking_state_dest_reached, non-Sailor has reached destination";
     }
-
+    Log::Info["serf"] << "debug: inside handle_serf_walking_state_dest_reached, H";
     set_state(StateTransporting);
     s.transporting.res = Resource::TypeNone;
     s.transporting.dir = dir;
@@ -1385,6 +1412,7 @@ Serf::handle_serf_walking_state_dest_reached() {
 
     Log::Info["serf"] << "debug: at the end of handle_serf_walking_state_dest_reached, about to call transporter_move_to_flag at pos " << flag->get_position();
     transporter_move_to_flag(flag);
+    Log::Info["serf"] << "debug: inside handle_serf_walking_state_dest_reached, I";
   }
 }
 
@@ -1615,7 +1643,8 @@ Serf::handle_serf_transporting_state() {
         Log::Info["serf"] << "debug: a sailor in transporting state B0, returning";
         return;
       }
-
+      Log::Info["serf"] << "debug: a sailor in transporting state, s.transporting.res = " << s.transporting.res;
+      Log::Info["serf"] << "debug: a sailor in transporting state, s.transporting.dest = " << s.transporting.dest;
       /* 31590 */
       if (s.transporting.res != Resource::TypeNone &&
           map->get_obj_index(pos) == s.transporting.dest) {
@@ -1801,13 +1830,16 @@ Serf::enter_inventory() {
 
 void
 Serf::handle_serf_entering_building_state() {
+  Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter was = " << counter;
   uint16_t delta = game->get_tick() - tick;
   tick = game->get_tick();
   counter -= delta;
-
+  Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter now = " << counter;
   if (counter < 0 || counter <= s.entering_building.slope_len) {
+    Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter <0 or <= s.entering_building.slope_len";
     if (game->get_map()->get_obj_index(pos) == 0 ||
         game->get_building_at_pos(pos)->is_burning()) {
+      Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, setting Lost state and returning";
       /* Burning */
       set_state(StateLost);
       s.lost.field_B = 0;
@@ -1817,6 +1849,7 @@ Serf::handle_serf_entering_building_state() {
 
     counter = s.entering_building.slope_len;
     PMap map = game->get_map();
+    Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, switching, this serf type is " << NameSerf[get_type()];
     switch (get_type()) {
       case TypeTransporter:
         if (s.entering_building.field_B == -2) {
@@ -1853,9 +1886,12 @@ Serf::handle_serf_entering_building_state() {
         }
         break;
       case TypeBuilder:
+        Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, case TypeBuilder";
         if (s.entering_building.field_B == -2) {
+          Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, case TypeBuilder, calling enter_inventory";
           enter_inventory();
         } else {
+          Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, case TypeBuilder, setting StateBuilding";
           set_state(StateBuilding);
           animation = 98;
           counter = 127;
