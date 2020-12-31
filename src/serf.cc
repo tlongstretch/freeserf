@@ -1024,6 +1024,9 @@ Serf::change_direction(Direction dir, int alt_end) {
       } else {
         // is StateWalking a good default to use here?
         dropped_serf->set_serf_state(StateWalking);
+		// serf->pos is not derived from map, it is also stored separately in Serf* object
+		//  need to set it
+		dropped_serf->pos = dropped_pos;
         // I dunno why these walking states all seem backwards, ignoring for now
         //  reverse the direction so it isn't facing back towards the water road
         dropped_serf->s.walking.dir = reverse_direction((Direction)dropped_serf->s.walking.dir);
@@ -1242,7 +1245,7 @@ Serf::transporter_move_to_flag(Flag *flag) {
       s.transporting.dropped_serf_type = s.transporting.serf_type;
       // clear the passenger serf values
       s.transporting.serf_index = 0;
-      s.transporting.serf_type == Serf::TypeNone;
+      s.transporting.serf_type = Serf::TypeNone;
       s.transporting.res = Resource::TypeNone;
       // "hold" the flag so that another serf does not enter its tile yet, preventing the passenger from appearing there
       flag->set_boat_passenger_being_dropped();
