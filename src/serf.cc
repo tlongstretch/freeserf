@@ -999,10 +999,56 @@ Serf::change_direction(Direction dir, int alt_end) {
         ///  boat passengers are not attached to any map position
       }
   }
+  // handle sailor just dropped a passenger off at a flag one pos away
+  //  now that the sailor is free of the flag pos, the serf must be placed there and the sailor dropped_serf_ vars cleared
+  //  the !map->has_flag(pos) here check prevents this from triggering the second the passenger is dropped
+  if (type == Serf::TypeSailor && state == State::StateTransporting
+    && s.transporting.dropped_serf_type > Type::TypeNone && s.transporting.dropped_serf_index > 0
+    && !map->has_flag(pos)){
+      Log::Info["serf"] << "debug: a transporting sailor inside change_direction, just reached the next water-path pos after dropping a passenger off";
+      // retrace back one tile to the flag where serf was dropped
+      MapPos dropped_pos = map->move(pos, reverse_direction(dir));
+      if (map->has_serf(dropped_pos)){
+        throw ExceptionFreeserf("sailor dropped serf at at flag and is now one tile away but flag pos is not empty, so cannot make dropped serf appear there!");
+      }
+      if (!map->has_flag(dropped_pos)){
+        throw ExceptionFreeserf("sailor dropped serf at at flag and is now one tile away map thinks there is no flag at the dropped pos!");
+      }
+      // place the serf
+      // is s.transporting.xxxxx_serf_type even needed?  could just use serf->get_type() if the type is even ever needed?
+      //  I think only viewport uses it but even that already looks all serf types up by *Serf pointer
+      map->set_serf_index(dropped_pos, s.transporting.dropped_serf_index);
+      Serf *dropped_serf = game->get_serf(s.transporting.dropped_serf_index);
+      if (dropped_serf == nullptr){
+        Log::Warn["serf"] << "sailor dropped a serf off at flag at pos " << dropped_pos << " but got nullptr for the serf!  serf index: " << s.transporting.dropped_serf_index << " serf type: " << s.transporting.dropped_serf_type;
+      } else {
+        // is StateWalking a good default to use here?
+        dropped_serf->set_serf_state(StateWalking);
+        // I dunno why these walking states all seem backwards, ignoring for now
+        //  reverse the direction so it isn't facing back towards the water road
+        dropped_serf->s.walking.dir = reverse_direction((Direction)dropped_serf->s.walking.dir);
+        // need to set animation??
+        //dropped_serf->an
+        // wait... doesn't this make more sense?
+        //dropped_serf->change_direction(dir, false);
+      }
+
+      // clear the hold on this flag position
+      // it would be cleaner to simply set/clear the dropoff and pickup at flag bools rather than having tiny flag->functions that doe it
+      Flag *dropped_flag = game->get_flag_at_pos(dropped_pos);
+      dropped_flag->drop_off_serf();
+
+      // clear the sailor dropped_serf vars
+      s.transporting.dropped_serf_type = Type::TypeNone;
+      s.transporting.dropped_serf_index = 0;
+
+      // the dropped off passenger serf should now fully exist on the map at his destination and resume going to his original destination
+  }
+
 
   // if *this* serf is a sailor (who is already in transporting state and so must be in his boat)...
   //  and if another serf is at the next pos in StateWaitForBoat AND is waiting in the direction of this serf
-  //   continue "through" the waiting serf to pick him up
+  //   continue "into" the waiting serf to pick him up
   //
   bool sailor_pickup_serf = false;
   // debugging
@@ -1025,7 +1071,7 @@ Serf::change_direction(Direction dir, int alt_end) {
     if (type == Serf::TypeSailor && state == State::StateTransporting){
       Log::Info["serf"] << "debug: a transporting sailor inside change_direction, next pos " << new_pos << " does NOT have a serf blocking";
     }
-    
+
     /* Change direction, not occupied. */
 
     if (sailor_pickup_serf){
