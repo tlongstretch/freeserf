@@ -81,7 +81,7 @@ FlagSearch::execute(flag_search_func *callback, bool land,
       // I am thinking it doesn't really matter because the result is the same?
       
       // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
-      if (land && flag->has_path(i) && flag->is_water_path(i)){
+      if (land || flag->has_path(i) && flag->is_water_path(i)){
         ////Log::Info["flag"] << "debug: inside flag search.execute, land=" << land << ", flag->is_water_path(" << NameDirection[i] << ")=" << flag->is_water_path(i);
         // ...but no sailor is on the water route, skip this flag
         if (!flag->has_transporter(i)){

@@ -2036,7 +2036,7 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
       }
 
       // draw order of the sailor/passenger spites based on the direction the flag meets the water.
-      Direction flag_dir;
+      Direction flag_dir = DirectionNone;
       // if picking up, the sailor is heading to the flag so check the sailor's dir
       if (draw_boat_pickup){ flag_dir = (Direction)serf->get_walking_dir(); }
       // if dropped off, the sailor is heading away from the flag so invert the sailor's dir

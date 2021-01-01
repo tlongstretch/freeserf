@@ -1278,7 +1278,7 @@ Serf::transporter_move_to_flag(Flag *flag) {
 
       // handle picking a passenger serf up at flag
       if (flag->has_serf_waiting_for_boat()){
-        Log::Info["serf"] << "debug: sailor a serf is waiting for a boat at pos " << flag->get_position() << ", in dir " << NameDirection[other_dir];
+        Log::Info["serf"] << "debug: sailor: a serf is waiting for a boat at pos " << flag->get_position() << ", in dir " << NameDirection[other_dir];
         // get in the boat!
         //  I don't think this flag->pick_up_serf() function is needed after all, get rid of it
         flag->pick_up_serf();
