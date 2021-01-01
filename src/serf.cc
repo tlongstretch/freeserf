@@ -986,9 +986,9 @@ Serf::change_direction(Direction dir, int alt_end) {
   if (type == Serf::TypeSailor && state == State::StateTransporting
     && s.transporting.res == Resource::TypeSerf){
       Log::Info["serf"] << "debug: a transporting sailor inside change_direction, already has a passenger in his boat";
-      Serf *passenger = game->get_serf(s.transporting.serf_index);
+      Serf *passenger = game->get_serf(s.transporting.passenger_serf_index);
       if (passenger == nullptr){
-        Log::Warn["serf"] << "got nullptr when fetching boat passenger serf with index " << s.transporting.serf_index << "!";
+        Log::Warn["serf"] << "got nullptr when fetching boat passenger serf with index " << s.transporting.passenger_serf_index << "!";
       }else{
         passenger->animation = get_walking_animation(map->get_height(new_pos) -
                                       map->get_height(pos), (Direction)dir,
@@ -1097,8 +1097,8 @@ Serf::change_direction(Direction dir, int alt_end) {
       }else{
         Log::Info["serf"] << "debug: transporting sailor_pickup_serf is TRUE, storing passenger_serf info";
         // store passenger info for animation and for after unloading
-        s.transporting.serf_index = passenger_serf->get_index();
-        s.transporting.serf_type = passenger_serf->get_type();
+        s.transporting.pickup_serf_index = passenger_serf->get_index();
+        s.transporting.pickup_serf_type = passenger_serf->get_type();
         /* moving these to transporter_move_to_flag so they only happen when sailor actually reaches the flag
         // must unset the passenger_serf->pos or any checks against it will show it still being at the flag        
         passenger_serf->pos = bad_map_pos;
@@ -1200,17 +1200,21 @@ Serf::transporter_move_to_flag(Flag *flag) {
           // can't get passenger this way because it was already removed from map
           //Serf *passenger = game->get_serf_at_pos(flag->get_position());
           // get it from the sailor
-          Serf *passenger = game->get_serf(s.transporting.serf_index);
+          Serf *passenger = game->get_serf(s.transporting.pickup_serf_index);
           if (passenger == nullptr){
-            Log::Warn["serf"] << "failed to get passenger serf from sailor's s.transporting.serf_index value!";
+            Log::Warn["serf"] << "failed to get passenger serf from sailor's s.transporting.pickup_serf_index value!";
           }else{
-            Log::Info["serf"] << "found passenger serf from sailor's s.transporting.serf_index value";
+            Log::Info["serf"] << "found passenger serf from sailor's s.transporting.pickup_serf_index value";
             passenger->set_serf_state(Serf::StateBoatPassenger);
             passenger->pos = bad_map_pos;
+            s.transporting.res = Resource::TypeSerf;
+            s.transporting.passenger_serf_index = s.transporting.pickup_serf_index;
+            s.transporting.passenger_serf_type = s.transporting.pickup_serf_type;
           }
-          s.transporting.res = Resource::TypeSerf;
           // this is handled by the flag->pick_up_serf call above
           //flag->clear_serf_waiting_for_boat();
+          s.transporting.pickup_serf_index = 0;
+          s.transporting.pickup_serf_type = Serf::TypeNone;
           change_direction(dir, 1);
           return;
     }
@@ -1218,7 +1222,7 @@ Serf::transporter_move_to_flag(Flag *flag) {
   }
   if (flag->is_scheduled(dir)) {
     if (get_type() == Serf::TypeSailor){
-      Log::Info["serf"] << "debug: inside Serf::transporter_move_to_flag, flag->is_scheduled in dir " << NameDirection[dir];
+      Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag, flag->is_scheduled in dir " << NameDirection[dir];
     }
     /* Fetch resource from flag */
     s.transporting.wait_counter = 0;
@@ -1253,11 +1257,11 @@ Serf::transporter_move_to_flag(Flag *flag) {
       // because the map only allows one serf per tile, the dropped off serf cannot actually be placed yet
       //  it remains a record in the sailor's s.transporting struct until the sailor reaches the next pos away from the flag
       //  Also, this must support picking up another passenger at the same time the previous one is still in dropoff limbo!
-      s.transporting.dropped_serf_index = s.transporting.serf_index;
-      s.transporting.dropped_serf_type = s.transporting.serf_type;
+      s.transporting.dropped_serf_index = s.transporting.passenger_serf_index;
+      s.transporting.dropped_serf_type = s.transporting.passenger_serf_type;
       // clear the passenger serf values
-      s.transporting.serf_index = 0;
-      s.transporting.serf_type = Serf::TypeNone;
+      s.transporting.passenger_serf_index = 0;
+      s.transporting.passenger_serf_type = Serf::TypeNone;
       s.transporting.res = Resource::TypeNone;
       // "hold" the flag so that another serf does not enter its tile yet, preventing the passenger from appearing there
       flag->set_boat_passenger_being_dropped();
@@ -1520,18 +1524,17 @@ Serf::handle_serf_walking_state() {
               set_state(Serf::StateWaitForBoat);
               // set the serf walking direction to the dir of the water path/boat it is waiting for
               s.walking.dir = i;
-              // call the sailor out
-              //transporter_move_to_flag(src);
-              //Flag *other_flag = src->get_other_end_flag(i);
-              //transporter_move_to_flag(other_flag);
-              Log::Info["serf"] << "debug: inside handle_serf_walking_state, done setting serf at pos " << get_pos() << " state to Serf::StateWaitForBoat";
-              // tell the sailor a resource was delivered?
+              // call the sailor out (by telling the sailor a resource was delivered?)
               Flag *other_flag = src->get_other_end_flag(i);
               Log::Info["serf"] << "debug: inside handle_serf_walking_state, telling transporter(sailor?) at pos " << other_flag->get_position() << " that a resource dropped(?) in dir " << NameDirection[i];
               other_flag->set_search_dir(i);
               search.add_source(other_flag);
               Log::Info["serf"] << "debug: inside handle_serf_walking_state, done telling transporter(sailor?) at pos " << other_flag->get_position() << " that a resource dropped(?) in dir " << NameDirection[i];
               Log::Info["serf"] << "debug: inside handle_serf_walking_state, RETURNING EARLY TO AVOID calling handle_serf_walking_state search";
+              // because this search is never actually executed it will cause the sailor, after dropping off his passenger, to go back
+              //  to the flag where the passenger was first waiting (WaitForBoat state) and get stuck there.
+              // I think this is because the search.execute clears the flag queue.
+              //  as a solution, will manually call the Flag queue.clear() function as the sailor picks up the passenger at the flag
               return;
             }
           }
@@ -1599,7 +1602,7 @@ Serf::handle_serf_walking_state() {
     counter = 0;
     Log::Info["serf"] << "debug: inside handle_serf_walking_state, Wug2";
   }
-  Log::Info["serf"] << "debug: inside handle_serf_walking_state, end of while(counter < 0) loop, counter = " << counter;
+  //Log::Info["serf"] << "debug: inside handle_serf_walking_state, end of while(counter < 0) loop, counter = " << counter;
 }
 
 void
@@ -1764,7 +1767,7 @@ Serf::handle_serf_transporting_state() {
         Log::Info["serf"] << "debug: a sailor in transporting state I";
       }
 
-      // a flag is at the next pos (or previous function would have returned)
+      // a flag is at the next pos (or previous check would have returned)
       Flag *flag = game->get_flag_at_pos(map->move(pos, dir));
       Direction rev_dir = reverse_direction(dir);
       Flag *other_flag = flag->get_other_end_flag(rev_dir);
@@ -1830,16 +1833,16 @@ Serf::enter_inventory() {
 
 void
 Serf::handle_serf_entering_building_state() {
-  Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter was = " << counter;
+  //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter was = " << counter;
   uint16_t delta = game->get_tick() - tick;
   tick = game->get_tick();
   counter -= delta;
-  Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter now = " << counter;
+  //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter now = " << counter;
   if (counter < 0 || counter <= s.entering_building.slope_len) {
-    Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter <0 or <= s.entering_building.slope_len";
+    //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter <0 or <= s.entering_building.slope_len";
     if (game->get_map()->get_obj_index(pos) == 0 ||
         game->get_building_at_pos(pos)->is_burning()) {
-      Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, setting Lost state and returning";
+      //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, setting Lost state and returning";
       /* Burning */
       set_state(StateLost);
       s.lost.field_B = 0;
@@ -1849,7 +1852,7 @@ Serf::handle_serf_entering_building_state() {
 
     counter = s.entering_building.slope_len;
     PMap map = game->get_map();
-    Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, switching, this serf type is " << NameSerf[get_type()];
+    //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, switching, this serf type is " << NameSerf[get_type()];
     switch (get_type()) {
       case TypeTransporter:
         if (s.entering_building.field_B == -2) {
@@ -1886,12 +1889,12 @@ Serf::handle_serf_entering_building_state() {
         }
         break;
       case TypeBuilder:
-        Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, case TypeBuilder";
+        //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, case TypeBuilder";
         if (s.entering_building.field_B == -2) {
-          Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, case TypeBuilder, calling enter_inventory";
+          //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, case TypeBuilder, calling enter_inventory";
           enter_inventory();
         } else {
-          Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, case TypeBuilder, setting StateBuilding";
+          //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, case TypeBuilder, setting StateBuilding";
           set_state(StateBuilding);
           animation = 98;
           counter = 127;
@@ -5332,7 +5335,7 @@ Serf::handle_serf_idle_on_path_state() {
   Direction rev_dir = s.idle_on_path.rev_dir;
 
   if (get_type() == Serf::TypeSailor){
-    //Log::Info["serf"] << "debug: inside handle_serf_idle_on_path_state, a Sailor has reached destination";
+    Log::Info["serf"] << "debug: sailor inside handle_serf_idle_on_path_state";
   }
 
   bool serf_waiting_for_boat = false;

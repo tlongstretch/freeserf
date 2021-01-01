@@ -202,6 +202,32 @@ Flag::pick_up_serf() {
     throw ExceptionFreeserf("No serf is waiting for boat pickup at this flag!");
   }
   serf_waiting_for_boat = false;
+  // clear the flag search queue that was set to fake a resource schedule
+  //  which is the mechanism used to trigger a sailor to come to the serf in WaitForBoat state
+  // if this queue is not cleared the sailor will, after dropping off the passenger, come back
+  //  to the original flag where the serf in WaitForBoat state was waiting... and become stuck
+  // We want the sailor to return to idle (inactive) transporter on road state
+
+  // it is more complicated than simply calling queue.clear(), 
+  //  the flag's search_num and search_dir must be cleared
+  //queue.clear();
+  // this still isn't working, the sailor still thinks there is a resource waiting at the flag
+  //
+  // wait... maybe this is not a problem at all and the sailor simply NORMALLY returns to the 
+  //  flag where the last resource CAME FROM before returning to idle state
+  // Now I am thinking the issue is that a sailor cannot pick up a WaitForBoat passenger
+  //  if he is already adjacent to flag where the passenger is waiting!
+  // YES, I just confirmed in original SerfCity/Settlers1 DOS game that after a sailor drops
+  //  off a resource delivery he returns to the side the the first delivery originated from
+  //   and not the side he originally was idle at 
+  //  STILL NEED TO VERIFY THAT HE CAN THEN PICK UP ANOTHER RES FROM "near" FLAG!  
+  //   though I am sure it will work
+  //
+  ///search_dir = DirectionNone;
+  ///search_num = 0;
+  /// trying this:
+  ///fix_scheduled();
+
 //  *res = slot[from_slot].type;
 //  *dest = slot[from_slot].dest;
 //  slot[from_slot].type = Resource::TypeNone;

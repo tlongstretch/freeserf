@@ -190,10 +190,12 @@ class Serf : public GameObject {
       int dir; /* E */
       int wait_counter; /* F */
       // add support for AIPlusOption::CanTransportSerfsInBoats
-      Type serf_type;
-      unsigned int serf_index;
-      Type dropped_serf_type;
-      unsigned int dropped_serf_index;
+      Type pickup_serf_type;            // serf at flag one tile away, about to be picked up by sailor
+      unsigned int pickup_serf_index;   // serf at flag one tile away, about to be picked up by sailor
+      Type passenger_serf_type;         // serf currently in the sailor's boat
+      unsigned int passenger_serf_index;  // serf currently in the sailor's boat
+      Type dropped_serf_type;           // serf at flag one tile away, just dropped off by sailor
+      unsigned int dropped_serf_index;  // serf at flag one tile away, just dropped off by sailor
     } transporting;
 
     struct {
@@ -429,8 +431,10 @@ class Serf : public GameObject {
 
   int get_delivery() const;
   // add support for AIPlusOption::CanTransportSerfsInBoats
-  Type get_serf_in_boat_type() const { return s.transporting.serf_type; }
-  unsigned int get_serf_in_boat_index() const { return s.transporting.serf_index; }
+  Type get_pickup_serf_type() const { return s.transporting.pickup_serf_type; }
+  unsigned int get_pickup_serf_index() const { return s.transporting.pickup_serf_index; }
+  Type get_passenger_serf_type() const { return s.transporting.passenger_serf_type; }
+  unsigned int get_passenger_serf_index() const { return s.transporting.passenger_serf_index; }
   Type get_dropped_serf_type() const { return s.transporting.dropped_serf_type; }
   unsigned int get_dropped_serf_index() const { return s.transporting.dropped_serf_index; }
   int get_free_walking_neg_dist1() const { return s.free_walking.neg_dist1; }
