@@ -1158,14 +1158,14 @@ Serf::change_direction(Direction dir, int alt_end) {
 
     if (sailor_pickup_serf){
       Log::Info["serf"] << "debug: transporting sailor_pickup_serf is TRUE";
-      Serf *passenger_serf = game->get_serf_at_pos(new_pos);
-      if (passenger_serf == nullptr){
+      Serf *pickup_serf = game->get_serf_at_pos(new_pos);
+      if (pickup_serf == nullptr){
         Log::Warn["serf"] << "got nullptr for passenger_serf during sailor boat pickup at pos " << pos << " and new_pos " << new_pos << "!";
       }else{
         Log::Info["serf"] << "debug: transporting sailor_pickup_serf is TRUE, storing passenger_serf info";
         // store passenger info for in-boat animation and for restoring passenger serf after dropoff 
-        s.transporting.pickup_serf_index = passenger_serf->get_index();
-        s.transporting.pickup_serf_type = passenger_serf->get_type();
+        s.transporting.pickup_serf_index = pickup_serf->get_index();
+        s.transporting.pickup_serf_type = pickup_serf->get_type();
       }
     }
     if (type == Serf::TypeSailor && state == State::StateTransporting){
@@ -1924,7 +1924,9 @@ Serf::handle_serf_transporting_state() {
             Log::Info["serf"] << "debug: a sailor in transporting state M";
           }
           /* TODO Don't use anim as state var */
+          Log::Info["serf"] << "debug: inside handle_serf_transporting_state, setting serf to idle StateIdleOnPath, tick was " << tick << ", s.walking.dir was " << s.walking.dir;
           tick = (tick & 0xff00) | (s.walking.dir & 0xff);
+          Log::Info["serf"] << "debug: inside handle_serf_transporting_state, setting serf to idle StateIdleOnPath, tick is now " << tick;
           set_state(StateIdleOnPath);
           s.idle_on_path.rev_dir = rev_dir;
           s.idle_on_path.flag = flag->get_index();
@@ -5459,15 +5461,52 @@ Serf::handle_serf_idle_on_path_state() {
   //   AIPlusOption::CanTransportSerfsInBoats is set
   // * Set walking dir in field_E. */
 
+  Log::Info["serf"] << "debug: before idle transporter checking flags, s.idle_on_path.field_E = " << s.idle_on_path.field_E;
   //Log::Info["serf"] << "debug: inside handle_serf_idle_on_path_state, checking flag at pos " << flag->get_position();
   // check the flag closest to the idle transporter(?) - assuming s.idle_on_path.flag means that
   if (get_type() == Serf::TypeSailor && flag->has_serf_waiting_for_boat()){
     Log::Info["serf"] << "debug: sailor inside handle_serf_idle_on_path_state, sailor found flag at pos " << flag->get_position() << " with serf_waiting_for_boat, setting dir this way";
     boat_pickup = true;
-    s.idle_on_path.field_E = (tick & 0xff) + 6;
+    //
+    // Bitmath explanation:
+    //  Serf::tick is an unsigned 16bit short integer          xxxxxxxx xxxxxxxx
+    //  0xff is a 32bit(?) signed(?) integer 00000000 00000000 00000000 11111111
+    //
+    //    a bitwise AND against a bunch of 1's does nothing to them
+    //    a bitwise AND against a bunch of 0's erases them
+    // 
+    //  so ANDing some mix of 1s and 0s in Serf::tick with 0xff effectively wipes any value > 1111 1111 (0xff is unsigned 255 or signed -1)
+    //  I assume this is either because some extra information is being stored in the most significant (leftmost) digits, and this wipes it
+    //  or, this is a way to use 'tick' as a 0-255 (or -127 to 127) rolling counter and wiping the most significant digits ensures
+    //   that it is never >255 during conversion?
+    //  so Serf::tick's new value after AND conversion is      00000000 xxxxxxxx  
+    //
+    //  then 6 is added.   Because field_E seems to be used as a Direction, 
+    //    the only valid values can be 0-5 (East/Right through NorthEast/UpRight)
+    //  this means that Serf::tick & 0xff must result in -6 through -1, which after +6 results in 0 through 5, the valid Directions
+    //  negative numbers in a signed 32bit integer look like
+    //                                       1xxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx
+    //                                       ^ most significant bit
+    //                     -6 looks like:    11111111 11111111 11111111 11111010
+    //                     -1 looks like:    11111111 11111111 11111111 11111111
+    //                      0 looks like:    00000000 00000000 00000000 00000000
+    //                      5 looks like:    00000000 00000000 00000000 00000101
+    //
+    //                      6 looks like:    00000000 00000000 00000000 00000110
+    //
+    //   but this should be IMPOSSIBLE because the only possible results of & 255 should be:
+    //                                       00000000 00000000 00000000 xxxxxxxx
+    //  ??????????????????????????
+    //
+    // because this makes no sense, what if I just set field_E to the direction that makes sense?
+    //  that is how "other_flag" does it.  Instead of this crazy bit math
+    //
+    //s.idle_on_path.field_E = (tick & 0xff) + 6;
+    s.idle_on_path.field_E = rev_dir;
   } else if (flag->is_scheduled(rev_dir)) {
-    Log::Info["serf"] << "debug: sailor inside handle_serf_idle_on_path_state, this flag is scheduled";
-    s.idle_on_path.field_E = (tick & 0xff) + 6;
+    Log::Info["serf"] << "debug: serf inside handle_serf_idle_on_path_state, this flag is scheduled";
+    //s.idle_on_path.field_E = (tick & 0xff) + 6;
+    s.idle_on_path.field_E = rev_dir;
   } else {
     // check the other flag
     Flag *other_flag = flag->get_other_end_flag(rev_dir);
@@ -5478,13 +5517,14 @@ Serf::handle_serf_idle_on_path_state() {
       boat_pickup = true;
       s.idle_on_path.field_E = reverse_direction(rev_dir);
     } else if (other_flag && other_flag->is_scheduled(other_dir)) {
-      Log::Info["serf"] << "debug: sailor inside handle_serf_idle_on_path_state, other flag is scheduled";
+      Log::Info["serf"] << "serf: sailor inside handle_serf_idle_on_path_state, other flag is scheduled";
       s.idle_on_path.field_E = reverse_direction(rev_dir);
     } else {
-      Log::Info["serf"] << "debug: sailor inside handle_serf_idle_on_path_state, nothing is true, returning";
+      Log::Info["serf"] << "debug: serf inside handle_serf_idle_on_path_state, nothing is true, returning";
       return;
     }
   }
+  Log::Info["serf"] << "debug: after idle transporter checking flags, s.idle_on_path.field_E = " << s.idle_on_path.field_E;
 
   PMap map = game->get_map();
   if (!map->has_serf(pos)) {

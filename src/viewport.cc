@@ -1976,7 +1976,7 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
           Log::Warn["viewport"] << "got nullptr for current boat passenger serf of type " << passenger_type << " with serf index " << passenger_index << "!";
         }
         else{
-          Log::Info["viewport"] << "inside draw_active_serf: transporting sailor: a serf is waiting for a boat at flag pos " << pos;
+          Log::Info["viewport"] << "inside draw_active_serf: transporting sailor: a serf has a passenger in his boat at flag pos " << pos;
           draw_boat_passenger = true;
           passenger_body = serf_get_body(passenger_serf);
           int passenger_sprite_offset[] = {
