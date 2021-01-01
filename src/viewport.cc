@@ -2011,7 +2011,7 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
           Log::Warn["viewport"] << "got nullptr for dropped boat passenger serf of type " << dropoff_type << " with serf index " << dropoff_index << "!";
         }
         else{
-          Log::Info["viewport"] << "inside draw_active_serf: transporting sailor: a serf is waiting for a boat at flag pos " << pos;
+          Log::Info["viewport"] << "inside draw_active_serf: transporting sailor: a passenger has just been dropped off at flag pos " << pos;
           draw_boat_dropoff = true;
           dropoff_body = serf_get_body(dropoff_serf);
           //  because the x/y_base is the sailor pos, it needs to be adjusted 
@@ -2034,16 +2034,24 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
           dropoff_y = y_base + dropoff_sprite_offset[dropoff_dir * 2 + 1];
         }
       }
-      // draw the sailor/passenger sprites in order based on the sailor's direction of travel
-      //  so that when heading south any pickup/dropoff serf occludes the sailor/boat/passenger
-      //   and when heading north the sailor/boat/passenger occlude any pickup/dropoff serf
-      //  for dir left and right it looks better when the sailor/boat/passenger occlude the pickup/dropoff serf
-      if (serf->get_walking_dir() < 4){
+
+      // draw order of the sailor/passenger spites based on the direction the flag meets the water.
+      Direction flag_dir;
+      // if picking up, the sailor is heading to the flag so check the sailor's dir
+      if (draw_boat_pickup){ flag_dir = (Direction)serf->get_walking_dir(); }
+      // if dropped off, the sailor is heading away from the flag so invert the sailor's dir
+      if (draw_boat_dropoff){ flag_dir = reverse_direction((Direction)serf->get_walking_dir()); }
+
+      if (flag_dir < 4){
+        // If the flag is north of the water path the sailor/boat/passenger should occlude any pickup/dropoff serf
+        //  for dir left and right it looks better when the sailor/boat/passenger occludes any pickup/dropoff serf
         if (draw_boat_pickup){ draw_row_serf(pickup_x, pickup_y, true, color, pickup_body);}
         if (draw_boat_dropoff){ draw_row_serf(dropoff_x, dropoff_y, true, color, dropoff_body);}
         draw_row_serf(lx, ly, true, color, body);  // the sailor
         if (draw_boat_passenger){ draw_row_serf(passenger_x, passenger_y, false, color, passenger_body);}
       }else{
+        // If the flag is south of the water path any pickup/dropoff serf should occlude the sailor/boat/passenger
+        //Log::Info["viewport"] << "sailor is heading SOUTH or EAST/WEST with a passenger";
         draw_row_serf(lx, ly, true, color, body);  // the sailor
         if (draw_boat_passenger){ draw_row_serf(passenger_x, passenger_y, false, color, passenger_body);}
         if (draw_boat_pickup){ draw_row_serf(pickup_x, pickup_y, true, color, pickup_body);}

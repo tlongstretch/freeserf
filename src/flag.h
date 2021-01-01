@@ -101,6 +101,14 @@ class Flag : public GameObject {
   /* Bitmap showing whether the outgoing paths are land paths. */
   int land_paths() const { return endpoint & 0x3f; }
   /* Whether the path in the given direction is a water path. */
+  //**********************************************************************
+  // THIS FUNCTION IS VERY MISLEADING
+  // - it returns true if there is a water path, or NO PATH AT ALL!
+  // - it returns false if there is a valid LAND path
+  // so it cannot be used on its own to test if there is a valid water path in dir
+  // it must be combined with a "has_path(dir)" check
+  // The game probably does with with bitwise operators
+  //**********************************************************************
   bool is_water_path(Direction dir) const {
     return !(endpoint & (1 << (dir))); }
   /* Whether a building is connected to this flag. If so, the pointer to

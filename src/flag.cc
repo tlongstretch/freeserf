@@ -73,13 +73,22 @@ FlagSearch::execute(flag_search_func *callback, bool land,
     //    which means "must be a land route, does not need transporter(?)"...
     //  ... unless there is already a boat and AIPlusOption::CanTransportSerfsInBoats is set
     for (Direction i : cycle_directions_ccw()) {
+
       // if a serf is being routed ('land = true' suggests it is a serf)
       //  and this is a water route...
-      if (land || flag->is_water_path(i)){
+      // wait why is this OR, should be AND, right??
+      //if (land || flag->is_water_path(i)){
+      // I am thinking it doesn't really matter because the result is the same?
+      
+      // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
+      if (land && flag->has_path(i) && flag->is_water_path(i)){
+        ////Log::Info["flag"] << "debug: inside flag search.execute, land=" << land << ", flag->is_water_path(" << NameDirection[i] << ")=" << flag->is_water_path(i);
         // ...but no sailor is on the water route, skip this flag
         if (!flag->has_transporter(i)){
+          ////Log::Info["flag"] << "debug: inside flag search.execute, route rejected because there is no transporter at flag in dir " << NameDirection[i];
           continue;
         }
+        ////Log::Info["flag"] << "debug: inside flag search.execute, route allowed because is a transporter at flag in dir " << NameDirection[i];
       }
       // if this is a resource being routed ('transporter = true' suggests it is a resource)
       //  but there is no transporter on this flag-path-dir...

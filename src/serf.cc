@@ -973,13 +973,17 @@ Serf::get_walking_animation(int h_diff, Direction dir, int switch_pos) {
 /* Preconditon: serf is in WALKING or TRANSPORTING state */
 void
 Serf::change_direction(Direction dir, int alt_end) {
-  if (type == Serf::TypeSailor && state == State::StateTransporting){
-    Log::Info["serf"] << "debug: a transporting sailor inside change_direction, dir: " << NameDirection[dir];
-  }
+  Log::Info["serf"] << "debug: a serf inside change_direction, starting pos " << pos << ", dir: " << NameDirection[dir];
   PMap map = game->get_map();
   MapPos new_pos = map->move(pos, dir);
+
   //
   // adding support for AIPlusOption::CanTransportSerfsInBoats
+  //
+
+  //
+  //  NOTE - should it be disallowed for a sailor to be passenger in a boat? i.e. boat in boat?  
+  //   it seems funny but not much different than carrying a heavy load of gold or some other resource
   //
 
   // handle sailor already has a passenger in his boat
@@ -1035,19 +1039,24 @@ Serf::change_direction(Direction dir, int alt_end) {
       if (dropped_serf == nullptr){
         Log::Warn["serf"] << "sailor dropped a serf off at flag at pos " << dropped_pos << " but got nullptr for the serf!  serf index: " << s.transporting.dropped_serf_index << " serf type: " << s.transporting.dropped_serf_type;
       } else {
+        Log::Info["serf"] << "sailor awakened serf that was dropped off at pos " << dropped_pos;
         // is StateWalking a good default to use here?
         dropped_serf->set_serf_state(StateWalking);
         // serf->pos is not derived from map, it is also stored separately in Serf* object
         //  need to set it
         dropped_serf->pos = dropped_pos;
-        // I dunno why these walking states all seem backwards, ignoring for now
-        //  reverse the direction so it isn't facing back towards the water road
-        dropped_serf->s.walking.dir = reverse_direction((Direction)dropped_serf->s.walking.dir);
+        // I dunno why these walking states all seem backwards, ignoring for now??
+        //  set the dropped serf's dir to the reverse of the sailor's dir
+        //   so it isn't facing back towards the water road
+        // If this is not done, and the serf is still facing the water road, it will think it is waiting for a boat
+        // wait, this must be done earlier, right as the serf is dropped off NOT as the sailor reaches one tile away
+        //dropped_serf->s.walking.dir = reverse_direction((Direction)s.walking.dir);
         // update the dropped serf's stored tick to current game tick or its next animation will cut to its end
         dropped_serf->tick = game->get_tick();
       }
 
       // clear the hold on this flag position
+      //  THIS IS NOT IMPLEMENTED YET!
       // it would be cleaner to simply set/clear the dropoff and pickup at flag bools rather than having tiny flag->functions that doe it
       Flag *dropped_flag = game->get_flag_at_pos(dropped_pos);
       dropped_flag->drop_off_serf();
@@ -1082,6 +1091,64 @@ Serf::change_direction(Direction dir, int alt_end) {
        sailor_pickup_serf = true;
   }
 
+  // handle serf entering WaitForBoat state because it's change_direction dir is into a waiting sailor's water path
+  /*
+  // notes from old function:
+  // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
+  if (src->is_water_path(i)){
+      Log::Info["serf"] << "debug: a serf inside_change_direction
+  }) Log::Info["serf"] << "debug: inside handle_serf_walking_state, serf at pos " << get_pos() << " found water path in dir " << NameDirection[i];
+  if (src->has_transporter(i)){
+  Log::Info["serf"] << "debug: inside handle_serf_walking_state, setting flag at pos " << src->get_position() << " to has_serf_waiting_for_boat";
+  src->set_serf_waiting_for_boat();
+  Log::Info["serf"] << "debug: inside handle_serf_walking_state, about to set serf at pos " << get_pos() << " state to Serf::StateWaitForBoat";
+  set_state(Serf::StateWaitForBoat);
+  */
+  // if next pos is in water and has no blocking serf, and current pos is NOT in water... (or else it triggers for active sailors)
+  if (map->is_in_water(new_pos) && !map->has_serf(new_pos) && !map->is_in_water(pos)){
+    // this water path must have a sailor or else the search callback should not have given 
+    //  this as a valid dir, but do some sanity checks anyway
+    Flag *water_flag = game->get_flag_at_pos(pos);
+    if (water_flag == nullptr){
+      Log::Warn["serf"] << "expecting a flag (at water's edge) at pos " << pos << " (which should be next to new_pos " << new_pos << "), but no flag was found!";
+    } else {
+      // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
+      if (!(water_flag->has_path(dir) && water_flag->is_water_path(dir))){
+        throw ExceptionFreeserf("expecting flag to have water path!  to direct serf to WaitForBoat state");
+      }
+
+      // NOTE: if this serf IS a sailor, but the the water path has no transporter (sailor),
+      //   then this sailor likely *is* that path's transporter
+      //    though I guess it is possible that sailor is actually en route to another water path, but that seems unlikely
+      //     and it all might still work anyway
+      // AH, it should be possible to check if call_transporter stuff was done for this water path to determine
+      //  if this is the sailor meant for the path??  figure that out later
+
+      // if this flag has a transporter (sailor) 
+      //  and this serf's dir *prior to change_direction* was NOT from the water path...
+      //***this prevents a sailor who is picking up a WaitForBoat serf from becoming a WaitForBoat serf himself!***
+      Log::Info["serf"] << "debug: inside Serf::change_direction, water_flag->has_transporter(" << NameDirection[dir] << ") == " << water_flag->has_transporter(dir);
+      Log::Info["serf"] << "debug: inside Serf::change_direction, game->get_serf_at_pos(" << pos << ")->get_walking_dir() = " << NameDirection[game->get_serf_at_pos(pos)->get_walking_dir()] << ", compare to reverse-dir " << NameDirection[reverse_direction(dir)];
+      // ugh, because serf->get_walking_dir seems to always be backwards, we should actually reject the pickup
+      //  if get_walking_dir == dir, which is equivalent to "corrected" reverse_dir[get_walking_dir] != reverse_dir(dir)
+      if (water_flag->has_transporter(dir) && game->get_serf_at_pos(pos)->get_walking_dir() != dir){
+        Log::Info["serf"] << "debug: inside Serf::change_direction, setting passenger-to-be into WaitForBoat state";
+        set_state(Serf::StateWaitForBoat);
+        Log::Info["serf"] << "debug: inside Serf::change_direction, setting flag at pos " << pos << " to has_serf_waiting_for_boat";
+        water_flag->set_serf_waiting_for_boat();
+        // still need to actually set the serf walking direction to the dir of the water path/boat it is waiting for
+        s.walking.dir = dir;
+        return;
+      }
+      if (get_type() == Serf::TypeSailor){
+        // this sailor is probably the new transporter for this water path
+        //  let him go on, and do not put him in WaitForBoat state
+      }else{
+        throw ExceptionFreeserf("expecting flag with water path to have a (sailor) transporter!  to direct serf to WaitForBoat state");
+      }
+    }
+  }
+
   if (!map->has_serf(new_pos) || sailor_pickup_serf){
     if (type == Serf::TypeSailor && state == State::StateTransporting){
       Log::Info["serf"] << "debug: a transporting sailor inside change_direction, next pos " << new_pos << " does NOT have a serf blocking";
@@ -1096,15 +1163,9 @@ Serf::change_direction(Direction dir, int alt_end) {
         Log::Warn["serf"] << "got nullptr for passenger_serf during sailor boat pickup at pos " << pos << " and new_pos " << new_pos << "!";
       }else{
         Log::Info["serf"] << "debug: transporting sailor_pickup_serf is TRUE, storing passenger_serf info";
-        // store passenger info for animation and for after unloading
+        // store passenger info for in-boat animation and for restoring passenger serf after dropoff 
         s.transporting.pickup_serf_index = passenger_serf->get_index();
         s.transporting.pickup_serf_type = passenger_serf->get_type();
-        /* moving these to transporter_move_to_flag so they only happen when sailor actually reaches the flag
-        // must unset the passenger_serf->pos or any checks against it will show it still being at the flag        
-        passenger_serf->pos = bad_map_pos;
-        // and update the passenger state
-        passenger_serf->set_serf_state(State::StateBoatPassenger);
-        */
       }
     }
     if (type == Serf::TypeSailor && state == State::StateTransporting){
@@ -1187,36 +1248,58 @@ Serf::transporter_move_to_flag(Flag *flag) {
     Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag A, this serf's type == " << NameSerf[type];
     Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag A, flag->is_water_path " << NameDirection[dir] << " = " << flag->is_water_path(dir);
     Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag A, flag->has_serf_waiting_for_boat() == " << flag->has_serf_waiting_for_boat();
+    
     // adding support for AIPlusOption::CanTransportSerfsInBoats
     Direction other_dir = flag->get_other_end_dir(dir);
     //Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag A, flag other_end_dir = " << NameDirection[other_dir];
-    if (flag->is_water_path(dir) &&
-        type == Serf::TypeSailor &&
-        flag->has_serf_waiting_for_boat()){
-          Log::Info["serf"] << "debug: sailor a serf is waiting for a boat at pos " << flag->get_position() << ", in dir " << NameDirection[other_dir];
-          // get in the boat!
-          //  I don't think this flag->pick_up_serf() function is needed after all, get rid of it
-          flag->pick_up_serf();
-          // can't get passenger this way because it was already removed from map
-          //Serf *passenger = game->get_serf_at_pos(flag->get_position());
-          // get it from the sailor
-          Serf *passenger = game->get_serf(s.transporting.pickup_serf_index);
-          if (passenger == nullptr){
-            Log::Warn["serf"] << "failed to get passenger serf from sailor's s.transporting.pickup_serf_index value!";
-          }else{
-            Log::Info["serf"] << "found passenger serf from sailor's s.transporting.pickup_serf_index value";
-            passenger->set_serf_state(Serf::StateBoatPassenger);
-            passenger->pos = bad_map_pos;
-            s.transporting.res = Resource::TypeSerf;
-            s.transporting.passenger_serf_index = s.transporting.pickup_serf_index;
-            s.transporting.passenger_serf_type = s.transporting.pickup_serf_type;
-          }
-          // this is handled by the flag->pick_up_serf call above
-          //flag->clear_serf_waiting_for_boat();
-          s.transporting.pickup_serf_index = 0;
-          s.transporting.pickup_serf_type = Serf::TypeNone;
-          change_direction(dir, 1);
-          return;
+    // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
+    if (flag->is_water_path(dir) && type == Serf::TypeSailor){
+
+      // handle dropping a passenger serf off at flag
+      if (get_type() == Serf::TypeSailor && s.transporting.res == Resource::TypeSerf){
+        Log::Info["serf"] << "debug: inside Serf::transporter_move_to_flag, dropping passenger off at flag at pos " << flag->get_position();
+        // because the map only allows one serf per tile, the dropped off serf cannot actually be placed yet
+        //  it remains a record in the sailor's s.transporting struct until the sailor reaches the next pos away from the flag
+        //  Also, this must support picking up another passenger at the same time the previous one is still in dropoff limbo!
+        s.transporting.dropped_serf_index = s.transporting.passenger_serf_index;
+        s.transporting.dropped_serf_type = s.transporting.passenger_serf_type;
+        //  set the dropped serf's dir so it isn't facing back towards the water road
+        //  If this is not done, and the serf is still facing the water road, it will think it is waiting for a boat
+        // wait this doesn't fix the problem either... maybe something else is going on
+        //game->get_serf(s.transporting.dropped_serf_index)->s.walking.dir = s.transporting.dir;
+        // clear the passenger serf values
+        s.transporting.passenger_serf_index = 0;
+        s.transporting.passenger_serf_type = Serf::TypeNone;
+        s.transporting.res = Resource::TypeNone;
+        // "hold" the flag so that another serf does not enter its tile yet, preventing the passenger from appearing there
+        //   THIS CHECK IS NOT ACTUALLY IMPLEMENTED YET!!!
+        flag->set_boat_passenger_being_dropped();
+      }
+
+      // handle picking a passenger serf up at flag
+      if (flag->has_serf_waiting_for_boat()){
+        Log::Info["serf"] << "debug: sailor a serf is waiting for a boat at pos " << flag->get_position() << ", in dir " << NameDirection[other_dir];
+        // get in the boat!
+        //  I don't think this flag->pick_up_serf() function is needed after all, get rid of it
+        flag->pick_up_serf();
+        Serf *passenger = game->get_serf(s.transporting.pickup_serf_index);
+        if (passenger == nullptr){
+          Log::Warn["serf"] << "failed to get passenger serf from sailor's s.transporting.pickup_serf_index value!";
+        }else{
+          Log::Info["serf"] << "found passenger serf from sailor's s.transporting.pickup_serf_index value";
+          passenger->set_serf_state(Serf::StateBoatPassenger);
+          passenger->pos = bad_map_pos;
+          s.transporting.res = Resource::TypeSerf;
+          s.transporting.passenger_serf_index = s.transporting.pickup_serf_index;
+          s.transporting.passenger_serf_type = s.transporting.pickup_serf_type;
+        }
+        // clear the picked-up serf values
+        s.transporting.pickup_serf_index = 0;
+        s.transporting.pickup_serf_type = Serf::TypeNone;
+        change_direction(dir, 1);
+        return;
+      }
+
     }
     Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag B";
   }
@@ -1250,6 +1333,7 @@ Serf::transporter_move_to_flag(Flag *flag) {
     if (get_type() == Serf::TypeSailor){
       Log::Info["serf"] << "debug: inside Serf::transporter_move_to_flag C";
     }
+    /* move this to above
     // add support for AIPlusOption::CanTransportSerfsInBoats
     // drop passenger serf off at flag
     if (get_type() == Serf::TypeSailor && s.transporting.res == Resource::TypeSerf){
@@ -1266,11 +1350,12 @@ Serf::transporter_move_to_flag(Flag *flag) {
       // "hold" the flag so that another serf does not enter its tile yet, preventing the passenger from appearing there
       flag->set_boat_passenger_being_dropped();
     }else{
+      */
       /* Drop resource at flag */
       if (flag->drop_resource(s.transporting.res, s.transporting.dest)) {
         s.transporting.res = Resource::TypeNone;
       }
-    }
+    //}
   }
   if (get_type() == Serf::TypeSailor){
     Log::Info["serf"] << "debug: inside Serf::transporter_move_to_flag D";
@@ -1506,15 +1591,27 @@ Serf::handle_serf_walking_state() {
          If not, find out which direction to move in
          to reach the destination. */
       if (s.walking.dest == game->get_map()->get_obj_index(pos)) {
-        Log::Info["serf"] << "debug: inside handle_serf_walking_state, dest reached";
+        Log::Info["serf"] << "debug: inside handle_serf_walking_state, at a flag, dest reached";
         handle_serf_walking_state_dest_reached();
         return;
       } else {
-        Log::Info["serf"] << "debug: inside handle_serf_walking_state, dest NOT reached";
+        Log::Info["serf"] << "debug: inside handle_serf_walking_state, at a flag, dest NOT reached";
         Flag *src = game->get_flag_at_pos(pos);
         FlagSearch search(game);
         for (Direction i : cycle_directions_ccw()) {
+          /*
+          //
+          // THIS WHOLE SECTION NEEDS TO BE MOVED
+          //  into Serf::change_direction, I think
+          //  because the serf needs to be allowed to run the flag search normally or else ANY serf that touches a water road
+          //  will be force into WaitForBoat state, which is wrong.  Instead, let the flag search callback complete normally,
+          //   which itself calls Serf::change_direction
+          //   and do the test for setting serf state to WaitForBoat there
+          //    AND this also lets me remove the flagsearch cleanup junk that had to be added to avoid the fact that
+          ///     the flagsearch is not actually running!
+          //
           // adding support for AIPlusOption::CanTransportSerfsInBoats
+          // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
           if (src->is_water_path(i)){
             Log::Info["serf"] << "debug: inside handle_serf_walking_state, serf at pos " << get_pos() << " found water path in dir " << NameDirection[i];
             if (src->has_transporter(i)){
@@ -1538,7 +1635,22 @@ Serf::handle_serf_walking_state() {
               return;
             }
           }
-          if (!src->is_water_path(i)) {
+          */
+
+          // adding support for AIPlusOption::CanTransportSerfsInBoats
+          // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
+          if (src->has_path(i)){
+            if (!src->is_water_path(i)){
+              Log::Info["serf"] << "debug: a NON-water PATH AT FLAG POS " << src->get_position() << " WITH DIR " << NameDirection[i] << " BEING ADDED TO FLAG SEARCH";
+            }
+            if (src->is_water_path(i) && src->has_transporter(i)){
+              Log::Info["serf"] << "debug: VALID WATER PATH AT FLAG POS " << src->get_position() << " WITH DIR " << NameDirection[i] << " BEING ADDED TO FLAG SEARCH";
+            }
+          }
+          // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
+          //if (!src->is_water_path(i)) {
+          if (!src->is_water_path(i) ||
+              (src->has_path(i) && src->is_water_path(i) && src->has_transporter(i))){
             Flag *other_flag = src->get_other_end_flag(i);
             other_flag->set_search_dir(i);
             search.add_source(other_flag);
@@ -1549,6 +1661,12 @@ Serf::handle_serf_walking_state() {
                                 true, false, this);
         Log::Info["serf"] << "debug: inside handle_serf_walking_state, after search.execute (before check), r=" << r;
         Log::Info["serf"] << "debug: inside handle_serf_walking_state, after search.execute (before check), serf pos=" << pos;
+        // I can't figure out what it is that triggers this loop to end,
+        //  so just cut it short if serf is waiting for a boat
+        if (r && get_state() == Serf::StateWaitForBoat){
+          Log::Info["serf"] << "debug: inside handle_serf_walking_state, after search.execute serf is in StateWaitForBoat, returning";
+          return;
+        }
         if (r) continue;
         Log::Info["serf"] << "debug: inside handle_serf_walking_state, after search.execute (after check failed)";
       }
@@ -1722,7 +1840,6 @@ Serf::handle_serf_transporting_state() {
         */
       }
       
-      Log::Info["serf"] << "debug: a sailor in transporting state H A";
       // add support for AIPlusOption::CanTransportSerfsInBoats
       // if *this* serf is a sailor (who is already in transporting state and so must be in his boat)...
       //  and if another serf is at the next pos in StateWaitForBoat AND is waiting in the direction of this serf
@@ -5334,47 +5451,38 @@ Serf::handle_serf_idle_on_path_state() {
   }
   Direction rev_dir = s.idle_on_path.rev_dir;
 
-  if (get_type() == Serf::TypeSailor){
-    Log::Info["serf"] << "debug: sailor inside handle_serf_idle_on_path_state";
-  }
+  //if (get_type() == Serf::TypeSailor){Log::Info["serf"] << "debug: sailor inside handle_serf_idle_on_path_state";}
 
-  bool serf_waiting_for_boat = false;
-  /* Set walking dir in field_E. */
-  if (flag->is_scheduled(rev_dir)) {
-    if (get_type() == Serf::TypeSailor){
-      Log::Info["serf"] << "debug: inside handle_serf_idle_on_path_state, sailor found flag at pos " << flag->get_position() << " is scheduled in dir " << NameDirection[rev_dir];
-      if (flag->has_serf_waiting_for_boat()){
-        Log::Info["serf"] << "debug: inside handle_serf_idle_on_path_state, sailor found flag at pos " << flag->get_position() << " with serf_waiting_for_boat, setting dir this way";
-        serf_waiting_for_boat = true;
-        s.idle_on_path.field_E = (tick & 0xff) + 6;
-      }
-    }
+  bool boat_pickup = false;
+  // check the flag in each direction to see if it needs a transporter 
+  //  to come pick up a resource, or a serf if this is a sailor and 
+  //   AIPlusOption::CanTransportSerfsInBoats is set
+  // * Set walking dir in field_E. */
+
+  //Log::Info["serf"] << "debug: inside handle_serf_idle_on_path_state, checking flag at pos " << flag->get_position();
+  // check the flag closest to the idle transporter(?) - assuming s.idle_on_path.flag means that
+  if (get_type() == Serf::TypeSailor && flag->has_serf_waiting_for_boat()){
+    Log::Info["serf"] << "debug: sailor inside handle_serf_idle_on_path_state, sailor found flag at pos " << flag->get_position() << " with serf_waiting_for_boat, setting dir this way";
+    boat_pickup = true;
+    s.idle_on_path.field_E = (tick & 0xff) + 6;
+  } else if (flag->is_scheduled(rev_dir)) {
+    Log::Info["serf"] << "debug: sailor inside handle_serf_idle_on_path_state, this flag is scheduled";
     s.idle_on_path.field_E = (tick & 0xff) + 6;
   } else {
-    if (get_type() == Serf::TypeSailor){
-      //Log::Info["serf"] << "debug: inside handle_serf_idle_on_path_state, sailor found flag at pos " << flag->get_position() << " is NOT scheduled in dir " << NameDirection[rev_dir];
-    }
+    // check the other flag
     Flag *other_flag = flag->get_other_end_flag(rev_dir);
+    //Log::Info["serf"] << "debug: inside handle_serf_idle_on_path_state, checking other_flag at pos " << other_flag->get_position();
     Direction other_dir = flag->get_other_end_dir((Direction)rev_dir);
-    if (get_type() == Serf::TypeSailor){
-      //Log::Info["serf"] << "debug: inside handle_serf_idle_on_path_state, sailor checking other flag at pos " << other_flag->get_position();
-    }
     if (get_type() == Serf::TypeSailor && other_flag->has_serf_waiting_for_boat()){
       Log::Info["serf"] << "debug: inside handle_serf_idle_on_path_state, sailor found other_flag at pos " << other_flag->get_position() << " with serf_waiting_for_boat, setting dir that way";
-      serf_waiting_for_boat = true;
+      boat_pickup = true;
       s.idle_on_path.field_E = reverse_direction(rev_dir);
-    }
-    if (other_flag && other_flag->is_scheduled(other_dir)) {
-      if (get_type() == Serf::TypeSailor){
-        Log::Info["serf"] << "debug: inside handle_serf_idle_on_path_state, sailor other flag at pos " << other_flag->get_position() << "is scheduled in dir " << NameDirection[other_dir] << ", reversing direction";
-      }
+    } else if (other_flag && other_flag->is_scheduled(other_dir)) {
+      Log::Info["serf"] << "debug: sailor inside handle_serf_idle_on_path_state, other flag is scheduled";
       s.idle_on_path.field_E = reverse_direction(rev_dir);
     } else {
-      if (get_type() == Serf::TypeSailor && serf_waiting_for_boat == true){
-        Log::Info["serf"] << "debug: inside handle_serf_idle_on_path_state, sailor found nothing scheduled at either flag, NOT returning";
-      } else {
-        return;
-      }
+      Log::Info["serf"] << "debug: sailor inside handle_serf_idle_on_path_state, nothing is true, returning";
+      return;
     }
   }
 
@@ -5550,7 +5658,7 @@ Serf::handle_serf_defending_castle_state() {
 
 void
 Serf::handle_serf_wait_for_boat_state() {
-  Log::Info["serf"] << "debug: a serf at pos " << pos << " is in state Serf::StateWaitForBoat";
+  //Log::Info["serf"] << "debug: a serf at pos " << pos << " is in state Serf::StateWaitForBoat";
   /* Wait for the sailor to paddle over */
   animation = 81 + s.walking.dir;
   counter = 0;
@@ -5558,7 +5666,7 @@ Serf::handle_serf_wait_for_boat_state() {
 
 void
 Serf::handle_serf_boat_passenger_state() {
-  Log::Info["serf"] << "debug: a serf at pos " << pos << " is in state Serf::BoatPassenger";
+  //Log::Info["serf"] << "debug: a serf at pos " << pos << " is in state Serf::BoatPassenger";
   // do nothing
   // in fact, this state should never be checked because serfs in BoatPassenger 
   //  state do not have an attached map pos and so should never be checked for drawing/update?
