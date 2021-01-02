@@ -1253,10 +1253,10 @@ Serf::transporter_move_to_flag(Flag *flag) {
     Direction other_dir = flag->get_other_end_dir(dir);
     //Log::Info["serf"] << "debug: sailor inside Serf::transporter_move_to_flag A, flag other_end_dir = " << NameDirection[other_dir];
     // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
-    if (flag->is_water_path(dir) && type == Serf::TypeSailor){
+    if (flag->is_water_path(dir) && get_type() == Serf::TypeSailor){
 
       // handle dropping a passenger serf off at flag
-      if (get_type() == Serf::TypeSailor && s.transporting.res == Resource::TypeSerf){
+      if (s.transporting.res == Resource::TypeSerf){
         Log::Info["serf"] << "debug: inside Serf::transporter_move_to_flag, dropping passenger off at flag at pos " << flag->get_position();
         // because the map only allows one serf per tile, the dropped off serf cannot actually be placed yet
         //  it remains a record in the sailor's s.transporting struct until the sailor reaches the next pos away from the flag
@@ -1274,7 +1274,15 @@ Serf::transporter_move_to_flag(Flag *flag) {
         // "hold" the flag so that another serf does not enter its tile yet, preventing the passenger from appearing there
         //   THIS CHECK IS NOT ACTUALLY IMPLEMENTED YET!!!
         flag->set_boat_passenger_being_dropped();
-      }
+	  }
+	  // need to handle dropping off any resource here or else it will get wiped during a potential passenger pickup
+	  //  as the passenger becomes s.transporting.res TypeSerf
+	  else if (s.transporting.res != Resource::TypeNone) {
+		/* Drop resource at flag */
+		if (flag->drop_resource(s.transporting.res, s.transporting.dest)) {
+			s.transporting.res = Resource::TypeNone;
+		}
+	  }
 
       // handle picking a passenger serf up at flag
       if (flag->has_serf_waiting_for_boat()){
@@ -1296,6 +1304,8 @@ Serf::transporter_move_to_flag(Flag *flag) {
         // clear the picked-up serf values
         s.transporting.pickup_serf_index = 0;
         s.transporting.pickup_serf_type = Serf::TypeNone;
+		// clear the resource destination so the sailor doesn't try to "deliver a serf" to a flag/building!
+		s.transporting.dest = -1;
         change_direction(dir, 1);
         return;
       }
@@ -1766,6 +1776,7 @@ Serf::handle_serf_transporting_state() {
       }
       Log::Info["serf"] << "debug: a sailor in transporting state, s.transporting.res = " << s.transporting.res;
       Log::Info["serf"] << "debug: a sailor in transporting state, s.transporting.dest = " << s.transporting.dest;
+	  Log::Info["serf"] << "debug: a sailor in transporting state, map->get_obj_index(pos) = " << map->get_obj_index(pos);
       /* 31590 */
       if (s.transporting.res != Resource::TypeNone &&
           map->get_obj_index(pos) == s.transporting.dest) {
@@ -5455,18 +5466,20 @@ Serf::handle_serf_idle_on_path_state() {
 
   //if (get_type() == Serf::TypeSailor){Log::Info["serf"] << "debug: sailor inside handle_serf_idle_on_path_state";}
 
-  bool boat_pickup = false;
   // check the flag in each direction to see if it needs a transporter 
   //  to come pick up a resource, or a serf if this is a sailor and 
   //   AIPlusOption::CanTransportSerfsInBoats is set
   // * Set walking dir in field_E. */
 
-  Log::Info["serf"] << "debug: before idle transporter checking flags, s.idle_on_path.field_E = " << s.idle_on_path.field_E;
+  //Log::Info["serf"] << "debug: before idle transporter checking flags, s.idle_on_path.field_E = " << s.idle_on_path.field_E;
   //Log::Info["serf"] << "debug: inside handle_serf_idle_on_path_state, checking flag at pos " << flag->get_position();
   // check the flag closest to the idle transporter(?) - assuming s.idle_on_path.flag means that
+
+  //
+  // this could be squashed back into two statements, but for now it is easier to debug with them separated
+  //
   if (get_type() == Serf::TypeSailor && flag->has_serf_waiting_for_boat()){
     Log::Info["serf"] << "debug: sailor inside handle_serf_idle_on_path_state, sailor found flag at pos " << flag->get_position() << " with serf_waiting_for_boat, setting dir this way";
-    boat_pickup = true;
     //
     // Bitmath explanation:
     //  Serf::tick is an unsigned 16bit short integer          xxxxxxxx xxxxxxxx
@@ -5514,17 +5527,16 @@ Serf::handle_serf_idle_on_path_state() {
     Direction other_dir = flag->get_other_end_dir((Direction)rev_dir);
     if (get_type() == Serf::TypeSailor && other_flag->has_serf_waiting_for_boat()){
       Log::Info["serf"] << "debug: inside handle_serf_idle_on_path_state, sailor found other_flag at pos " << other_flag->get_position() << " with serf_waiting_for_boat, setting dir that way";
-      boat_pickup = true;
       s.idle_on_path.field_E = reverse_direction(rev_dir);
     } else if (other_flag && other_flag->is_scheduled(other_dir)) {
       Log::Info["serf"] << "serf: sailor inside handle_serf_idle_on_path_state, other flag is scheduled";
       s.idle_on_path.field_E = reverse_direction(rev_dir);
     } else {
-      Log::Info["serf"] << "debug: serf inside handle_serf_idle_on_path_state, nothing is true, returning";
+      //Log::Info["serf"] << "debug: serf inside handle_serf_idle_on_path_state, nothing is true, returning";
       return;
     }
   }
-  Log::Info["serf"] << "debug: after idle transporter checking flags, s.idle_on_path.field_E = " << s.idle_on_path.field_E;
+  //Log::Info["serf"] << "debug: after idle transporter checking flags, s.idle_on_path.field_E = " << s.idle_on_path.field_E;
 
   PMap map = game->get_map();
   if (!map->has_serf(pos)) {
