@@ -519,28 +519,35 @@ bool
 Flag::schedule_known_dest_cb_(Flag *src, Flag *dest, int _slot) {
   Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_";
   if (this == dest) {
+    Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, destination found";
     /* Destination found */
     if (this->search_dir != 6) {
+      Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 1";
       if (!src->is_scheduled(this->search_dir)) {
+        Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 2";
         /* Item is requesting to be fetched */
         src->other_end_dir[this->search_dir] =
           BIT(7) | (src->other_end_dir[this->search_dir] & 0x78) | _slot;
       } else {
+        Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 3";
         Player *player = game->get_player(this->get_owner());
         int other_dir = src->other_end_dir[this->search_dir];
         int prio_old = player->get_flag_prio(src->slot[other_dir & 7].type);
         int prio_new = player->get_flag_prio(src->slot[_slot].type);
         if (prio_new > prio_old) {
+          Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 4";
           /* This item has the highest priority now */
           src->other_end_dir[this->search_dir] =
             (src->other_end_dir[this->search_dir] & 0xf8) | _slot;
         }
+        Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 5";
         src->slot[_slot].dir = this->search_dir;
       }
     }
+    Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, returning true";
     return true;
   }
-
+  Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, returning false";
   return false;
 }
 
@@ -558,7 +565,9 @@ Flag::schedule_slot_to_known_dest(int slot_, unsigned int res_waiting[4]) {
   /* Directions where transporters are idle (zero slots waiting) */
   int flags = (res_waiting[0] ^ 0x3f) & transporter;
 
+Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 1";
   if (flags != 0) {
+    Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 2";
     for (Direction k : cycle_directions_ccw()) {
       if (BIT_TEST(flags, k)) {
         tr &= ~BIT(k);
@@ -571,8 +580,9 @@ Flag::schedule_slot_to_known_dest(int slot_, unsigned int res_waiting[4]) {
       }
     }
   }
-
+Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 3";
   if (tr != 0) {
+    Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 4";
     for (int j = 0; j < 3; j++) {
       flags = res_waiting[j] ^ res_waiting[j+1];
       for (Direction k : cycle_directions_ccw()) {
@@ -587,8 +597,9 @@ Flag::schedule_slot_to_known_dest(int slot_, unsigned int res_waiting[4]) {
         }
       }
     }
-
+Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 5";
     if (tr != 0) {
+      Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 6";
       flags = res_waiting[3];
       for (Direction k : cycle_directions_ccw()) {
         if (BIT_TEST(flags, k)) {
@@ -604,8 +615,9 @@ Flag::schedule_slot_to_known_dest(int slot_, unsigned int res_waiting[4]) {
       if (flags == 0) return;
     }
   }
-
+Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 7";
   if (sources > 0) {
+    Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 8";
     ScheduleKnownDestData data;
     data.src = this;
     data.dest = game->get_flag(this->slot[slot_].dest);
@@ -621,6 +633,7 @@ Flag::schedule_slot_to_known_dest(int slot_, unsigned int res_waiting[4]) {
   } else {
     endpoint |= BIT(7);
   }
+  Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 9";
 }
 
 void

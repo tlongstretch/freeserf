@@ -1169,7 +1169,9 @@ Serf::change_direction(Direction dir, int alt_end) {
       }
     }
     if (type == Serf::TypeSailor && state == State::StateTransporting){
-      Log::Info["serf"] << "debug: a transporting sailor inside change_direction, about to change s.walking.dir from " << NameDirection[s.walking.dir];
+      // this crashes if s.walking.dir out of range
+      //Log::Info["serf"] << "debug: a transporting sailor inside change_direction, about to change s.walking.dir from " << NameDirection[s.walking.dir];
+      Log::Info["serf"] << "debug: a transporting sailor inside change_direction, about to change s.walking.dir from " << s.walking.dir;
     }
     map->set_serf_index(pos, 0);
     animation = get_walking_animation(map->get_height(new_pos) -
@@ -1304,8 +1306,8 @@ Serf::transporter_move_to_flag(Flag *flag) {
         // clear the picked-up serf values
         s.transporting.pickup_serf_index = 0;
         s.transporting.pickup_serf_type = Serf::TypeNone;
-		// clear the resource destination so the sailor doesn't try to "deliver a serf" to a flag/building!
-		s.transporting.dest = -1;
+		    // clear the resource destination so the sailor doesn't try to "deliver a serf" to a flag/building!
+		    s.transporting.dest = -1;
         change_direction(dir, 1);
         return;
       }
@@ -1746,17 +1748,21 @@ Serf::handle_serf_transporting_state() {
   if (counter >= 0) return;
 
   if (type == Serf::TypeSailor){
-    Log::Info["serf"] << "debug: a sailor is in transporting state 00, transporting dir: " << s.transporting.dir << ", walking dir: " << s.walking.dir;
+    Log::Info["serf"] << "debug: a sailor at pos " << pos << " is in transporting state 00, transporting dir: " << s.transporting.dir << ", walking dir: " << s.walking.dir;
   }
 
   if (s.transporting.dir < 0) {
+    //Log::Info["serf"] << "debug: a serf in transporting state 0 is changing direction because s.transporting.dir < 0 (-1?)";
     if (type == Serf::TypeSailor){
       Log::Info["serf"] << "debug: a sailor in transporting state 0 is changing direction because s.transporting.dir < 0 (-1?)";
     }
     change_direction((Direction)(s.transporting.dir + 6), 1);
   } else {
+    //Log::Info["serf"] << "debug: a serf in transporting state A, with s.transporting.dir " << s.transporting.dir;
     if (type == Serf::TypeSailor){
-      Log::Info["serf"] << "debug: a sailor in transporting state A, with s.transporting.dir " << NameDirection[s.transporting.dir];
+      // this crashes if Dir > 5 !
+      //Log::Info["serf"] << "debug: a sailor in transporting state A, with s.transporting.dir " << NameDirection[s.transporting.dir];
+      Log::Info["serf"] << "debug: a sailor in transporting state A, with s.transporting.dir " << s.transporting.dir;
     }
     PMap map = game->get_map();
     /* 31549 */
@@ -1771,12 +1777,12 @@ Serf::handle_serf_transporting_state() {
         s.walking.dir1 = -2;
         s.walking.dest = 0;
         counter = 0;
-        Log::Info["serf"] << "debug: a sailor in transporting state B0, returning";
+        Log::Info["serf"] << "debug: a serf in transporting state B0, returning";
         return;
       }
-      Log::Info["serf"] << "debug: a sailor in transporting state, s.transporting.res = " << s.transporting.res;
-      Log::Info["serf"] << "debug: a sailor in transporting state, s.transporting.dest = " << s.transporting.dest;
-	  Log::Info["serf"] << "debug: a sailor in transporting state, map->get_obj_index(pos) = " << map->get_obj_index(pos);
+      Log::Info["serf"] << "debug: a serf in transporting state, s.transporting.res = " << s.transporting.res;
+      Log::Info["serf"] << "debug: a serf in transporting state, s.transporting.dest = " << s.transporting.dest;
+	    Log::Info["serf"] << "debug: a serf in transporting state, map->get_obj_index(pos) = " << map->get_obj_index(pos);
       /* 31590 */
       if (s.transporting.res != Resource::TypeNone &&
           map->get_obj_index(pos) == s.transporting.dest) {
@@ -1932,7 +1938,7 @@ Serf::handle_serf_transporting_state() {
         }
         if (!other_flag->is_scheduled(other_dir)) {
           if (type == Serf::TypeSailor){
-            Log::Info["serf"] << "debug: a sailor in transporting state M";
+            Log::Info["serf"] << "debug: a sailor in transporting state M is about to be set to idle StateIdleOnPath";
           }
           /* TODO Don't use anim as state var */
           Log::Info["serf"] << "debug: inside handle_serf_transporting_state, setting serf to idle StateIdleOnPath, tick was " << tick << ", s.walking.dir was " << s.walking.dir;
@@ -5513,13 +5519,13 @@ Serf::handle_serf_idle_on_path_state() {
     //
     // because this makes no sense, what if I just set field_E to the direction that makes sense?
     //  that is how "other_flag" does it.  Instead of this crazy bit math
-    //
-    //s.idle_on_path.field_E = (tick & 0xff) + 6;
-    s.idle_on_path.field_E = rev_dir;
+    // no I think this is causing issues, need to put a check in place to flag when these two values diff
+    s.idle_on_path.field_E = (tick & 0xff) + 6;
+    //s.idle_on_path.field_E = rev_dir;
   } else if (flag->is_scheduled(rev_dir)) {
     Log::Info["serf"] << "debug: serf inside handle_serf_idle_on_path_state, this flag is scheduled";
-    //s.idle_on_path.field_E = (tick & 0xff) + 6;
-    s.idle_on_path.field_E = rev_dir;
+    s.idle_on_path.field_E = (tick & 0xff) + 6;
+    //s.idle_on_path.field_E = rev_dir;
   } else {
     // check the other flag
     Flag *other_flag = flag->get_other_end_flag(rev_dir);
