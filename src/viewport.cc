@@ -1442,7 +1442,7 @@ Viewport::serf_get_body(Serf *serf) {
         // I think this sets the animation/sprite to the right transported resource?
         //  yes, that looks right.  Try simply adding another ,0,0 to that list
         //  for now, try this hack
-        Log::Info["viewport"] << "debug: sailor is NOT transporting a serf, change animation to match the resource type";
+        //Log::Info["viewport"] << "debug: sailor is NOT transporting a serf, change animation to match the resource type";
         t += sailor_type[serf->get_delivery()];
       }
       // try this way, now that extra zeroes added for fake resource types 26+

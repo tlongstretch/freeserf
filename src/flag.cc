@@ -53,8 +53,12 @@ FlagSearch::execute(flag_search_func *callback, bool land,
       queue.clear();
       return true;
     }
-    // adding support for AIPlusOption::CanTransportSerfsOnBoats
+
     /*
+    // here is the original Flagsearch::execute function 
+    //   before I added support for AIPlusOption::CanTransportSerfsInBoats
+    // I broke it up and inverted all the negative checks to make it more readable
+    //
     for (Direction i : cycle_directions_ccw()) {
       if ((!land || !flag->is_water_path(i)) &&
           (!transporter || flag->has_transporter(i)) &&
@@ -66,48 +70,70 @@ FlagSearch::execute(flag_search_func *callback, bool land,
       }
     }
     */
+
+    // adding support for AIPlusOption::CanTransportSerfsOnBoats
+    //
     // the function argument 'bool land' and 'bool transporter are used as follows':
     // if a resource is being routed, land=false and transporter=true
     //    which means "does not have to be a land route, uses transporter(?)"
     // if a serf being is routed, land=true and transporter=false
     //    which means "must be a land route, does not need transporter(?)"...
     //  ... unless there is already a boat and AIPlusOption::CanTransportSerfsInBoats is set
+    //Log::Info["flag"] << "debug a";
     for (Direction i : cycle_directions_ccw()) {
+      //Log::Info["flag"] << "debug b";
+      // sanity check my assumption that 'land' and 'transporter' are exclusive (two sides of the same coin)
+      if (land == true && transporter == true){
+        throw ExceptionFreeserf("faulty Flagsearch::execute logic!  both 'land' and 'transporter' bools are true but I assume this can never happen!");
+      }
+      //Log::Info["flag"] << "debug c";
 
-      // if a serf is being routed ('land = true' suggests it is a serf)
-      //  and this is a water route...
-      // wait why is this OR, should be AND, right??
-      //if (land || flag->is_water_path(i)){
-      // I am thinking it doesn't really matter because the result is the same?
-      
-      // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
-      if (land || flag->has_path(i) && flag->is_water_path(i)){
-        ////Log::Info["flag"] << "debug: inside flag search.execute, land=" << land << ", flag->is_water_path(" << NameDirection[i] << ")=" << flag->is_water_path(i);
-        // ...but no sailor is on the water route, skip this flag
-        if (!flag->has_transporter(i)){
-          ////Log::Info["flag"] << "debug: inside flag search.execute, route rejected because there is no transporter at flag in dir " << NameDirection[i];
+      // if a serf is being routed... ('land = true' suggests it is a serf)
+      if (land == true){
+        //Log::Info["flag"] << "debug d";
+        // ...and there is no path at all
+        if (!flag->has_path(i)){
+          // ... skip this dir/flag
           continue;
         }
-        ////Log::Info["flag"] << "debug: inside flag search.execute, route allowed because is a transporter at flag in dir " << NameDirection[i];
+        // ...and this is a water route (which requires a sailor to transport serfs)
+        // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
+        if (flag->has_path(i) && flag->is_water_path(i)){
+          //Log::Info["flag"] << "debug e";
+          // ...but no sailor is on the water route...
+          if (!flag->has_transporter(i)){
+            //Log::Info["flag"] << "debug f";
+            // ... skip this dir/flag
+            continue;
+          }
+        }
       }
-      // if this is a resource being routed ('transporter = true' suggests it is a resource)
-      //  but there is no transporter on this flag-path-dir...
+      
+      // if this is a resource being routed... ('transporter = true' suggests it is a resource)
+      //  ... but there is no transporter on this flag-path-dir...
+      //   NOTE it should be possible to remove the 'transporter == true' check if we are sure that land and transporter bools are exclusive
+      //Log::Info["flag"] << "debug g";
       if (transporter && !flag->has_transporter(i)){
-        // ... skip this flag
+        //Log::Info["flag"] << "debug h";
+        // ... skip this dir/flag
         continue;
       }
-      // if this is not the same flag we just checked???
+      
+      // if this is the same flag we just checked(?)
+      //Log::Info["flag"] << "debug i";
       if (flag->other_endpoint.f[i]->search_num == id) {
-        // ... skip this flag
+        //Log::Info["flag"] << "debug j";
+        // ... skip this dir/flag
         continue;
       }
+      //Log::Info["flag"] << "debug k";
 
-      // otherwise continue the search
+      // if NONE of the above exclusions were true, continue the search
       flag->other_endpoint.f[i]->search_num = id;
       flag->other_endpoint.f[i]->search_dir = flag->search_dir;
       Flag *other_flag = flag->other_endpoint.f[i];
       queue.push_back(other_flag);
-
+      //Log::Info["flag"] << "debug L";
     }
 
   }
@@ -141,7 +167,8 @@ Flag::Flag(Game *game, unsigned int index)
   , other_end_dir{}
   , bld_flags(0)
   , bld2_flags(0)
-  , serf_waiting_for_boat(false) {
+  , serf_waiting_for_boat(false)
+  , boat_passenger_being_dropped(false) {
   for (int j = 0; j < FLAG_MAX_RES_COUNT; j++) {
     slot[j].type = Resource::TypeNone;
     slot[j].dest = 0;
@@ -350,7 +377,7 @@ schedule_unknown_dest_cb(Flag *flag, void *data) {
 
 void
 Flag::schedule_slot_to_unknown_dest(int slot_num) {
-  Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest";
+  //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest";
   /* Resources which should be routed directly to
    buildings requesting them. Resources not listed
    here will simply be moved to an inventory. */
@@ -455,7 +482,7 @@ Flag::schedule_slot_to_unknown_dest(int slot_num) {
 
 static bool
 find_nearest_inventory_search_cb(Flag *flag, void *data) {
-  Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_search_cb";
+  //Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_search_cb";
   Flag **dest = reinterpret_cast<Flag**>(data);
   if (flag->accepts_resources()) {
     *dest = flag;
@@ -467,7 +494,7 @@ find_nearest_inventory_search_cb(Flag *flag, void *data) {
 /* Return the flag index of the inventory nearest to flag. */
 int
 Flag::find_nearest_inventory_for_resource() {
-  Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_resource";
+  //Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_resource";
   
   Flag *dest = NULL;
   FlagSearch::single(this, find_nearest_inventory_search_cb, false, true,
@@ -479,7 +506,7 @@ Flag::find_nearest_inventory_for_resource() {
 
 static bool
 flag_search_inventory_search_cb(Flag *flag, void *data) {
-  Log::Info["flag"] << "debug: inside Flag::flag_search_inventory_search_cb";
+  //Log::Info["flag"] << "debug: inside Flag::flag_search_inventory_search_cb";
   int *dest_index = static_cast<int*>(data);
   if (flag->accepts_serfs()) {
     Building *building = flag->get_building();
@@ -492,7 +519,7 @@ flag_search_inventory_search_cb(Flag *flag, void *data) {
 
 int
 Flag::find_nearest_inventory_for_serf() {
-  Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_serf";
+  //Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_serf";
   int dest_index = -1;
   FlagSearch::single(this, flag_search_inventory_search_cb, true, false,
                      &dest_index);
@@ -517,43 +544,43 @@ schedule_known_dest_cb(Flag *flag, void *data) {
 
 bool
 Flag::schedule_known_dest_cb_(Flag *src, Flag *dest, int _slot) {
-  Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_";
+  //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_";
   if (this == dest) {
-    Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, destination found";
+    //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, destination found";
     /* Destination found */
     if (this->search_dir != 6) {
-      Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 1";
+      //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 1";
       if (!src->is_scheduled(this->search_dir)) {
-        Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 2";
+        //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 2";
         /* Item is requesting to be fetched */
         src->other_end_dir[this->search_dir] =
           BIT(7) | (src->other_end_dir[this->search_dir] & 0x78) | _slot;
       } else {
-        Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 3";
+        //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 3";
         Player *player = game->get_player(this->get_owner());
         int other_dir = src->other_end_dir[this->search_dir];
         int prio_old = player->get_flag_prio(src->slot[other_dir & 7].type);
         int prio_new = player->get_flag_prio(src->slot[_slot].type);
         if (prio_new > prio_old) {
-          Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 4";
+          //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 4";
           /* This item has the highest priority now */
           src->other_end_dir[this->search_dir] =
             (src->other_end_dir[this->search_dir] & 0xf8) | _slot;
         }
-        Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 5";
+        //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 5";
         src->slot[_slot].dir = this->search_dir;
       }
     }
-    Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, returning true";
+    //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, returning true";
     return true;
   }
-  Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, returning false";
+  //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, returning false";
   return false;
 }
 
 void
 Flag::schedule_slot_to_known_dest(int slot_, unsigned int res_waiting[4]) {
-  Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest";
+  //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest";
   FlagSearch search(game);
 
   search_num = search.get_id();
@@ -565,9 +592,9 @@ Flag::schedule_slot_to_known_dest(int slot_, unsigned int res_waiting[4]) {
   /* Directions where transporters are idle (zero slots waiting) */
   int flags = (res_waiting[0] ^ 0x3f) & transporter;
 
-Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 1";
+  //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 1";
   if (flags != 0) {
-    Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 2";
+    //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 2";
     for (Direction k : cycle_directions_ccw()) {
       if (BIT_TEST(flags, k)) {
         tr &= ~BIT(k);
@@ -580,9 +607,9 @@ Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 1";
       }
     }
   }
-Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 3";
+  //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 3";
   if (tr != 0) {
-    Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 4";
+    //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 4";
     for (int j = 0; j < 3; j++) {
       flags = res_waiting[j] ^ res_waiting[j+1];
       for (Direction k : cycle_directions_ccw()) {
@@ -597,9 +624,9 @@ Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 3";
         }
       }
     }
-Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 5";
+    //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 5";
     if (tr != 0) {
-      Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 6";
+      //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 6";
       flags = res_waiting[3];
       for (Direction k : cycle_directions_ccw()) {
         if (BIT_TEST(flags, k)) {
@@ -615,9 +642,9 @@ Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 5";
       if (flags == 0) return;
     }
   }
-Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 7";
+  //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 7";
   if (sources > 0) {
-    Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 8";
+    //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 8";
     ScheduleKnownDestData data;
     data.src = this;
     data.dest = game->get_flag(this->slot[slot_].dest);
@@ -633,12 +660,12 @@ Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 7";
   } else {
     endpoint |= BIT(7);
   }
-  Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 9";
+  //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 9";
 }
 
 void
 Flag::prioritize_pickup(Direction dir, Player *player) {
-  Log::Info["flag"] << "debug: inside Flag::prioritize_pickup";
+  //Log::Info["flag"] << "debug: inside Flag::prioritize_pickup";
   int res_next = -1;
   int res_prio = -1;
 
@@ -799,13 +826,13 @@ change_transporter_state_at_pos(Game *game, MapPos pos, Serf::State state) {
 
 static int
 wake_transporter_at_flag(Game *game, MapPos pos) {
-  Log::Info["serf"] << "debug: inside Serf::wake_transporter_at_flag, pos " << pos;
+ //Log::Info["serf"] << "debug: inside Serf::wake_transporter_at_flag, pos " << pos;
   return change_transporter_state_at_pos(game, pos, Serf::StateWakeAtFlag);
 }
 
 static int
 wake_transporter_on_path(Game *game, MapPos pos) {
-  Log::Info["serf"] << "debug: inside Serf::wake_transporter_on_path, pos " << pos;
+ //Log::Info["serf"] << "debug: inside Serf::wake_transporter_on_path, pos " << pos;
   return change_transporter_state_at_pos(game, pos, Serf::StateWakeOnPath);
 }
 
@@ -854,13 +881,13 @@ Flag::fill_path_serf_info(Game *game, MapPos pos, Direction dir,
     /* Check if there is a transporter waiting here. */
     if (map->get_idle_serf(pos)) {
       int index = wake_transporter_on_path(game, pos);
-      Log::Info["flag"] << "debug: calling wake_transporter_on_path for pos " << pos;
+      //Log::Info["flag"] << "debug: calling wake_transporter_on_path for pos " << pos;
       if (index >= 0) data->serfs[serf_count++] = index;
     }
 
     /* Check if there is a serf occupying this space. */
     if (map->has_serf(pos)) {
-      Log::Info["flag"] << "debug: found serf at pos " << pos;
+      //Log::Info["flag"] << "debug: found serf at pos " << pos;
       Serf *serf = game->get_serf_at_pos(pos);
       if (serf->get_state() == Serf::StateTransporting &&
           serf->get_walking_wait_counter() != -1) {
@@ -1006,7 +1033,7 @@ Flag::update() {
          been scheduled for fetch. */
         int res_dir = slot[slot_].dir;
         if (res_dir < 0) {
-          Log::Info["flag"] << "debug: inside flag::update, about to schedule a slot";
+          //Log::Info["flag"] << "debug: inside flag::update, about to schedule a slot";
           if (slot[slot_].dest != 0) {
             /* Destination is known */
             schedule_slot_to_known_dest(slot_, res_waiting);

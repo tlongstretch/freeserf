@@ -2899,6 +2899,7 @@ PopupBox::move_sett_5_6_item(int up, int to_end) {
 
 void
 PopupBox::handle_send_geologist() {
+  //Log::Info["popup"] << "debug: inside handle_send_geologist";
   MapPos pos = interface->get_map_cursor_pos();
   Flag *flag = interface->get_game()->get_flag_at_pos(pos);
 
@@ -2907,7 +2908,7 @@ PopupBox::handle_send_geologist() {
   } else {
     play_sound(Audio::TypeSfxAccepted);
     interface->close_popup();
-  }
+  } 
 }
 
 void

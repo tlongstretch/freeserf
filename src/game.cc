@@ -322,7 +322,7 @@ Game::update_flags() {
   Log::Verbose["game"] << "thread #" << std::this_thread::get_id() << " is locking mutex for Game::update_flags";
   mutex.lock();
   Log::Verbose["game"] << "thread #" << std::this_thread::get_id() << " has locked mutex for Game::update_flags";
-  // trying replacement with p1plp1 way
+  // replacing with p1plp1 way, this works reliably
   Flags::Iterator i = flags.begin();
   Flags::Iterator prev = flags.begin();
   while (i != flags.end()) {
@@ -365,7 +365,6 @@ Game::send_serf_to_flag_search_cb(Flag *flag, void *d) {
   }
 
   SendSerfToFlagData *data = reinterpret_cast<SendSerfToFlagData*>(d);
-
   /* Inventory reached */
   Building *building = flag->get_building();
   Inventory *inv = building->get_inventory();
@@ -417,7 +416,6 @@ Game::send_serf_to_flag_search_cb(Flag *flag, void *d) {
           dest_bld->serf_request_granted();
           mode = -1;
         }
-
         serf->go_out_from_inventory(inv->get_index(), data->dest_index, mode);
 
         return true;
@@ -427,6 +425,7 @@ Game::send_serf_to_flag_search_cb(Flag *flag, void *d) {
           inv->have_serf(Serf::TypeGeneric) &&
           (data->res1 == -1 || inv->get_count_of(data->res1) > 0) &&
           (data->res2 == -1 || inv->get_count_of(data->res2) > 0)) {
+
         data->inventory = inv;
         /* player_t *player = globals->player[SERF_PLAYER(serf)]; */
         /* game.field_340 = player->cont_search_after_non_optimal_find; */
@@ -434,7 +433,9 @@ Game::send_serf_to_flag_search_cb(Flag *flag, void *d) {
       }
     }
   }
-
+  if (data->serf_type == Serf::TypeGeologist){
+    //Log::Info["game"] << "debug: inside Game::send_serf_to_flag_search_cb with GEOLOGIST, F false";
+  }
   return false;
 }
 
@@ -442,16 +443,20 @@ Game::send_serf_to_flag_search_cb(Flag *flag, void *d) {
 bool
 Game::send_serf_to_flag(Flag *dest, Serf::Type type, Resource::Type res1,
                         Resource::Type res2) {
+  //Log::Info["game"] << "debug: inside Game::send_serf_to_flag, serf type " << type << ", res1 " << res1 << ", res2 " << res2;         
   Building *building = NULL;
   if (dest->has_building()) {
     building = dest->get_building();
   }
+  //Log::Info["game"] << "debug: inside Game::send_serf_to_flag, A";
 
   /* If type is negative, building is non-NULL. */
   if ((type < 0) && (building != NULL)) {
     Player *player = players[building->get_owner()];
     type = player->get_cycling_serf_type(type);
   }
+
+  //Log::Info["game"] << "debug: inside Game::send_serf_to_flag, B";
 
   SendSerfToFlagData data;
   data.inventory = NULL;
@@ -461,14 +466,15 @@ Game::send_serf_to_flag(Flag *dest, Serf::Type type, Resource::Type res1,
   data.res1 = res1;
   data.res2 = res2;
 
+
   bool r = FlagSearch::single(dest, send_serf_to_flag_search_cb, true, false,
                               &data);
+
   if (!r) {
     return false;
   } else if (data.inventory != NULL) {
     Inventory *inventory = data.inventory;
     Serf *serf = inventory->call_out_serf(Serf::TypeGeneric);
-
     if ((type < 0) && (building != NULL)) {
       /* Knight */
       building->knight_request_granted();
@@ -496,14 +502,12 @@ Game::send_serf_to_flag(Flag *dest, Serf::Type type, Resource::Type res1,
 
       serf->go_out_from_inventory(inventory->get_index(), dest->get_index(),
                                   mode);
-
       if (res1 != Resource::TypeNone) inventory->pop_resource(res1);
       if (res2 != Resource::TypeNone) inventory->pop_resource(res2);
     }
 
     return true;
   }
-
   return true;
 }
 
