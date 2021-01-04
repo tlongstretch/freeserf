@@ -1976,7 +1976,7 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
           Log::Warn["viewport"] << "got nullptr for current boat passenger serf of type " << passenger_type << " with serf index " << passenger_index << "!";
         }
         else{
-          Log::Info["viewport"] << "inside draw_active_serf: transporting sailor: a serf has a passenger in his boat at flag pos " << pos;
+          //Log::Info["viewport"] << "inside draw_active_serf: transporting sailor: a serf has a passenger in his boat at flag pos " << pos;
           draw_boat_passenger = true;
           passenger_body = serf_get_body(passenger_serf);
           int passenger_sprite_offset[] = {
@@ -2011,7 +2011,7 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
           Log::Warn["viewport"] << "got nullptr for dropped boat passenger serf of type " << dropoff_type << " with serf index " << dropoff_index << "!";
         }
         else{
-          Log::Info["viewport"] << "inside draw_active_serf: transporting sailor: a passenger has just been dropped off at flag pos " << pos;
+          //Log::Info["viewport"] << "inside draw_active_serf: transporting sailor: a passenger has just been dropped off at flag pos " << pos;
           draw_boat_dropoff = true;
           dropoff_body = serf_get_body(dropoff_serf);
           //  because the x/y_base is the sailor pos, it needs to be adjusted 
