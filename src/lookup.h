@@ -603,8 +603,9 @@ typedef enum AIPlusOption {
   EnableAutoSave = 0,
   ImprovedPigFarms,
   CanTransportSerfsInBoats,
+  QuickDemoEmptyBuildSites,
 } AIPlusOption;
-typedef std::bitset<3> AIPlusOptions;
+typedef std::bitset<4> AIPlusOptions;
 
 
 

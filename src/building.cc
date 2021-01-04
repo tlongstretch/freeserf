@@ -464,6 +464,32 @@ Building::burnup() {
 
   unsigned int _serf_index = first_knight;
   burning_counter = 2047;
+  //
+  // adding support for AIPlusOption::QuickDemoEmptyBuildSites
+  //
+  //  zero burn time if no framing started
+  //  half burn time if framing <= half complete
+  //  3/4 burn time if framing almost complete
+  //  full burn time if framing complete
+  //
+  //  example from Sawmill (from ai.cc)
+  //    building progress 0 means leveling not yet complete
+  //    building progress 1 means leveling complete
+  //    building progress >1 means builder arrived and has received at least first plank and begun building
+  //    no way I know of to check if a builder is in place but no materials delivered yet.   Might be possible, didn't look
+  //    16385 = 1st plank consumed, half framing done
+  //    32769 = 2nd plank consumed, framing complete
+  //    43697 = 1st stone consumed, 1/3 exterior complete
+  //    54625 = 2nd stone consumed, 2/3 exterior complete
+  //    3rd plank used for remainder of exterior, then building complete
+  if (game->get_ai_options_ptr()->test(AIPlusOption::QuickDemoEmptyBuildSites) && constructing){
+    if (progress <= 1)
+      burning_counter = 0;
+    else if (progress <= 16385)
+      burning_counter = 1024;
+    else if (progress < 32769)
+      burning_counter = 1540;
+  }
   u.tick = game->get_tick();
 
   Player *player = game->get_player(owner);
