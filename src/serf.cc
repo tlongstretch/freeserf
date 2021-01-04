@@ -1003,7 +1003,7 @@ Serf::change_direction(Direction dir, int alt_end) {
         ///  boat passengers are not attached to any map position
       }
   }
-  /*
+  /*  MOVED ELSEWHERE FOR IMMEDIATE DROPOFF, DELETE THIS SECTION ONCE VALIDATED  
   // handle sailor just dropped a passenger off at a flag *and sailor is now one pos away*
   //  now that the sailor is free of the flag pos, the serf must be placed there and the sailor dropped_serf_ vars cleared
   //  the !map->has_flag(pos) here check prevents this from triggering the second the passenger is dropped
@@ -1097,16 +1097,6 @@ Serf::change_direction(Direction dir, int alt_end) {
        sailor_pickup_serf = true;
   }
 
-  // if this new_pos has a flag, and the flag is (a water flag) being held for a dropped passenger serf
-  //   it must be marked as such show it shows up as occuped, preventing this serf from moving into it
-  bool pos_held_for_boat_passenger_dropoff = false;
-  if (map->has_flag(new_pos)){
-    Flag *flag = game->get_flag_at_pos(new_pos);
-    if (flag->has_boat_passenger_being_dropped()){
-      pos_held_for_boat_passenger_dropoff = true;
-    }
-  }
-
   // handle serf entering WaitForBoat state because it's change_direction dir is into a waiting sailor's water path
   // if next pos is in water and has no blocking serf, and current pos is NOT in water... (or else it triggers for active sailors)
   // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
@@ -1166,8 +1156,7 @@ Serf::change_direction(Direction dir, int alt_end) {
     }
   }
 
-  if (!pos_held_for_boat_passenger_dropoff &&
-     (!map->has_serf(new_pos) || sailor_pickup_serf)){
+  if (!map->has_serf(new_pos) || sailor_pickup_serf){
 
     /* Change direction (i.e. continue), not occupied. */
 
@@ -1227,13 +1216,6 @@ Serf::change_direction(Direction dir, int alt_end) {
           dropped_serf->tick = game->get_tick();
         }
 
-        // clear the hold on this flag position
-        //  THIS IS NOT IMPLEMENTED YET!
-        // it would be cleaner to simply set/clear the dropoff and pickup at flag bools rather than having tiny flag->functions that does it
-        //  THIS IS NOT NEEDED ANYMORE WITH NEW APPROACH, REMOVE IT ALL!!!!!!!
-        Flag *dropped_flag = game->get_flag_at_pos(pos);
-        dropped_flag->drop_off_serf();
-
         // clear the sailor dropped_serf vars
         s.transporting.dropped_serf_type = Type::TypeNone;
         s.transporting.dropped_serf_index = 0;
@@ -1251,15 +1233,6 @@ Serf::change_direction(Direction dir, int alt_end) {
     //if (type == Serf::TypeSailor && state == State::StateTransporting){
      //Log::Info["serf"] << "debug: a transporting sailor inside change_direction, next pos " << new_pos << " DOES have a serf blocking";
     //}
-    if (pos_held_for_boat_passenger_dropoff){
-      Log::Info["serf"] << "debug: new_pos " << new_pos << " is being held for a sailor's passenger being dropped off here, making this serf wait";
-      // this is an ugly copy & paste, clean this whole function up
-      /* Wait for other serf */
-      animation = 81 + dir;
-      counter = counter_from_animation[animation];
-      s.walking.dir = dir-6;
-      return;
-    }
     /* Direction is occupied. */
     Serf *other_serf = game->get_serf_at_pos(new_pos);
     Direction other_dir;
@@ -1348,9 +1321,6 @@ Serf::transporter_move_to_flag(Flag *flag) {
         s.transporting.passenger_serf_index = 0;
         s.transporting.passenger_serf_type = Serf::TypeNone;
         s.transporting.res = Resource::TypeNone;
-        // "hold" the flag so that another serf does not enter its tile yet, preventing the passenger from appearing there
-        //   THIS CHECK IS NOT ACTUALLY IMPLEMENTED YET!!!
-        flag->set_boat_passenger_being_dropped();
       }
       // need to handle dropping off any resource here or else it will get wiped during a potential passenger pickup
       //  as the passenger becomes s.transporting.res TypeSerf
@@ -2510,7 +2480,6 @@ Serf::handle_serf_ready_to_leave_state() {
   PMap map = game->get_map();
   MapPos new_pos = map->move_down_right(pos);
 
-  // need to add support for boat_passenger_being_dropped holding of position here
   if ((map->get_serf_index(pos) != index && map->has_serf(pos))
       || map->has_serf(new_pos)) {
     animation = 82;
@@ -2542,7 +2511,6 @@ Serf::handle_serf_digging_state() {
       Direction dir = (Direction)((d == 0) ? DirectionUp : 6-d);
       MapPos new_pos = map->move(pos, dir);
 
-      // need to add support for boat_passenger_being_dropped holding of position here
       if (map->has_serf(new_pos)) {
         Serf *other_serf = game->get_serf_at_pos(new_pos);
         Direction other_dir;
@@ -2637,7 +2605,6 @@ Serf::handle_serf_digging_state() {
             }
             Log::Verbose["serf"] << "  found at: " << s.digging.dig_pos << ".";
             /* Digging spot found */
-            // need to add support for boat_passenger_being_dropped holding of position here
             if (map->has_serf(new_pos)) {
               /* Occupied by other serf, wait */
               s.digging.substate = 0;
@@ -2789,7 +2756,6 @@ Serf::handle_serf_move_resource_out_state() {
   counter = 0;
 
   PMap map = game->get_map();
-  // need to add support for boat_passenger_being_dropped holding of position here
   if ((map->get_serf_index(pos) != index && map->has_serf(pos)) ||
     map->has_serf(map->move_down_right(pos))) {
     /* Occupied by serf, wait */
@@ -2898,7 +2864,6 @@ Serf::handle_serf_ready_to_leave_inventory_state() {
   counter = 0;
 
   PMap map = game->get_map();
-  // need to add support for boat_passenger_being_dropped holding of position here
   if (map->has_serf(pos) || map->has_serf(map->move_down_right(pos))) {
     animation = 82;
     counter = 0;
@@ -3380,7 +3345,6 @@ Serf::handle_free_walking_follow_edge() {
   PMap map = game->get_map();
   for (Direction i : cycle_directions_cw()) {
     MapPos new_pos = map->move(pos, a0[i]);
-    // need to add support for boat_passenger_being_dropped holding of position here  ???
     if (((water && map->get_obj(new_pos) == 0) ||
          (!water && !map->is_in_water(new_pos) &&
           can_pass_map_pos(new_pos))) && !map->has_serf(new_pos)) {
@@ -3533,7 +3497,6 @@ Serf::handle_free_walking_common() {
   Direction dir = (Direction)a0[0];
   PMap map = game->get_map();
   MapPos new_pos = map->move(pos, dir);
-  // need to add support for boat_passenger_being_dropped holding of position here ???
   if (((water && map->get_obj(new_pos) == 0) ||
        (!water && !map->is_in_water(new_pos) &&
         can_pass_map_pos(new_pos))) &&
@@ -3624,7 +3587,6 @@ Serf::handle_free_walking_common() {
   for (int i = 0; i < 5; i++) {
     dir = a0[1+i];
     MapPos new_pos = map->move(pos, dir);
-    // need to add support for boat_passenger_being_dropped holding of position here ???
     if (((water && map->get_obj(new_pos) == 0) ||
          (!water && !map->is_in_water(new_pos) &&
           can_pass_map_pos(new_pos))) && !map->has_serf(new_pos)) {
@@ -3857,7 +3819,6 @@ Serf::handle_serf_stonecutting_state() {
     }
 
     PMap map = game->get_map();
-    // need to add support for boat_passenger_being_dropped holding of position here
     if (map->has_serf(map->move_down_right(pos))) {
       counter = 0;
       return;
@@ -4765,7 +4726,6 @@ Serf::handle_serf_building_boat_state() {
       if (s.building_boat.mode == 9) {
         /* Boat done. */
         MapPos new_pos = map->move_down_right(pos);
-        // need to add support for boat_passenger_being_dropped holding of position here
         if (map->has_serf(new_pos)) {
           /* Wait for flag to be free. */
           s.building_boat.mode -= 1;
@@ -5481,7 +5441,6 @@ Serf::handle_serf_state_knight_leave_for_walk_to_fight() {
   Building *building = game->get_building(map->get_obj_index(pos));
   MapPos new_pos = map->move_down_right(pos);
 
-  // need to add support for boat_passenger_being_dropped holding of position here
   if (!map->has_serf(new_pos)) {
     /* For clean state change, save the values first. */
     /* TODO maybe knight_leave_for_walk_to_fight can
@@ -5699,7 +5658,6 @@ Serf::handle_scatter_state() {
 void
 Serf::handle_serf_finished_building_state() {
   PMap map = game->get_map();
-  // need to add support for boat_passenger_being_dropped holding of position here
   if (!map->has_serf(map->move_down_right(pos))) {
     set_state(StateReadyToLeave);
     s.leaving_building.dest = 0;

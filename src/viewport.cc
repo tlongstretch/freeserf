@@ -1943,14 +1943,14 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
         Serf::Type pickup_type = serf->get_pickup_serf_type();
         unsigned int pickup_index = serf->get_pickup_serf_index();
         Serf *pickup_serf = interface->get_game()->get_serf(pickup_index);
-        Log::Info["viewport"] << "inside draw_active_serf: transporting sailor is about to pick up a serf of type " << pickup_type << " with serf index " << pickup_index;
+        //Log::Info["viewport"] << "inside draw_active_serf: transporting sailor is about to pick up a serf of type " << pickup_type << " with serf index " << pickup_index;
         if (pickup_serf == nullptr){
           Log::Warn["viewport"] << "got nullptr for pickup boat passenger serf of type " << pickup_type << " with serf index " << pickup_index << "!";
         }else{
           // sanity check
           PGame game = interface->get_game();
           if (map->has_flag(pos) && game->get_flag_at_pos(pos)->has_serf_waiting_for_boat()){
-            Log::Info["viewport"] << "inside draw_active_serf: transporting sailor: a serf is waiting for a boat at flag pos " << pos;
+            //Log::Info["viewport"] << "inside draw_active_serf: transporting sailor: a serf is waiting for a boat at flag pos " << pos;
             draw_boat_pickup = true;
             pickup_body = serf_get_body(pickup_serf);
             // draw the dropped passenger at the flag, which is the x/y_base and requires no offset

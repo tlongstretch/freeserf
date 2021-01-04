@@ -1659,7 +1659,7 @@ Game::can_demolish_flag(MapPos pos, const Player *player) const {
 bool
 Game::demolish_flag_(MapPos pos) {
   /* Handle any serf at pos. */
-  // need to add support for boat_passenger_being_dropped holding of position here
+
   //  actually, nevermind.  It should not be possible to delete a flag that is at the end of a water path
   //   unless first deleting the water path itself
   if (map->has_serf(pos)) {

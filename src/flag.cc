@@ -167,8 +167,7 @@ Flag::Flag(Game *game, unsigned int index)
   , other_end_dir{}
   , bld_flags(0)
   , bld2_flags(0)
-  , serf_waiting_for_boat(false)
-  , boat_passenger_being_dropped(false) {
+  , serf_waiting_for_boat(false) {
   for (int j = 0; j < FLAG_MAX_RES_COUNT; j++) {
     slot[j].type = Resource::TypeNone;
     slot[j].dest = 0;
@@ -264,20 +263,6 @@ Flag::pick_up_serf() {
   /// trying this:
   ///fix_scheduled();
 
-//  *res = slot[from_slot].type;
-//  *dest = slot[from_slot].dest;
-//  slot[from_slot].type = Resource::TypeNone;
-//  slot[from_slot].dir = DirectionNone;
-//  fix_scheduled();   look into what this does
-  return true;
-}
-
-bool
-Flag::drop_off_serf() {
-  if (!boat_passenger_being_dropped){
-    throw ExceptionFreeserf("No serf was just dropped off at this flag!");
-  }
-  boat_passenger_being_dropped = false;
 //  *res = slot[from_slot].type;
 //  *dest = slot[from_slot].dest;
 //  slot[from_slot].type = Resource::TypeNone;
