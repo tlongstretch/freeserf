@@ -1100,7 +1100,8 @@ Serf::change_direction(Direction dir, int alt_end) {
   // handle serf entering WaitForBoat state because it's change_direction dir is into a waiting sailor's water path
   // if next pos is in water and has no blocking serf, and current pos is NOT in water... (or else it triggers for active sailors)
   // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
-  if (map->is_in_water(new_pos) && !map->has_serf(new_pos) && !map->is_in_water(pos)){
+  if (game->get_ai_options_ptr()->test(AIPlusOption::CanTransportSerfsInBoats) &&
+      map->is_in_water(new_pos) && !map->has_serf(new_pos) && !map->is_in_water(pos)){
     // this water path must have a sailor or else the search callback should not have given 
     //  this as a valid dir, but do some sanity checks anyway
     Flag *water_flag = game->get_flag_at_pos(pos);
@@ -1678,14 +1679,14 @@ Serf::handle_serf_walking_state() {
 
           // adding support for AIPlusOption::CanTransportSerfsInBoats
           // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
-          if (src->has_path(i)){
-            if (!src->is_water_path(i)){
+          //if (src->has_path(i)){
+            //if (!src->is_water_path(i)){
              //Log::Info["serf"] << "debug: a NON-water PATH AT FLAG POS " << src->get_position() << " WITH DIR " << NameDirection[i] << " BEING ADDED TO FLAG SEARCH";
-            }
-            if (src->is_water_path(i) && src->has_transporter(i)){
+            //}
+            //if (src->is_water_path(i) && src->has_transporter(i)){
              //Log::Info["serf"] << "debug: VALID WATER PATH AT FLAG POS " << src->get_position() << " WITH DIR " << NameDirection[i] << " BEING ADDED TO FLAG SEARCH";
-            }
-          }
+            //}
+          //}
           // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
           //if (!src->is_water_path(i)) {
           if (!src->is_water_path(i) ||

@@ -200,7 +200,7 @@ Interface::close_game_init() {
   //   and it must be updated any time an option is added!
   Log::Info["interface"] << " AIOption::EnableAutoSave is " << std::to_string(aiplus_options.test(AIPlusOption::EnableAutoSave));
   Log::Info["interface"] << " AIOption::ImprovedPigFarms is " << std::to_string(aiplus_options.test(AIPlusOption::ImprovedPigFarms));
-  Log::Info["interface"] << " AIOption::Baz is " << std::to_string(aiplus_options.test(AIPlusOption::Baz));
+  Log::Info["interface"] << " AIOption::CanTransportSerfsInBoats is " << std::to_string(aiplus_options.test(AIPlusOption::CanTransportSerfsInBoats));
   // start any AI threads
   initialize_AI();
 }

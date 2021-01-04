@@ -99,6 +99,11 @@ FlagSearch::execute(flag_search_func *callback, bool land,
         // ...and this is a water route (which requires a sailor to transport serfs)
         // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
         if (flag->has_path(i) && flag->is_water_path(i)){
+          // ...but CanTransportSerfsInBoats option is not on...
+          if (!game->get_ai_options_ptr()->test(AIPlusOption::CanTransportSerfsInBoats)){
+            // ... skip this dir/flag
+            continue;
+          }
           //Log::Info["flag"] << "debug e";
           // ...but no sailor is on the water route...
           if (!flag->has_transporter(i)){

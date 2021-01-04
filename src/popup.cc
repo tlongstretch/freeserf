@@ -290,7 +290,7 @@ typedef enum Action {
   ACTION_AIPLUS_NEXT_PAGE,
   ACTION_AIPLUS_ENABLE_AUTOSAVE,
   ACTION_AIPLUS_IMPROVED_PIG_FARMS,
-  ACTION_AIPLUS_BAZ
+  ACTION_AIPLUS_CAN_TRANSPORT_SERFS_IN_BOATS,
 } Action;
 
 PopupBox::PopupBox(Interface *_interface)
@@ -1991,8 +1991,8 @@ PopupBox::draw_aiplus_options_box() {
   draw_green_string(3, 29, "Pigs Require No Wheat");
   draw_popup_icon(1, 26, (interface->test_aiplus_option(AIPlusOption::ImprovedPigFarms)) ? 288 : 220);
 
-  draw_green_string(3, 48, "Baz");
-  draw_popup_icon(1, 45, (interface->test_aiplus_option(AIPlusOption::Baz)) ? 288 : 220);
+  draw_green_string(3, 48, "Can Transport Serfs In Boats");
+  draw_popup_icon(1, 45, (interface->test_aiplus_option(AIPlusOption::CanTransportSerfsInBoats)) ? 288 : 220);
 
   draw_popup_icon(32, 128, 60); /* exit */
 }
@@ -3433,11 +3433,11 @@ PopupBox::handle_action(int action, int x_, int /*y_*/) {
       interface->set_aiplus_option(AIPlusOption::ImprovedPigFarms);
     }
     break;
-  case ACTION_AIPLUS_BAZ:
-    if (interface->test_aiplus_option(AIPlusOption::Baz)){
-      interface->unset_aiplus_option(AIPlusOption::Baz);
+  case ACTION_AIPLUS_CAN_TRANSPORT_SERFS_IN_BOATS:
+    if (interface->test_aiplus_option(AIPlusOption::CanTransportSerfsInBoats)){
+      interface->unset_aiplus_option(AIPlusOption::CanTransportSerfsInBoats);
     } else{
-      interface->set_aiplus_option(AIPlusOption::Baz);
+      interface->set_aiplus_option(AIPlusOption::CanTransportSerfsInBoats);
     }
     break;
   case ACTION_SETT_8_CYCLE:
@@ -3744,7 +3744,7 @@ PopupBox::handle_box_aiplusoptions_clk(int cx, int cy) {
   const int clkmap[] = {
     ACTION_AIPLUS_ENABLE_AUTOSAVE, 7, 7, 16, 16,
     ACTION_AIPLUS_IMPROVED_PIG_FARMS, 7, 26, 16, 16,
-    ACTION_AIPLUS_BAZ, 7, 45, 16, 16,
+    ACTION_AIPLUS_CAN_TRANSPORT_SERFS_IN_BOATS, 7, 45, 16, 16,
     //ACTION_AIPLUS_NEXT_PAGE, 106, 110, 16, 16,
     ActionShowOptions, 255, 126, 16, 16,
     -1

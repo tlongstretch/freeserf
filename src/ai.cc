@@ -84,7 +84,7 @@ AI::start() {
   // the Interface must pass the options bitset to each AI thread when initializing them
   AILogInfo["start"] << name << " AIOption::EnableAutoSave is " << std::to_string(aiplus_options.test(AIPlusOption::EnableAutoSave));
   AILogInfo["start"] << name << " AIOption::ImprovedPigFarms is " << std::to_string(aiplus_options.test(AIPlusOption::ImprovedPigFarms));
-  AILogInfo["start"] << name << " AIOption::Baz is " << std::to_string(aiplus_options.test(AIPlusOption::Baz));
+  AILogInfo["start"] << name << " AIOption::CanTransportSerfsInBoats is " << std::to_string(aiplus_options.test(AIPlusOption::CanTransportSerfsInBoats));
 
   while (true) {
     //AILogDebug["start"] << name << " start AI::start while(true)";
