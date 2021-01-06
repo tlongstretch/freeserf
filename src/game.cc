@@ -225,6 +225,8 @@ Game::update_inventories() {
 
   /* AI: TODO */
 
+  // is this randomly selecting one of three orderings ??? why???
+
   const Resource::Type *arr = NULL;
   switch (random_int() & 7) {
     case 0: arr = arr_2; break;

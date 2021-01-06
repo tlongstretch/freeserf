@@ -63,7 +63,7 @@ class Flag : public GameObject {
   int search_num;
   Direction search_dir;
   int transporter;
-  size_t length[6];
+  size_t length[6];  // despite the name 'length', this var seems to track serf requests to this flag!
   union other_endpoint {
     Building *b[6];
     Flag *f[6];

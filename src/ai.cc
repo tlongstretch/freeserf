@@ -857,6 +857,7 @@ AI::do_fix_stuck_serfs() {
         AILogDebug["do_fix_stuck_serfs"] << name << " thread #" << std::this_thread::get_id() << " AI is unlocking mutex after after serf->set_lost_state (for bug workaround stuck serfs)";
         game->get_mutex()->unlock();
         AILogDebug["do_fix_stuck_serfs"] << name << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after after serf->set_lost_state (for bug workaround stuck serfs)";
+        //game->pause();
       }
       ++serf_wait_idle_on_road_timer;
     }
@@ -916,21 +917,29 @@ AI::do_fix_missing_transporters() {
     Direction dir = flag_dir.second;
     unsigned int trigger_tick = no_transporter_timer->second;
     if (game->get_tick() > trigger_tick) {
-      AILogDebug["do_fix_missing_transporters"] << name << " triggering timer for flag-dir " << flag_index << "-" << dir << " / " << NameDirection[dir];
       Flag *flag = game->get_flag(flag_index);
       if (flag == nullptr || flag->get_owner() != player_index) {
         ++no_transporter_timer;
         continue;
       }
-      if (flag->has_transporter(dir)) {
+      AILogDebug["do_fix_missing_transporters"] << name << " triggering timer for flag with pos " << flag->get_position() << ", index " << flag_index << ", dir " << dir << " / " << NameDirection[dir];
+      
+      if (!flag->has_path(dir)){
+        AILogDebug["do_fix_missing_transporters"] << name << " a path no longer exists for flag with pos " << flag->get_position() << ", index " << flag_index << ", dir " << dir << " / " << NameDirection[dir] << ", erasing timer";
+        no_transporter_timer = no_transporter_timers.erase(no_transporter_timer);
+      }
+      else if (flag->has_transporter(dir)) {
         AILogDebug["do_fix_missing_transporters"] << name << " looks like a transporter finally arrived, not calling another";
         AILogDebug["do_fix_missing_transporters"] << name << " erasing timer for flag-dir " << flag_index << "-" << dir << " / " << NameDirection[dir];
         // found in C++ example... iterator is set by the result of the erase call on the current iterator pos (which is serf_index)
         no_transporter_timer = no_transporter_timers.erase(no_transporter_timer);
       }
       else {
-        AILogDebug["do_fix_missing_transporters"] << name << " timer detected BUG FOUND - NO TRANSPORTER on road at pos " << game->get_flag(flag_index)->get_position() << ", marking in cyan";
+        AILogDebug["do_fix_missing_transporters"] << name << " timer detected BUG FOUND - NO TRANSPORTER on road at pos " << game->get_flag(flag_index)->get_position() << " in dir " << NameDirection[dir] << ", marking flag in cyan and dir in dk_cyan";
         ai_mark_pos.insert(ColorDot(flag->get_position(), "cyan"));
+        ai_mark_pos.insert(ColorDot(map->move(flag->get_position(), dir), "dk_cyan"));
+        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+        //game->pause();
         AILogDebug["do_fix_missing_transporters"] << name << " timer trying to force call a transporter";
         AILogDebug["do_fix_missing_transporters"] << name << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling flag->call_transporter, to work around no-transporter issue";
         game->get_mutex()->lock();
@@ -985,7 +994,7 @@ AI::do_fix_missing_transporters() {
         bool found_transporter = false;
         Road road;
         if (!map->has_path(flag->get_position(), dir)) {
-          AILogDebug["do_fix_missing_transporters"] << name << " no path found at " << flag->get_position() << " in direction " << NameDirection[dir] << " during no_transporter check!  FIND OUT WHY";
+          AILogDebug["do_fix_missing_transporters"] << name << " no path found for flag with pos " << flag->get_position() << ", index " << flag_index << ", dir " << dir << " / " << NameDirection[dir] << " during no_transporter check!  FIND OUT WHY";
         }
         MapPos pos = flag->get_position();
         Direction tmp_dir = dir;
@@ -1038,6 +1047,7 @@ AI::do_fix_missing_transporters() {
             AILogDebug["do_fix_missing_transporters"] << name << " WARNING - flag->call_transporter to " << flag->get_position() << ", dir " << NameDirection[dir] << " - failed while trying to work around RARER no-transporter issue!  I guess let it try again next time";
           }
           std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+          //game->pause();
         }
         else {
           AILogDebug["do_fix_missing_transporters"] << name << " found expected transporter with Flag #" << flag->get_index() << " at pos " << flag->get_position() << " on road in dir " << NameDirection[dir];
@@ -1049,20 +1059,32 @@ AI::do_fix_missing_transporters() {
       //
       if (!flag->has_transporter(dir)) {
         AILogDebug["do_fix_missing_transporters"] << name << " flag at pos " << flag->get_position() << " has no transporter on path in dir " << dir << " / " << NameDirection[dir];
+        // check to see if one was requested
+        if (flag->serf_requested(dir)){
+          AILogDebug["do_fix_missing_transporters"] << name << " flag->serf_requested is true at pos " << flag->get_position() << " in dir " << dir << " / " << NameDirection[dir];
+        }else{
+          AILogDebug["do_fix_missing_transporters"] << name << " flag->serf_requested is FALSE at pos " << flag->get_position() << " in dir " << dir << " / " << NameDirection[dir] << ", marking flag in yellow and dir in dk_yellow";
+          ai_mark_pos.insert(ColorDot(flag->get_position(), "yellow"));
+          ai_mark_pos.insert(ColorDot(map->move(flag->get_position(), dir), "dk_yellow"));
+          std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+          //game->pause();
+        }
         // maybe check to see if there is a Walking Transporter serf whose dest is this path?
         // see if a timer already set for this flag & dir
-        AILogDebug["do_fix_missing_transporters"] << name << " there are " << no_transporter_timers.count(std::make_pair(flag_index, dir)) << " no_transporter_timers set for this flag-dir " << flag_index << "-" << dir << " / " << NameDirection[dir];
+        AILogDebug["do_fix_missing_transporters"] << name << " there are " << no_transporter_timers.count(std::make_pair(flag_index, dir)) << " no_transporter_timers set for this flag with pos " << flag->get_position() << ", index " << flag_index << ", dir " << dir << " / " << NameDirection[dir];
         if (no_transporter_timers.count(std::make_pair(flag_index, dir)) == 0) {
-          AILogDebug["do_fix_missing_transporters"] << name << " setting countdown timer for flag with index " << flag_index;
+          AILogDebug["do_fix_missing_transporters"] << name << " setting countdown timer for flag with pos " << flag->get_position() << ", index " << flag_index << ", dir " << dir << " / " << NameDirection[dir];
           // this is difficult to tune... if too long the entire economy can break down while waiting to clear it
           //    but too soon as it could trigger for a faraway road that the original transporter simply hasn't reached
           //  Maybe make more advanced and check to see if there is an outgoing transporter serf with this destination flag/dir??
-          no_transporter_timers.insert(std::make_pair(std::make_pair(flag_index, dir), game->get_tick() + 20000));
-          AILogDebug["do_fix_missing_transporters"] << name << " there are now " << no_transporter_timers.count(std::make_pair(flag_index, dir)) << " no_transporter_timers set for this flag-dir " << flag_index << "-" << dir << " / " << NameDirection[dir] << name << ", value is: " << no_transporter_timers.at(std::make_pair(flag_index, dir));
+          // jan05 2021 - setting this 25x now that I am looking at it closer.  It should be either extremely long timer or
+          //    based on the distance from the inventory (warehouse/stock) that is dispatching the serf
+          no_transporter_timers.insert(std::make_pair(std::make_pair(flag_index, dir), game->get_tick() + 50000));
+          AILogDebug["do_fix_missing_transporters"] << name << " there are now " << no_transporter_timers.count(std::make_pair(flag_index, dir)) << " no_transporter_timers set for this flag with pos " << flag->get_position() << ", index " << flag_index << ", dir " << dir << " / " << NameDirection[dir] << ", value is: " << no_transporter_timers.at(std::make_pair(flag_index, dir));
         }
         else {
           int trigger_ticks = static_cast<int>(no_transporter_timers.at(std::make_pair(flag_index, dir)) - game->get_tick());
-          AILogDebug["do_fix_missing_transporters"] << name << " a timer is already set for this path, it will trigger in " << trigger_ticks << " ticks";
+          AILogDebug["do_fix_missing_transporters"] << name << " a timer is already set for flag with pos " << flag->get_position() << ", index " << flag_index << ", dir " << dir << " / " << NameDirection[dir] << ", it will trigger in " << trigger_ticks << " ticks";
         }
       }
     }
