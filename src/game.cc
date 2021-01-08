@@ -211,12 +211,26 @@ Game::update_inventories_cb(Flag *flag, void *d) {
   //   that inv[i] Inventory in the dists_from_inv[] array
   //  The number is never reset, it keeps increasing until the last inv is found or the search ends
   //
+  // quick hack to avoid 0 result?
+  bool found = false;
   for (Direction d : cycle_directions_ccw()) {
     if (data->prev_flag != nullptr && data->prev_flag->has_path(d) && data->prev_flag->get_other_end_flag(d)->get_index() == flag->get_index()) {
       // could also use flag->get_other_end_flag(d)? but this reads better
-      data->dist_so_far += data->prev_flag->get_road_length((Direction)d);
+      // to try to approximate the original road length, bit-shift >>4, or divide by 16
+      //  and then triple it to get pretty close the reversing the above table
+      if(data->prev_flag->get_road_length((Direction)d) == 0){
+        Log::Info["game"] << "debug: it seems get_road_length can be zero, using +1 for dist_from_inv addition";
+        data->dist_so_far += 1;
+      }else{
+        data->dist_so_far += (data->prev_flag->get_road_length((Direction)d) / 16) * 3;
+      }
+      found = true;
       break;
     }
+  }
+  if (!found){
+    //Log::Info["game"] << "debug: no prev_flag/dir found, using +1 for dist_from_inv addition";
+    data->dist_so_far += 1;
   }
   data->prev_flag = flag;
 
@@ -347,6 +361,13 @@ Game::update_inventories() {
       mutex.unlock();
       Log::Verbose["game"] << "thread #" << std::this_thread::get_id() << " has unlocked mutex inside Game::update_inventories";
 
+      //
+      // NOTE - so far nothing in this function is paying attention to where resources are REQUESTED
+      //   it is only iterating over each Resource type, checking Inventories that could supply it,
+      //    and THEN checking where the Resource might be needed at 
+      //       search.execute(update_inventories_cb
+      //
+
       // if there are no inventories that could service this request, 
       //  skip this resource type and move on to the next resource type
       if (n == 0) continue;
@@ -399,7 +420,7 @@ Game::update_inventories() {
       data.flags = flags_;
       // adding support for requested resource timeouts
       data.dists_from_inv = dists_from_inv;
-      data.dist_so_far = -1;
+      data.dist_so_far = 0;
       // the update_inventories_cb does stuff but can only return false,
       //  maybe it is not intended to end early and simply to do some work
       //  as part of the flag search?

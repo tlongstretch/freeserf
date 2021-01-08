@@ -69,7 +69,31 @@ class Flag : public GameObject {
   int search_num;
   Direction search_dir;
   int transporter;
-  size_t length[6];  // despite the name 'length', this var also seems to track serf requests to this flag!
+  // this is the "road length value", which is then bit-shifted << 4  (effectively multiplying it by 16?)
+  // it is NOT the actual length of the road in that dir, that value is unfortunately thrown away
+  // despite the name 'length', this var also seems to track serf requests to this flag! 
+  // I believe the rightmost four bits are used for this
+  size_t length[6];
+  //
+  // add support for requested resource timeouts
+  //
+  //  this is a tough decision, it seems that the best approach is clearly to add true
+  //  length field to flags that actually represents the tile-count (i.e. Dirs count)
+  //  in each direction that has a path.  However, this would require updating the save/load 
+  //  functions to include this new field, breaking compatibility with other saves
+  // Also, if I were to add this, might as well store the actual Dirs (i.e. the Road object)
+  //  itself in the flag in each dir, to make pathfinding simpler.  This is how Freesef.NET
+  //  does it
+  // It MIGHT be okay to use the road length "category" which is "banded" to certain values
+  //  tied to the number of transporters to use for a road, and importantly is effectively
+  //  capped at length it can represent so a really long road that is far higher than the 
+  //  number required to reach the highest category is not well represented when it comes to
+  //  estimating the time it should take for a resource to arrive at the requesting building.
+  // ALSO, it seems possible to simply use larger values for the length and not modify the save
+  //  game files?  However it might break loading Freeserf save games in original Settlers1/
+  //  SerfCity... but is that even supported?  And do we really care about it?  Why would
+  //   anybody bother doing this?
+
   union other_endpoint {
     Building *b[6];
     Flag *f[6];

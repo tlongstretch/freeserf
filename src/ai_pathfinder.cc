@@ -11,6 +11,9 @@
 //  jan07 2021 - NOTE - it looks like the game stores the length of each path in the flag's length[] array.
 //    This could be used instead of tracing and counting the tiles if the actual paths
 //    are not needed, and it should be faster
+//  NEVERMIND - the flag->length[dir] values are not true road lengths, though they start out that way,
+//   they are banded into certain ranges, bit-shifted, and used for storing other state
+//   I am thinking of modifying the Flag vars to store the true length and Dirs (i.e. the Road object)
 //
 
 #include "src/ai.h"
