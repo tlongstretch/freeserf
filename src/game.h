@@ -84,6 +84,9 @@ class Game {
   unsigned int game_speed;
   unsigned int tick;
   unsigned int last_tick;
+  // what is the diff between const_tick and last_tick??
+  //  maybe const_tick is the same tick used for each update cycle?
+  //  and plain tick is incrementing constantly within the cylcle?
   unsigned int const_tick;
   unsigned int game_stats_counter;
   unsigned int history_counter;

@@ -29,6 +29,19 @@
 #include "src/serf.h"
 #include "src/objects.h"
 
+// adding support for requested resource timeouts
+//  this number represents the number of seconds to allow for a requested
+//   resource to travel one game tile at default game speed (2)
+//   It needs to account for steepness and reasonable traffic
+//  A quick test shows that it takes about nine seconds for a serf
+//   to travel one tile up a road of the steepest category
+#define TIMEOUT_SECS_PER_TILE    15
+// also copying these here from freeserf.h as it is not included but is needed for
+//  the request resource timeouts
+/* The length between game updates in miliseconds. */
+#define TICK_LENGTH  20
+#define TICKS_PER_SEC  (1000/TICK_LENGTH)
+
 class Inventory;
 class Serf;
 class SaveReaderBinary;
@@ -76,6 +89,9 @@ class Building : public GameObject {
     int available;
     int requested;
     int maximum;
+    // adding support for resource request timeouts
+    int requested_tick[8];
+    int req_timeout_tick[8];
   } Stock;
 
   /* Map position of building */
