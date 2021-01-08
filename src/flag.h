@@ -45,25 +45,31 @@ class SaveReaderText;
 class SaveWriterText;
 
 class Flag : public GameObject {
- protected:
+
+  // temporarily creating public: and putting ResourceSlot slot stuff
+  //  in it for popup.cc "find resources desteind for this building's flag search"
+ public:
+ //protected:
   class ResourceSlot {
    public:
     Resource::Type type;
     Direction dir;
     unsigned int dest;
   };
+  ResourceSlot slot[FLAG_MAX_RES_COUNT];
 
  protected:
   unsigned int owner;
   MapPos pos; /* ADDITION */
   int path_con;
   int endpoint;
-  ResourceSlot slot[FLAG_MAX_RES_COUNT];
+  // temporarily moving this to public for popup.cc "find resources desteind for this building's flag search"
+  //ResourceSlot slot[FLAG_MAX_RES_COUNT];
 
   int search_num;
   Direction search_dir;
   int transporter;
-  size_t length[6];  // despite the name 'length', this var seems to track serf requests to this flag!
+  size_t length[6];  // despite the name 'length', this var also seems to track serf requests to this flag!
   union other_endpoint {
     Building *b[6];
     Flag *f[6];
@@ -135,6 +141,8 @@ class Flag : public GameObject {
   bool serf_request_fail() const { return (transporter >> 7) & 1; }
   void serf_request_clear() { transporter &= ~BIT(7); }
 
+  // adding support for requested resource timeouts
+  unsigned int get_road_length(Direction dir) const { return length[dir]; }
   /* Current number of transporters on path. */
   unsigned int free_transporter_count(Direction dir) const {
     return length[dir] & 0xf; }
@@ -219,6 +227,13 @@ class Flag : public GameObject {
   void restore_path_serf_info(Direction dir, SerfPathInfo *data);
 
   void set_search_dir(Direction dir) { search_dir = dir; }
+  // even though this returns a Direction, it is often NOT
+  //  a valid Direction 0-5!! I don't know why yet
+  // NOT ONLY THAT, it seems that Game::update_inventories uses the
+  //  flag->search_dir as the inventory identifier for the search?
+  //  so for the castle, search_dir is always 0 / DirectionRight / East
+  //  and for the next warehouse that can fulfill, it is always 1 / DirectionDownRight / SouthEast
+  //  so it is not a Direction at all but a var that is used for multiple purposes??
   Direction get_search_dir() const { return search_dir; }
   void clear_search_id() { search_num = 0; }
 

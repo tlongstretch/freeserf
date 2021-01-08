@@ -2062,6 +2062,64 @@ PopupBox::draw_mine_output_box() {
     return;
   }
 
+   //
+  // DEBUG - find the requested resources destined for this building
+  //
+  if (building->get_requested_in_stock(0) > 0){
+    Log::Info["popup"] << "debug: clicked mine of type " << NameBuilding[building->get_type()] << " at pos " << building->get_position() << " has stock[0].requested: " << building->get_requested_in_stock(0);
+    int reqd_res_found = 0;
+    Log::Verbose["popup"] << "thread #" << std::this_thread::get_id() << " is locking mutex for requested-resource debug search in PopupBox::draw_mine_output_box";
+    interface->get_game()->get_mutex()->lock();
+    Log::Verbose["popup"] << "thread #" << std::this_thread::get_id() << " has locked mutex for requested-resource debug search in PopupBox::draw_mine_output_box";
+    // search all of this player's flags to see if they have any resources destined for this building's flag
+    Flags *flags = interface->get_game()->get_flags();
+    Flags::Iterator i = flags->begin();
+    Flags::Iterator prev = flags->begin();
+    while (i != flags->end()) {
+      prev = i;
+      Flag *flag = *i;
+      if (flag != NULL && flag->get_index() != 0 && flag->get_owner() == interface->get_player()->get_index()){
+        for (int s = 0; s < FLAG_MAX_RES_COUNT; s++){
+          if (flag->slot[s].dest == building->get_flag_index() &&
+              (flag->slot[s].type == Resource::TypeFish ||
+               flag->slot[s].type == Resource::TypeBread ||
+               flag->slot[s].type == Resource::TypeMeat)){
+            Log::Info["popup"] << "debug: a requested resource of type " << NameResource[flag->slot[s].type] << " with dest flag building " << building->get_position() << " of type " << NameBuilding[building->get_type()] << " found at flag pos " << flag->get_position() << " in slot " << s;
+            reqd_res_found++;
+          }
+        }
+        if (i != flags->end())
+          ++i;
+      } else {
+        // skip this flag
+        if (i != flags->end())
+          ++i;
+      }
+    }
+    // search all of this player's transporters/sailors to see if they have any resources destined for this building's flag
+    for (Serf *serf : interface->get_game()->get_player_serfs(interface->get_player())) {
+      if (serf->get_type() == Serf::TypeTransporter || serf->get_type() == Serf::TypeSailor){
+        if (serf->get_transporting_dest() == building->get_flag_index() &&
+              (serf->get_delivery() == Resource::TypeFish ||
+               serf->get_delivery() == Resource::TypeBread ||
+               serf->get_delivery() == Resource::TypeMeat)){
+          Log::Info["popup"] << "debug: a requested resource of type " << NameResource[serf->get_delivery()] << " with dest flag building " << building->get_position() << " of type " << NameBuilding[building->get_type()] << " is carried by a serf at pos " << serf->get_pos();
+          reqd_res_found++;
+        }
+      }
+    }
+
+    Log::Verbose["popup"] << "thread #" << std::this_thread::get_id() << " is unlocking mutex for requested-resource debug search in PopupBox::draw_mine_output_box";
+    interface->get_game()->get_mutex()->unlock();
+    Log::Verbose["popup"] << "thread #" << std::this_thread::get_id() << " has unlocked mutex for requested-resource debug search in PopupBox::draw_mine_output_box";
+    if (reqd_res_found == building->get_requested_in_stock(0)){
+      Log::Info["popup"] << "debug: all requested stock[0] resources requested to building " << NameBuilding[building->get_type()] << " at pos " << building->get_position() << " are accounted for and en-route";
+    }else{
+      Log::Warn["popup"] << "debug: " << building->get_requested_in_stock(0) - reqd_res_found << " of requested stock[0] resources are unaccounted for to building " << NameBuilding[building->get_type()] << " at pos " << building->get_position();
+    }
+  }
+
+
   /* Draw building */
   draw_popup_building(6, 60, map_building_sprite[type]);
 
@@ -2623,6 +2681,13 @@ PopupBox::draw_building_stock_box() {
     0x1b, -1, -1, 0x12,
     -1
   };
+
+  //
+  // DEBUG - find the requested resources destined for this building
+  //
+  if (building->get_requested_in_stock(0) > 0){
+    Log::Info["popup"] << "debug: clicked building of type " << NameBuilding[building->get_type()] << " at pos " << building->get_position() << " has stock[0].requested: " << building->get_requested_in_stock(0);
+  }
 
   /* Draw picture of serf present */
   int serf_sprite = 0xdc; /* minus box */

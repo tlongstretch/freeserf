@@ -430,6 +430,8 @@ class Serf : public GameObject {
   bool idle_to_wait_state(MapPos pos);
 
   int get_delivery() const;
+  // add support for requested resource search debugging - returns destination flag index for carried resource
+  int get_transporting_dest() const { return s.transporting.dest; }
   // add support for AIPlusOption::CanTransportSerfsInBoats
   Type get_pickup_serf_type() const { return s.transporting.pickup_serf_type; }
   unsigned int get_pickup_serf_index() const { return s.transporting.pickup_serf_index; }

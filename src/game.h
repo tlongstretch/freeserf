@@ -75,7 +75,7 @@ class Game {
   Players players;
 
   Flags flags;
-  Inventories inventories;
+  Inventories inventories;  // castle and warehouse/stocks.  NOT other buildings
   Buildings buildings;
   Serfs serfs;
 

@@ -6,6 +6,13 @@
  *        C# implementation
  *
  */
+
+//
+//  jan07 2021 - NOTE - it looks like the game stores the length of each path in the flag's length[] array.
+//    This could be used instead of tracing and counting the tiles if the actual paths
+//    are not needed, and it should be faster
+//
+
 #include "src/ai.h"
 
 #include "src/pathfinder.h"  // for original tile SearchNode

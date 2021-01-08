@@ -152,12 +152,45 @@ typedef struct UpdateInventoriesData {
   Resource::Type resource;
   int *max_prio;
   Flag **flags;
+  // adding support for requested resource timeouts:
+  // - when requesting a resource, count the total tile distance it must travel
+  //    as determined by adding up the length of the path-dirs followed in the
+  //    flag search.
+  // - set an "expected by" tick based on the delivery distance times some multiplier
+  //    that allows for reasonable traffic and steep roads
+  // - inside the Building update, add code to re-request a resource that has not 
+  //    arrived by the expected-by tick
+  // - if this expected_by tick is not made part of the save/load game, it should
+  //    be harmless as the expected_by tick will not be set and not trigger on load
+  //    but should still be set and work normally for any further reqs from the building
+  // I don't understand how these are pointers when being defined in the struct
+  //  but not when assigned to data.xxxx ?
+  //
+  // array of dists_from_inv, index matches with inv[i], assigned once
+  //  an inventory is found (assigns the current running total so far)
+  int *dists_from_inv;
+  // current accumulalted tile dist so far since the start of the entire flag search
+  int dist_so_far;
+  // needed to determine the path Direction between the current and previous flags
+  //  so the flag length[dir] field can be checked
+  Flag *prev_flag;
 } UpdateInventoriesData;
 
 bool
 Game::update_inventories_cb(Flag *flag, void *d) {
   UpdateInventoriesData *data = reinterpret_cast<UpdateInventoriesData*>(d);
+  // I don't understand how the flag search_dir is used in this function, because
+  //  it seems that the search_dir is always 0 / East/Right just like in the
+  //  schedule_unknown_dest_cb
   int inv = flag->get_search_dir();
+  // HOW THE HELL CAN THIS ALWAYS BE East/Right ???????
+  //  the answer is - because it doesn't actually refer to a Direction when used by Game::update_inventories_cb,
+  //  it looks to be re-used to store the index number (in the context of THIS CURRENT SEARCH)
+  //   of the Inventory (castle, warehouse/stock) that the flag is attached to 
+  //   and it is only always 0/East/DirectionRight for the castle inventory, 
+  //   but for other warehouse will be 1, 2, 100, and so on
+  //Log::Info["game"] << "debug: inside Game::update_inventories_cb, flag pos = " << flag->get_position() << ", \"flag->search_dir\" i.e. inv[#] = " << inv;
+
   if (data->max_prio[inv] < 255 && flag->has_building()) {
     Building *building = flag->get_building();
 
@@ -165,9 +198,30 @@ Game::update_inventories_cb(Flag *flag, void *d) {
     if (bld_prio > data->max_prio[inv]) {
       data->max_prio[inv] = bld_prio;
       data->flags[inv] = flag;
+      data->dists_from_inv[inv] = data->dist_so_far;
     }
   }
+  // adding support for requested resource timeouts
+  //
+  // this needs to be outside of the if() block above because that if() is only true
+  //  when the flag being checked is one of the valid inventories
+  //  For all non-inventory flags, we need to determine the flag dist between this and the
+  //   previous flag, and increment the current running dist_from_inv.
+  //  Once and inventory is reached, the current dist_from_inv is stored in reference to
+  //   that inv[i] Inventory in the dists_from_inv[] array
+  //  The number is never reset, it keeps increasing until the last inv is found or the search ends
+  //
+  for (Direction d : cycle_directions_ccw()) {
+    if (data->prev_flag != nullptr && data->prev_flag->has_path(d) && data->prev_flag->get_other_end_flag(d)->get_index() == flag->get_index()) {
+      // could also use flag->get_other_end_flag(d)? but this reads better
+      data->dist_so_far += data->prev_flag->get_road_length((Direction)d);
+      break;
+    }
+  }
+  data->prev_flag = flag;
 
+  // it seems this callback cannot return true, it doesn't have a return true condition
+  //  instead, the search exits once all inventories in the search are considered(?)
   return false;
 }
 
@@ -236,12 +290,28 @@ Game::update_inventories() {
 
   while (arr[0] != Resource::TypeNone) {
     for (Player *player : players) {
+      // the ONLY VALID "Inventories" are the castle and warehouse/stocks
+      //  buildings which have stock[0] and stock[1], including ones that produce
+      //   new resources, do NOT count as valid inventories for this search (I think)
+      // an array of inventories that could service requests for this resource
       Inventory *invs[256];
+      // n is the number of inventories that could service this request
+      //  that is, the last valid invs[] array index
       int n = 0;
-    Log::Verbose["game"] << "thread #" << std::this_thread::get_id() << " is locking mutex inside Game::update_inventories";
-    mutex.lock();
-    Log::Verbose["game"] << "thread #" << std::this_thread::get_id() << " has locked mutex inside Game::update_inventories";
+      Log::Verbose["game"] << "thread #" << std::this_thread::get_id() << " is locking mutex inside Game::update_inventories";
+      mutex.lock();
+      Log::Verbose["game"] << "thread #" << std::this_thread::get_id() << " has locked mutex inside Game::update_inventories";
       for (Inventory *inventory : inventories) {
+
+        // debug
+        if (inventory->get_owner() == player->get_index() && inventory->is_queue_full()) {
+          Building *foo = get_building(inventory->get_building_index());
+          //Log::Warn["game"] << "debug: player" << player->get_index() << "'s inventory at " << NameBuilding[foo->get_type()] << " at pos " << foo->get_position();
+        }
+
+        // find inventories (whose out-queue is not full) 
+        //  that have the desired resource type, and add
+        //  as a pointer to the inv[] array
         if (inventory->get_owner() == player->get_index() &&
             !inventory->is_queue_full()) {
           Inventory::Mode res_dir = inventory->get_res_mode();
@@ -273,22 +343,53 @@ Game::update_inventories() {
         }
       }
 
-    Log::Verbose["game"] << "thread #" << std::this_thread::get_id() << " is unlocking mutex inside Game::update_inventories";
-    mutex.unlock();
-    Log::Verbose["game"] << "thread #" << std::this_thread::get_id() << " has unlocked mutex inside Game::update_inventories";
+      Log::Verbose["game"] << "thread #" << std::this_thread::get_id() << " is unlocking mutex inside Game::update_inventories";
+      mutex.unlock();
+      Log::Verbose["game"] << "thread #" << std::this_thread::get_id() << " has unlocked mutex inside Game::update_inventories";
 
+      // if there are no inventories that could service this request, 
+      //  skip this resource type and move on to the next resource type
       if (n == 0) continue;
 
+      // if there ARE inventories that could service this resource type,
+      //  start a new search
       FlagSearch search(this);
 
+      // each array item will map to one of the invs[], which are the
+      //  valid inventories that can service this request.  Up to 256
+      //  inventories could be considered, but usually much fewer!
       int max_prio[256];
       Flag *flags_[256];
+      // adding support for requested resource timeouts
+      int dists_from_inv[256];
 
+      // set the initial values for each inventory
+      //  'n' is the number of inventories found that could 
+      //   service this request... i.e. the highest element
+      //   of array inv[]
       for (int i = 0; i < n; i++) {
+        //Log::Info["game"] << "debug: inside Game::update_inventories, wtf0, i = " << i << ", n = " << n;
         max_prio[i] = 0;
         flags_[i] = NULL;
+        // adding support for requested resource timeouts
+        dists_from_inv[i] = -1;
+        // get the game->Flag* attached to the inventory building...
         Flag *flag = flags[invs[i]->get_flag_index()];
+        // and set its search dir and add it as a source to the FlagSearch
+        // NOTE - Directions only go from 0-5, but this is setting 0-256!
+        //  this may explain why elsewhere I see invalid dirs, and various
+        //  bitwise operators doing 'AND 255' on Direction integers
+        // but this is casting it to Direction type... 
+        // which is an enum that only goes up to 5!!!  how can that work?
+        // shouldn't it break as soon as it hits 6???  test this out
+        //
+        // I no longer think that search_dir actually refers to a direction at all in some cases
+        //  it looks like it is simply used to store the INVENTORY INDEX FOR THIS CURRENT SEARCH
+        //   rather than any valid Direction 0-5
+        //
+        //Log::Info["game"] << "debug: inside Game::update_inventories, wtf1, i = " << i << ", n = " << n << ", (Direction)i = " << (Direction)i;
         flag->set_search_dir((Direction)i);
+        //Log::Info["game"] << "debug: inside Game::update_inventories, wtf1, i = " << i << ", n = " << n << ", flag->get_search_dir = " << flag->get_search_dir();
         search.add_source(flag);
       }
 
@@ -296,15 +397,27 @@ Game::update_inventories() {
       data.resource = arr[0];
       data.max_prio = max_prio;
       data.flags = flags_;
+      // adding support for requested resource timeouts
+      data.dists_from_inv = dists_from_inv;
+      data.dist_so_far = -1;
+      // the update_inventories_cb does stuff but can only return false,
+      //  maybe it is not intended to end early and simply to do some work
+      //  as part of the flag search?
       search.execute(update_inventories_cb, false, true, &data);
 
       for (int i = 0; i < n; i++) {
+        // if max_prio >0 that means there is a building at this
+        //  flag which can request resources
         if (max_prio[i] > 0) {
           Log::Verbose["game"] << " dest for inventory " << i << "found";
           Resource::Type res = (Resource::Type)arr[0];
 
           Building *dest_bld = flags_[i]->get_building();
-          if (!dest_bld->add_requested_resource(res, false)) {
+          Log::Info["flag"] << "inside Game::update_inventories, about to call add_requested_resource for dest_bld of type " << NameBuilding[dest_bld->get_type()];
+          // adding support for requested resource timeouts
+          //if (!dest_bld->add_requested_resource(res, false)) {
+          int dist_from_inv = dists_from_inv[i];
+          if (!dest_bld->add_requested_resource(res, false, dist_from_inv)) {
             throw ExceptionFreeserf("Failed to request resource.");
           }
 

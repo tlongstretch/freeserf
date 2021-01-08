@@ -193,7 +193,12 @@ class Building : public GameObject {
   Serf *call_defender_out();
   Serf *call_attacker_out(int knight_index);
 
-  bool add_requested_resource(Resource::Type res, bool fix_priority);
+  // adding support for requested resource timeouts
+  //bool add_requested_resource(Resource::Type res, bool fix_priority);
+  // give this a default -1 distance to avoid having to modify other functions that call this
+  //bool add_requested_resource(Resource::Type res, bool fix_priority, int dist_from_inv = -1);
+  // wait I think it is better to update the functions as they all use it
+  bool add_requested_resource(Resource::Type res, bool fix_priority, int dist_from_inv);
   bool is_stock_active(int stock_num) const {
     return (stock[stock_num].type > 0); }
   unsigned int get_res_count_in_stock(int stock_num) const {

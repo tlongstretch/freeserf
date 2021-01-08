@@ -286,7 +286,7 @@ Building::cancel_transported_resource(Resource::Type res) {
     }
   }
   if ((in_stock < 0) && (res == Resource::TypeFish || res == Resource::TypeMeat || res == Resource::TypeBread)) {
-    Log::Debug["building"] << "Building::cancel_transported_resource fixing food " << res;
+    //Log::Debug["building"] << "inside Building::cancel_transported_resource fixing food " << res;
     for (int i = 0; i < kMaxStock; i++) {
       if ((stock[i].type == Resource::TypeFish && stock[i].requested > 0) ||
           (stock[i].type == Resource::TypeMeat && stock[i].requested > 0) ||
@@ -298,18 +298,20 @@ Building::cancel_transported_resource(Resource::Type res) {
   }
   if (in_stock >= 0) {
     if (stock[in_stock].requested > 0) {
-      Log::Debug["building"] << "cancel_transported_resource - stock[in_stock].requested - 1";
+      Log::Debug["building"] << "inside Building::cancel_transported_resource, building type " << NameBuilding[type] << " at pos " << get_position() << ", succesfully cancelled requested resource, decrementing stock["<< in_stock << "].requested";
         stock[in_stock].requested -= 1;
     }
     if (stock[in_stock].requested < 0) {
-      Log::Debug["building"] << "cancel_transported_resource - Failed to cancel unrequested resource delivery" << res << " stock index " << in_stock << " requested " << stock[in_stock].requested;
+      Log::Error["building"] << "inside Building::cancel_transported_resource, building type " << NameBuilding[type] << " at pos " << get_position() << ", failed to cancel unrequested resource delivery!";
       throw ExceptionFreeserf("Failed to cancel unrequested resource delivery.");
     }
   }
 }
 
 bool
-Building::add_requested_resource(Resource::Type res, bool fix_priority) {
+// adding support for requested resource timeouts
+//Building::add_requested_resource(Resource::Type res, bool fix_priority) {
+Building::add_requested_resource(Resource::Type res, bool fix_priority, int dist_from_inv) {
   for (int j = 0; j < kMaxStock; j++) {
     if (stock[j].type == res) {
       if (fix_priority) {
@@ -320,6 +322,7 @@ Building::add_requested_resource(Resource::Type res, bool fix_priority) {
         stock[j].prio = 0;
       }
       stock[j].requested += 1;
+      Log::Info["building"] << "debug: successfully requested resource for building of type " << NameBuilding[type] << ", at pos " << get_position() << ", with dist_from_inv " << dist_from_inv;
       return true;
     }
   }

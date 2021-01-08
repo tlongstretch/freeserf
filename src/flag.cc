@@ -344,30 +344,54 @@ typedef struct ScheduleUnknownDestData {
   Resource::Type resource;
   int max_prio;
   Flag *flag;
+  // adding support for requested resource timeouts
+  int dist_from_inv;
 } ScheduleUnknownDestData;
 
 static bool
 schedule_unknown_dest_cb(Flag *flag, void *data) {
   ScheduleUnknownDestData *dest_data =
     static_cast<ScheduleUnknownDestData*>(data);
+  //Log::Info["flag"] << "debug: inside schedule_unknown_dest_cb with flag index " << flag->get_index() << ", pos " << flag->get_position() << ", search_dir " << NameDirection[flag->get_search_dir()];
   if (flag->has_building()) {
     Building *building = flag->get_building();
+    Log::Info["flag"] << "debug: inside schedule_unknown_dest_cb with flag index " << flag->get_index() << ", pos " << flag->get_position() << ", search_dir " << flag->get_search_dir() << ". Flag has building of type " << NameBuilding[building->get_type()];
 
     int bld_prio = building->get_max_priority_for_resource(dest_data->resource);
     if (bld_prio > dest_data->max_prio) {
+      Log::Info["flag"] << "debug: inside schedule_unknown_dest_cb with flag index " << flag->get_index() << ", pos " << flag->get_position() << ", search_dir " << flag->get_search_dir() << ". acceptable prio";
       dest_data->max_prio = bld_prio;
+      //dest_data->flag = flag;  // don't do this yet
+      // adding support for requested resource timeouts
+      // wait... UNKNOWN_dest search doesn't use flag->search_dirs because it does not care
+      //  about the destination, it just keeps searching outward until it finds a compatible building(?)
+      //  so the search_dir cannot be used to figure out the length of the roads
+      // need to check the PREVIOUS flag to determine which dirs they connect between and check that length
+      for (Direction d : cycle_directions_ccw()) {
+        if (dest_data->flag != nullptr && dest_data->flag->has_path(d) && dest_data->flag->get_other_end_flag(d)->get_index() == flag->get_index()) {
+          // could also use flag->get_other_end_flag(d)? but this reads better
+          dest_data->dist_from_inv += dest_data->flag->get_road_length((Direction)d);
+          break;
+        }
+      }
+      // NOW we can update this
       dest_data->flag = flag;
     }
 
-    if (dest_data->max_prio > 204) return true;
-  }
+    if (dest_data->max_prio > 204){
+      Log::Info["flag"] << "debug: inside schedule_unknown_dest_cb with flag index " << flag->get_index() << ", pos " << flag->get_position() << ", search_dir " << flag->get_search_dir() << ". max_prio >204, returning true";
+      // because dist_from_inv starts at -1, increment it by one to get actual value
+      dest_data->dist_from_inv += 1;
+      return true;
+    }
 
+  }
   return false;
 }
 
 void
 Flag::schedule_slot_to_unknown_dest(int slot_num) {
-  //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest";
+  Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_unknown_dest";
   /* Resources which should be routed directly to
    buildings requesting them. Resources not listed
    here will simply be moved to an inventory. */
@@ -415,16 +439,31 @@ Flag::schedule_slot_to_unknown_dest(int slot_num) {
 
     ScheduleUnknownDestData data;
     data.resource = res;
-    data.flag = NULL;
+    // adding support for requested resource timeouts
+    //  in order to figure out which dir we just searched in,
+    //  as search_dir is not used for unknown_dest searches,
+    //  I am checking which dir connects the previous flag in the search
+    //  to the current one.  But the very first flag is null, so this breaks
+    //  Trying this: set data.flag to the current flag
+    //data.flag = NULL;
+    // wait this doesn't work, because it TESTS to see if data.flag is nullptr below
+    ///  hmm, changing below check to fix
+    data.flag = this;
     data.max_prio = 0;
+    data.dist_from_inv = -1;
 
+    Log::Info["flag"] << "inside Flag::schedule_slot_to_unknown_dest, about to start search";
     search.execute(schedule_unknown_dest_cb, false, true, &data);
-    if (data.flag != nullptr) {
+    //  this should work...
+    //if (data.flag != nullptr) {
+    if (data.flag != this) {
       Log::Verbose["game"] << "dest for flag " << index << " res " << slot
                            << " found: flag " << data.flag->get_index();
       Building *dest_bld = data.flag->other_endpoint.b[DirectionUpLeft];
-
-      if (!dest_bld->add_requested_resource(res, true)) {
+      // adding support for requested resource timeouts
+      //if (!dest_bld->add_requested_resource(res, true)) {
+      if (!dest_bld->add_requested_resource(res, true, data.dist_from_inv)) {
+        Log::Error["flag"] << "inside Flag::schedule_slot_to_unknown_dest, add_requested_resource returned false, resource: " << NameResource[res] << ", building type " << NameBuilding[dest_bld->get_type()];
         throw ExceptionFreeserf("Failed to request resource.");
       }
 
@@ -432,6 +471,7 @@ Flag::schedule_slot_to_unknown_dest(int slot_num) {
       endpoint |= BIT(7);
       return;
     }
+    Log::Info["flag"] << "inside Flag::schedule_slot_to_unknown_dest, dest not found?";
   }
 
   /* Either this resource cannot be routed to a destination
@@ -527,6 +567,7 @@ static bool
 schedule_known_dest_cb(Flag *flag, void *data) {
   ScheduleKnownDestData *dest_data =
     static_cast<ScheduleKnownDestData*>(data);
+  Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb  stub function";
   return (flag->schedule_known_dest_cb_(dest_data->src,
                                         dest_data->dest,
                                         dest_data->slot) != 0);
@@ -534,43 +575,43 @@ schedule_known_dest_cb(Flag *flag, void *data) {
 
 bool
 Flag::schedule_known_dest_cb_(Flag *src, Flag *dest, int _slot) {
-  //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_";
+  Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_";
   if (this == dest) {
-    //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, destination found";
+    Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, destination found";
     /* Destination found */
     if (this->search_dir != 6) {
-      //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 1";
+      Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 1";
       if (!src->is_scheduled(this->search_dir)) {
-        //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 2";
+        Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 2";
         /* Item is requesting to be fetched */
         src->other_end_dir[this->search_dir] =
           BIT(7) | (src->other_end_dir[this->search_dir] & 0x78) | _slot;
       } else {
-        //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 3";
+        Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 3";
         Player *player = game->get_player(this->get_owner());
         int other_dir = src->other_end_dir[this->search_dir];
         int prio_old = player->get_flag_prio(src->slot[other_dir & 7].type);
         int prio_new = player->get_flag_prio(src->slot[_slot].type);
         if (prio_new > prio_old) {
-          //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 4";
+          Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 4";
           /* This item has the highest priority now */
           src->other_end_dir[this->search_dir] =
             (src->other_end_dir[this->search_dir] & 0xf8) | _slot;
         }
-        //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 5";
+        Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_ 5";
         src->slot[_slot].dir = this->search_dir;
       }
     }
-    //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, returning true";
+    Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, returning true";
     return true;
   }
-  //Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, returning false";
+  Log::Info["flag"] << "debug: inside Flag::schedule_known_dest_cb_, returning false";
   return false;
 }
 
 void
 Flag::schedule_slot_to_known_dest(int slot_, unsigned int res_waiting[4]) {
-  //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest";
+  Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest";
   FlagSearch search(game);
 
   search_num = search.get_id();
@@ -582,9 +623,9 @@ Flag::schedule_slot_to_known_dest(int slot_, unsigned int res_waiting[4]) {
   /* Directions where transporters are idle (zero slots waiting) */
   int flags = (res_waiting[0] ^ 0x3f) & transporter;
 
-  //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 1";
+  Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 1";
   if (flags != 0) {
-    //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 2";
+    Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 2";
     for (Direction k : cycle_directions_ccw()) {
       if (BIT_TEST(flags, k)) {
         tr &= ~BIT(k);
@@ -597,9 +638,9 @@ Flag::schedule_slot_to_known_dest(int slot_, unsigned int res_waiting[4]) {
       }
     }
   }
-  //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 3";
+  Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 3";
   if (tr != 0) {
-    //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 4";
+    Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 4";
     for (int j = 0; j < 3; j++) {
       flags = res_waiting[j] ^ res_waiting[j+1];
       for (Direction k : cycle_directions_ccw()) {
@@ -614,9 +655,9 @@ Flag::schedule_slot_to_known_dest(int slot_, unsigned int res_waiting[4]) {
         }
       }
     }
-    //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 5";
+    Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 5";
     if (tr != 0) {
-      //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 6";
+      Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 6";
       flags = res_waiting[3];
       for (Direction k : cycle_directions_ccw()) {
         if (BIT_TEST(flags, k)) {
@@ -632,9 +673,9 @@ Flag::schedule_slot_to_known_dest(int slot_, unsigned int res_waiting[4]) {
       if (flags == 0) return;
     }
   }
-  //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 7";
+  Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 7";
   if (sources > 0) {
-    //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 8";
+    Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 8";
     ScheduleKnownDestData data;
     data.src = this;
     data.dest = game->get_flag(this->slot[slot_].dest);
@@ -650,7 +691,7 @@ Flag::schedule_slot_to_known_dest(int slot_, unsigned int res_waiting[4]) {
   } else {
     endpoint |= BIT(7);
   }
-  //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 9";
+  Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 9";
 }
 
 void
@@ -664,10 +705,78 @@ Flag::prioritize_pickup(Direction dir, Player *player) {
       /* Use flag_prio to prioritize resource pickup. */
       Direction res_dir = slot[i].dir;
       Resource::Type res_type = slot[i].type;
+
       if (res_dir == dir && player->get_flag_prio(res_type) > res_prio) {
         res_next = i;
         res_prio = player->get_flag_prio(res_type);
       }
+      //
+      // de-prioritize any resource that is destined for castle/warehouse reserves
+      //  this should exclude resources that are "activated" by being in castle/warehouse,
+      //   such as gold bars (morale), sword/shield (knights), or tools (professionals)
+      //
+      // priorities are 1-26 for flag_prio and inventory_prio, higher number == higher priority
+      //
+      //
+      //  slot[x].dest is a Flag index, not a MapPos
+      //
+      // copied from Flag::schedule_slot_to_unknown_dest
+      const int routable[] = {
+        1,  // RESOURCE_FISH
+        1,  // RESOURCE_PIG
+        1,  // RESOURCE_MEAT
+        1,  // RESOURCE_WHEAT
+        1,  // RESOURCE_FLOUR
+        1,  // RESOURCE_BREAD
+        1,  // RESOURCE_LUMBER
+        1,  // RESOURCE_PLANK
+        0,  // RESOURCE_BOAT
+        1,  // RESOURCE_STONE
+        1,  // RESOURCE_IRONORE
+        1,  // RESOURCE_STEEL
+        1,  // RESOURCE_COAL
+        1,  // RESOURCE_GOLDORE
+        1,  // RESOURCE_GOLDBAR
+        0,  // RESOURCE_SHOVEL
+        0,  // RESOURCE_HAMMER
+        0,  // RESOURCE_ROD
+        0,  // RESOURCE_CLEAVER
+        0,  // RESOURCE_SCYTHE
+        0,  // RESOURCE_AXE
+        0,  // RESOURCE_SAW
+        0,  // RESOURCE_PICK
+        0,  // RESOURCE_PINCER
+        0,  // RESOURCE_SWORD
+        0,  // RESOURCE_SHIELD
+        0,  // RESOURCE_GROUP_FOOD
+      };
+      // if this resource has a known dest (flag index)...
+      if (slot[i].dest != 0){
+        // ... and is routable (meaning it CAN be delivered directly to a requesting building)...
+        if (routable[res_type]){
+          Flag *dest_flag = game->get_flag(slot[i].dest);
+          if (dest_flag == nullptr){
+            Log::Warn["flag"] << "inside Flag::prioritize_pickup, got nullptr for flag";
+          }else{
+            // if dest is a castle/warehouse
+            if (dest_flag->has_inventory() && dest_flag->accepts_serfs()){
+              // ...this resource is going to pile up in a warehouse, do not adjust its priority
+              //Log::Info["flag"] << "debug: Player" << player->get_index() << " a resource of type " << NameResource[res_type] << " is destined for castle/warehouse";
+            }else{
+              // ...this resource is being sent directly to a requesting building, increase its priority
+              //Log::Info["flag"] << "debug: Player" << player->get_index() << " a resource of type " << NameResource[res_type] << " with dest pos " << dest_flag->get_position() << " and dest building type " << NameBuilding[dest_flag->get_building()->get_type()] << " is being directly routed, increasing priority";
+              res_prio += 26;
+            }
+          }
+        }else{
+          // this resource is not routable, meaning it is "activated" at castle/warehouse
+          //  increase its priority
+          Log::Info["flag"] << "debug: Player" << player->get_index() << " a resource of type " << NameResource[res_type] << " is not routable, increasing priority";
+          res_prio += 26;
+        }
+      }
+      // if this resource does NOT have a known dest, it should be assigned one on pickup
+      //  then then this check can run
     }
   }
 
