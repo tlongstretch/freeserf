@@ -213,19 +213,46 @@ Game::update_inventories_cb(Flag *flag, void *d) {
   //
   // quick hack to avoid 0 result?
   bool found = false;
-  for (Direction d : cycle_directions_ccw()) {
-    if (data->prev_flag != nullptr && data->prev_flag->has_path(d) && data->prev_flag->get_other_end_flag(d)->get_index() == flag->get_index()) {
-      // could also use flag->get_other_end_flag(d)? but this reads better
-      // to try to approximate the original road length, bit-shift >>4, or divide by 16
-      //  and then triple it to get pretty close the reversing the above table
-      if(data->prev_flag->get_road_length((Direction)d) == 0){
-        Log::Info["game"] << "debug: it seems get_road_length can be zero, using +1 for dist_from_inv addition";
-        data->dist_so_far += 1;
-      }else{
-        data->dist_so_far += (data->prev_flag->get_road_length((Direction)d) / 16) * 3;
+  // for some reason data->prev_flag->get_other_end_flag(d)->get_index() seems to cause a crash
+  //  if prev_flag is flag 0 (castle flag? or no flag?) so try skipping if that is the case
+  Log::Info["game"] << "debug: inside Game::update_inventories_cb, foo";
+  Log::Info["game"] << "debug: inside Game::update_inventories_cb, ZZ THIS flag index " << flag->get_index();
+  // hmm it seems like prev_flag is somehow set to ...something resulting in super high prev_flag->get_index
+  //  when I would expect it to be a nullptr.
+  if (data->prev_flag != nullptr && data->prev_flag->get_index() > 0){
+    for (Direction d : cycle_directions_ccw()) {
+      Log::Info["game"] << "debug: inside Game::update_inventories_cb, checking dir " << d;
+      // exception debug
+      Log::Info["game"] << "debug: inside Game::update_inventories_cb, 2";
+      Log::Info["game"] << "debug: inside Game::update_inventories_cb,Y1 prev flag index " << data->prev_flag->get_index();
+      Log::Info["game"] << "debug: inside Game::update_inventories_cb,Y2 THIS flag index " << flag->get_index();
+      if (!data->prev_flag->has_path(d)){
+        Log::Info["game"] << "debug: inside Game::update_inventories_cb, B";
+        continue;
       }
-      found = true;
-      break;
+
+      Log::Info["game"] << "debug: inside Game::update_inventories_cb, 3";
+      Log::Info["game"] << "debug: inside Game::update_inventories_cb,z1 " << data->prev_flag->get_other_end_flag(d)->get_index();
+      Log::Info["game"] << "debug: inside Game::update_inventories_cb,z2 " << flag->get_index();
+      Log::Info["game"] << "debug: inside Game::update_inventories_cb,z3";
+      if (data->prev_flag->get_other_end_flag(d)->get_index() != flag->get_index()) {
+        Log::Info["game"] << "debug: inside Game::update_inventories_cb, C";
+        continue;
+      }
+      Log::Info["game"] << "debug: inside Game::update_inventories_cb, 4";
+      if (data->prev_flag->has_path(d) && data->prev_flag->get_other_end_flag(d)->get_index() == flag->get_index()) {
+        // could also use flag->get_other_end_flag(d)? but this reads better
+        // to try to approximate the original road length, bit-shift >>4, or divide by 16
+        //  and then triple it to get pretty close the reversing the above table
+        if(data->prev_flag->get_road_length((Direction)d) == 0){
+          Log::Info["game"] << "debug: it seems get_road_length can be zero, using +1 for dist_from_inv addition";
+          data->dist_so_far += 1;
+        }else{
+          data->dist_so_far += (data->prev_flag->get_road_length((Direction)d) / 16) * 3;
+        }
+        found = true;
+        break;
+      }
     }
   }
   if (!found){
@@ -320,7 +347,7 @@ Game::update_inventories() {
         // debug
         if (inventory->get_owner() == player->get_index() && inventory->is_queue_full()) {
           Building *foo = get_building(inventory->get_building_index());
-          //Log::Warn["game"] << "debug: player" << player->get_index() << "'s inventory at " << NameBuilding[foo->get_type()] << " at pos " << foo->get_position();
+          Log::Info["game"] << "debug: OUT QUEUE FULL for player" << player->get_index() << "'s inventory at " << NameBuilding[foo->get_type()] << " at pos " << foo->get_position();
         }
 
         // find inventories (whose out-queue is not full) 
@@ -421,9 +448,12 @@ Game::update_inventories() {
       // adding support for requested resource timeouts
       data.dists_from_inv = dists_from_inv;
       data.dist_so_far = 0;
+      // I guess I need to set this explicitly?  was seeing weird behavior
+      data.prev_flag = nullptr;
       // the update_inventories_cb does stuff but can only return false,
       //  maybe it is not intended to end early and simply to do some work
       //  as part of the flag search?
+      Log::Info["game"] << "debug: starting Game::update_inventories flagsearch";
       search.execute(update_inventories_cb, false, true, &data);
 
       for (int i = 0; i < n; i++) {
@@ -434,7 +464,7 @@ Game::update_inventories() {
           Resource::Type res = (Resource::Type)arr[0];
 
           Building *dest_bld = flags_[i]->get_building();
-          Log::Info["flag"] << "inside Game::update_inventories, about to call add_requested_resource for dest_bld of type " << NameBuilding[dest_bld->get_type()];
+          //Log::Info["flag"] << "inside Game::update_inventories, about to call add_requested_resource for dest_bld of type " << NameBuilding[dest_bld->get_type()];
           // adding support for requested resource timeouts
           //if (!dest_bld->add_requested_resource(res, false)) {
           int dist_from_inv = dists_from_inv[i];
