@@ -1710,6 +1710,7 @@ AI::do_demolish_excess_lumberjacks() {
   if (planks_count >= planks_max && lumberjack_count > 1) {
     AILogDebug["do_demolish_excess_lumberjacks"] << name << " planks_max reached and lumberjack_count is " << lumberjack_count << ".  Burning all but one lumberjack (nearest to this stock)";
     bool first_one_found = false;
+    int flag_index_of_selected_stock = game->get_flag_at_pos(stock_pos)->get_index();
     AILogDebug["do_demolish_excess_lumberjacks"] << name << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->get_player_buildings(player)";
     game->get_mutex()->lock();
     AILogDebug["do_demolish_excess_lumberjacks"] << name << " thread #" << std::this_thread::get_id() << " AI has locked mutex before calling game->get_player_buildings(player)";
@@ -1720,11 +1721,19 @@ AI::do_demolish_excess_lumberjacks() {
     for (Building *building : buildings) {
       if (building->get_type() == Building::TypeLumberjack) {
         MapPos pos = building->get_position();
-        if (find_nearest_stock(pos) != stock_pos) {
-          AILogDebug["do_demolish_excess_lumberjacks"] << name << " DEBUG lumberjack at pos " << pos << " is not closest to current stock_pos " << stock_pos << ", skipping";
+        //if (find_nearest_stock(pos) != stock_pos) {
+        // changing this to use nearest-by-flag instead of nearest-by-straightline-dist
+        //  note that find_nearest_inventory_for_resource only considers Inventories that are accepting resources!
+        int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_resource();
+        if (flag_index_of_nearest_res_inventory < 0){
+          AILogDebug["do_demolish_excess_lumberjacks"] << name << " inventory not found, maybe this flag isn't part of the road system??";
           continue;
         }
-        AILogDebug["do_demolish_excess_lumberjacks"] << name << " DEBUG lumberjack at pos " << pos << " *is* closest to current stock_pos " << stock_pos;
+        if (flag_index_of_nearest_res_inventory != flag_index_of_selected_stock){
+          AILogDebug["do_demolish_excess_lumberjacks"] << name << " lumberjack at pos " << pos << " is not closest to current stock_pos " << stock_pos << ", skipping";
+          continue;
+        }
+        AILogDebug["do_demolish_excess_lumberjacks"] << name << " lumberjack at pos " << pos << " *is* closest to current stock_pos " << stock_pos;
         if (building->is_done() && building->has_serf() && !first_one_found) {
           AILogDebug["do_demolish_excess_lumberjacks"] << name << " the lumberjack at pos " << pos << " will be preserved and the rest destroyed";
           first_one_found = true;
@@ -1761,6 +1770,7 @@ AI::do_demolish_excess_fishermen() {
   food_count += stock_inv->get_count_of(Resource::TypeFish);
   if (food_count >= food_max) {
     AILogDebug["do_demolish_excess_fishermen"] << name << " food_max reached at stock_pos " << stock_pos << ", burning all fishermen attached to this stock";
+    int flag_index_of_selected_stock = game->get_flag_at_pos(stock_pos)->get_index();
     AILogDebug["do_demolish_excess_fishermen"] << name << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->get_player_buildings(player)";
     game->get_mutex()->lock();
     AILogDebug["do_demolish_excess_fishermen"] << name << " thread #" << std::this_thread::get_id() << " AI has locked mutex before calling game->get_player_buildings(player)";
@@ -1771,10 +1781,19 @@ AI::do_demolish_excess_fishermen() {
     for (Building *building : buildings) {
       if (building->get_type() == Building::TypeFisher) {
         MapPos pos = building->get_position();
-        if (find_nearest_stock(pos) != stock_pos) {
-          AILogDebug["do_demolish_excess_lumberjacks"] << name << " fishermen at pos " << pos << " is not closest to current stock_pos " << stock_pos << ", skipping";
+        //if (find_nearest_stock(pos) != stock_pos) {
+        // changing this to use nearest-by-flag instead of nearest-by-straightline-dist
+        //  note that find_nearest_inventory_for_resource only considers Inventories that are accepting resources!
+        int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_resource();
+        if (flag_index_of_nearest_res_inventory < 0){
+          AILogDebug["do_demolish_excess_fishermen"] << name << " inventory not found, maybe this flag isn't part of the road system??";
           continue;
         }
+        if (flag_index_of_nearest_res_inventory != flag_index_of_selected_stock){
+          AILogDebug["do_demolish_excess_fishermen"] << name << " fishermen at pos " << pos << " is not closest to current stock_pos " << stock_pos << ", skipping";
+          continue;
+        }
+        AILogDebug["do_demolish_excess_fishermen"] << name << " fishermen at pos " << pos << " *is* closest to current stock_pos " << stock_pos << ", skipping";
         AILogDebug["do_demolish_excess_fishermen"] << name << " burning fisherman at pos " << pos;
         AILogDebug["do_demolish_excess_fishermen"] << name << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->get_player_buildings(player)";
         game->get_mutex()->lock();
@@ -2789,10 +2808,16 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
         if (!building->is_done())
           continue;
         MapPos farm_pos = building->get_position();
+        /*
+        // I don't think this is needed now that there is a general check to avoid this condition inside 
+        //  build_near_pos.  ALSO, find_nearest_stock, which considers only straightline-dist, has been
+        //  replaced with the original game flag->find_nearest_inventory_for_resource function which
+        //  considers flag-dist, and only considers inventories that are accepting resources
         if (find_nearest_stock(farm_pos) != stock_pos) {
           AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << name << " farm at pos " << farm_pos << " is not closest to current stock_pos " << stock_pos << ", skipping";
           continue;
         }
+        */
         /*
         // only build a miller if a farm is already productive (having some fields nearby)
         /// disabling this because the delay in building miller and baker results it bad road connections

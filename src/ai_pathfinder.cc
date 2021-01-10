@@ -283,7 +283,7 @@ AI::get_straightline_tile_dist(PMap map, MapPos start_pos, MapPos end_pos) {
   else {
     tile_dist = abs(dist_col) + abs(dist_row);
   }
-  AILogDebug["get_straightline_tile_dist"] << name << "returning tile_dist: " << tile_dist;
+  AILogDebug["get_straightline_tile_dist"] << name << " returning tile_dist: " << tile_dist;
   return tile_dist;
 }
 

@@ -56,7 +56,7 @@ AI::spiral_dist(int distance) {
 // return true if *any* of the four points contain the requested terrain type
 bool
 AI::has_terrain_type(PGame game, MapPos pos, Map::Terrain res_start_index, Map::Terrain res_end_index) {
-  Log::Debug["util_has_terrain_type"] << " inside AI::has_terrain_type";
+  Log::Verbose["util_has_terrain_type"] << " inside AI::has_terrain_type";
   PMap map = game->get_map();
   Map::Object obj = map->get_obj(pos);
   Map::Terrain t1 = map->type_down(pos);
@@ -1733,6 +1733,17 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
     return stopbuilding_pos;
   }
 
+  // if this is an economy building (except Fisher which isn't counted), make sure the actual building position 
+  //  is closest to the currently "selected" stock so that this building becomes "attached" to the stock.
+  //  Otherwise, the stock doesn't see this building as part of its range and will keep building more
+  bool verify_stock;
+  if (building_type != Building::TypeFisher && building_type != Building::TypeStock && 
+      building_type != Building::TypeHut && building_type != Building::TypeTower && 
+      building_type != Building::TypeFortress && building_type != Building::TypeCastle){
+    AILogDebug["util_build_near_pos"] << name << " this is a tracked economy building of type " << NameBuilding[building_type] << ", setting verify_stock to true";
+    verify_stock = true;
+  }
+
   MapPos built_pos = bad_map_pos;
   unsigned int total = 0;
   for (unsigned int i = 0; i < distance; i++) {
@@ -1741,6 +1752,13 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
       continue;
     }
     // special bug work-around: do not build a Stonecutter down-right from a Stone deposit because the stonecutter cannot use it and stonecutting logic breaks
+    //
+    // THIS SHOULD BE REMOVED - because it isn't just if the stonecutter hut is down-right from the stone pile,
+    //  if ANY building is down-right from the stone pile it cannot be harvested.  So, I believe I now have 
+    //  logic in the stone pile counting that accounts for any building blocking the pile, so it is not counted,
+    //  which means that this check should no longer be needed
+    //
+    /* removing this
     if (building_type == Building::TypeStonecutter) {
       // check to see if there are stones up-left from this pos
       MapPos upleft_pos = map->move_up_left(pos);
@@ -1750,6 +1768,7 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
         continue;
       }
     }
+    */
     if (game->can_build_building(pos, building_type, player)) {
       AILogDebug["util_build_near_pos"] << name << " inside AI::build_near_pos, can build " << NameBuilding[building_type] << " at pos " << pos;
     }
@@ -1768,7 +1787,32 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
       AILogDebug["util_build_near_pos"] << name << " a knight hut already exists near pos " << pos << ", skipping this pos";
       continue;
     }
-    // try to build it
+
+    // make sure this pos is closest to the currently selected stock
+    if (verify_stock){
+      AILogDebug["util_build_near_pos"] << name << " checking that this tracked economy building is closest to stock_pos " << stock_pos;
+      //if (find_nearest_stock(pos) == stock_pos){
+      // changing this to use nearest-by-flag instead of nearest-by-straightline-dist
+      //  note that find_nearest_inventory_for_resource only considers Inventories that are accepting resources!
+      //
+      //   SHIT!  this doesn't work because flag->find_nearest_inventory_for_resource requires that this be a flag and it
+      //    be connected to the road system already!  there is no way to run this check against a *potential* building/flag
+      //   This might be the motivation needed to change the current logic of place-building-then-try-to-connect-to-road
+      //    with ensure-flag-can-connect-to-road-then-place-building
+      //
+      int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_resource();
+      if (flag_index_of_nearest_res_inventory < 0){
+        AILogDebug["do_demolish_excess_fishermen"] << name << " inventory not found, maybe this flag isn't part of the road system??";
+        continue;
+      }
+      if (flag_index_of_nearest_res_inventory != flag_index_of_selected_stock){
+        AILogDebug["util_build_near_pos"] << name << " tracked economy building - this pos is NOT closest to selected stock pos, skipping pos";
+        continue;
+      }
+      AILogDebug["util_build_near_pos"] << name << " tracked economy building - this pos is closest to selected stock pos, will try to build";
+    }
+    
+        // try to build it
     AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->build_building (build_near_pos) of type " << NameBuilding[building_type];
     game->get_mutex()->lock();
     AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI has locked mutex before calling game->build_building (build_near_pos) of type " << NameBuilding[building_type];
@@ -2165,10 +2209,6 @@ AI::get_halfway_pos(MapPos start_pos, MapPos end_pos) {
 //   if not found, default to castle_pos?
 MapPos
 AI::find_nearest_stock(MapPos pos) {
-  // time this function for debugging
-  std::clock_t start;
-  double duration;
-  start = std::clock();
   AILogDebug["util_find_nearest_stock"] << name << " inside find_nearest_stock to pos " << pos;
   // try searching by straightline pos instead of spirally
   unsigned int best_dist = bad_score;
@@ -2187,8 +2227,6 @@ AI::find_nearest_stock(MapPos pos) {
     AILogDebug["util_find_nearest_stock"] << name << " not found??  closest_stock: " << closest_stock << ", best_dist: " << best_dist;
   }
   AILogDebug["util_find_nearest_stock"] << name << " done find_nearest_stock to pos " << pos << ", closest stock is " << closest_stock << " with straightline dist " << best_dist;
-  duration = (std::clock() - start) / static_cast<double>(CLOCKS_PER_SEC);
-  AILogDebug["util_find_nearest_stock"] << name << " done find_nearest_stock call took " << duration;
   return closest_stock;
 }
 
