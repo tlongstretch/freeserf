@@ -457,6 +457,15 @@ Building::requested_resource_delivered(Resource::Type resource) {
         return;
       }
     }
+    // since adding resource request timeouts, I saw this exception trigger for a plank
+    //  being delivered to a Hut, suggesting that a construction plank deliver request timed out
+    //  and was re-requested, but then the original came through, and when the re-requested one came also
+    //  it triggered this error.
+    // How to deal? 
+    // 1) increase the timeouts a bit?
+    // 2) turn of req res timeouts for construction materials? this seems like a bad idea, 
+    //     and I thought I had actually already done so??
+    // 3) quietly ignore unexpected resource deliveries for construction material?  maybe if it seems like a rare problem
     Log::Error["building"] << "inside Building::requested_resource_delivered, building of type " << NameBuilding[type] << " at pos " << get_position() << ", Delivered unexpected resource: " << resource;
     throw ExceptionFreeserf("Delivered unexpected resource.");
   }
@@ -822,7 +831,7 @@ Building::update() {
             count++;
             // find any expired timeouts
             if (stock[j].req_timeout_tick[x] < game->get_const_tick()){
-              Log::Info["building"] << "debug: inside Building::update(), building type " << NameBuilding[type] << " at pos " << get_position() << ", resource request timeout triggered! req_timeout_tick = " << stock[j].req_timeout_tick[x] << ", current tick = " << game->get_const_tick();
+              Log::Info["building"] << "debug: inside Building::update(), building type " << NameBuilding[type] << " at pos " << get_position() << ", res type " << stock[j].type << ", resource request timeout triggered! req_timeout_tick = " << stock[j].req_timeout_tick[x] << ", current tick = " << game->get_const_tick();
               // decrement the requested count so another can be requested
               stock[j].requested -= 1;
               // delete the timeout
@@ -839,7 +848,8 @@ Building::update() {
               // assign highest possible timeout (associated with road >24 tiles...get_road_length_value 7)
               //  which ends up being 21 because it is road_length_value (7) * 3 for length timeout estimation
               stock[j].req_timeout_tick[x] = game->get_const_tick() + (21 * TIMEOUT_SECS_PER_TILE * TICKS_PER_SEC);
-              Log::Info["building"] << "debug: inside Building::update(), building type " << NameBuilding[type] << " at pos " << get_position() << ", no req_timeout_tick set for this requested slot, setting to highest timeout";
+              count++;
+              Log::Info["building"] << "debug: inside Building::update(), building type " << NameBuilding[type] << " at pos " << get_position() << ", no req_timeout_tick set for this requested slot of type " << stock[j].type << ", setting to highest timeout";
             }
           }
         }

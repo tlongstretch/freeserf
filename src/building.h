@@ -35,7 +35,21 @@
 //   It needs to account for steepness and reasonable traffic
 //  A quick test shows that it takes about nine seconds for a serf
 //   to travel one tile up a road of the steepest category
-#define TIMEOUT_SECS_PER_TILE    15
+// originally tested this at 15, kept increasing as I saw timeouts triggering
+//  even setting it at 600 I still see a few timeouts.  Find a happy balance.
+//  it is probably safe to keep it relatively low as re-requesting resources
+//   should not be a big deal, but waiting forever for resources is.
+//   at 600, that is TEN MINUTES PER TILE if the TICKS_PER_SEC def is accurate
+//    that seems far too long to tolerate
+// NOT ONLY THIS.... it still seems like it isn't working!!!
+// I still see a 4x AI long running game where the castle has hundreds of bread
+//  and there's a baker right near a gold mine, and the gold mine has highest food
+//   priority, but the gold mine is still not getting and food!  it all gets stored
+// ACTUALLY I think it does work.  the warehouse where the food was being stored
+//  instead of going to the mines, after some time suddenly sent out a ton of food
+//  to the mines.  I think the timeout did work on game load anyway, not sure
+//   why it wasn't working up to that point??
+#define TIMEOUT_SECS_PER_TILE  18
 // also copying these here from freeserf.h as it is not included but is needed for
 //  the request resource timeouts
 /* The length between game updates in miliseconds. */

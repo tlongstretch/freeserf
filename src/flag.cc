@@ -749,78 +749,47 @@ Flag::prioritize_pickup(Direction dir, Player *player) {
       /* Use flag_prio to prioritize resource pickup. */
       Direction res_dir = slot[i].dir;
       Resource::Type res_type = slot[i].type;
-
       if (res_dir == dir && player->get_flag_prio(res_type) > res_prio) {
         res_next = i;
         res_prio = player->get_flag_prio(res_type);
-      }
-      //
-      // de-prioritize any resource that is destined for castle/warehouse reserves
-      //  this should exclude resources that are "activated" by being in castle/warehouse,
-      //   such as gold bars (morale), sword/shield (knights), or tools (professionals)
-      //
-      // priorities are 1-26 for flag_prio and inventory_prio, higher number == higher priority
-      //
-      //
-      //  slot[x].dest is a Flag index, not a MapPos
-      //
-      // copied from Flag::schedule_slot_to_unknown_dest
-      const int routable[] = {
-        1,  // RESOURCE_FISH
-        1,  // RESOURCE_PIG
-        1,  // RESOURCE_MEAT
-        1,  // RESOURCE_WHEAT
-        1,  // RESOURCE_FLOUR
-        1,  // RESOURCE_BREAD
-        1,  // RESOURCE_LUMBER
-        1,  // RESOURCE_PLANK
-        0,  // RESOURCE_BOAT
-        1,  // RESOURCE_STONE
-        1,  // RESOURCE_IRONORE
-        1,  // RESOURCE_STEEL
-        1,  // RESOURCE_COAL
-        1,  // RESOURCE_GOLDORE
-        1,  // RESOURCE_GOLDBAR
-        0,  // RESOURCE_SHOVEL
-        0,  // RESOURCE_HAMMER
-        0,  // RESOURCE_ROD
-        0,  // RESOURCE_CLEAVER
-        0,  // RESOURCE_SCYTHE
-        0,  // RESOURCE_AXE
-        0,  // RESOURCE_SAW
-        0,  // RESOURCE_PICK
-        0,  // RESOURCE_PINCER
-        0,  // RESOURCE_SWORD
-        0,  // RESOURCE_SHIELD
-        0,  // RESOURCE_GROUP_FOOD
-      };
-      // if this resource has a known dest (flag index)...
-      if (slot[i].dest != 0){
-        // ... and is routable (meaning it CAN be delivered directly to a requesting building)...
-        if (routable[res_type]){
-          Flag *dest_flag = game->get_flag(slot[i].dest);
-          if (dest_flag == nullptr){
-            Log::Warn["flag"] << "inside Flag::prioritize_pickup, got nullptr for flag";
-          }else{
-            // if dest is a castle/warehouse
-            if (dest_flag->has_inventory() && dest_flag->accepts_serfs()){
-              // ...this resource is going to pile up in a warehouse, do not adjust its priority
-              //Log::Info["flag"] << "debug: Player" << player->get_index() << " a resource of type " << NameResource[res_type] << " is destined for castle/warehouse";
+        // de-prioritize any resource that is destined for castle/warehouse reserves
+        //  this should exclude resources that are "activated" by being in castle/warehouse,
+        //   such as gold bars (morale), sword/shield (knights), or tools (professionals)
+        // priorities are 1-26 for flag_prio and inventory_prio, higher number == higher priority
+        //  slot[x].dest is a Flag index, not a MapPos
+        // ranges are based on the const int routable[] array in Flag::schedule_slot_to_unknown_dest
+        // but instead of copying the table just check for FISH<>PLANK, STONE<>GOLDBAR
+        //
+        // if this resource has a known dest (flag index)...
+        if (slot[i].dest != 0){
+          // ... and is routable (meaning it CAN be delivered directly to a requesting building)...
+          //if (routable[res_type]){
+          if ((res_type >= Resource::TypeFish && res_type <= Resource::TypePlank) ||
+              (res_type >= Resource::TypeStone && res_type <= Resource::TypeGoldBar)){
+            Flag *dest_flag = game->get_flag(slot[i].dest);
+            if (dest_flag == nullptr){
+              Log::Warn["flag"] << "inside Flag::prioritize_pickup, got nullptr for flag";
             }else{
-              // ...this resource is being sent directly to a requesting building, increase its priority
-              //Log::Info["flag"] << "debug: Player" << player->get_index() << " a resource of type " << NameResource[res_type] << " with dest pos " << dest_flag->get_position() << " and dest building type " << NameBuilding[dest_flag->get_building()->get_type()] << " is being directly routed, increasing priority";
-              res_prio += 26;
+              // if dest is a castle/warehouse
+              if (dest_flag->has_inventory() && dest_flag->accepts_serfs()){
+                // ...this resource is going to pile up in a warehouse, do not adjust its priority
+                //Log::Info["flag"] << "debug: Player" << player->get_index() << " a resource of type " << NameResource[res_type] << " is destined for castle/warehouse";
+              }else{
+                // ...this resource is being sent directly to a requesting building, increase its priority
+                //Log::Info["flag"] << "debug: Player" << player->get_index() << " a resource of type " << NameResource[res_type] << " with dest pos " << dest_flag->get_position() << " and dest building type " << NameBuilding[dest_flag->get_building()->get_type()] << " is being directly routed, increasing priority";
+                res_prio += 26;
+              }
             }
+          }else{
+            // this resource is not routable, meaning it is "activated" at castle/warehouse
+            //  increase its priority
+            //Log::Info["flag"] << "debug: Player" << player->get_index() << " a resource of type " << NameResource[res_type] << " is not routable, increasing priority";
+            res_prio += 26;
           }
-        }else{
-          // this resource is not routable, meaning it is "activated" at castle/warehouse
-          //  increase its priority
-          Log::Info["flag"] << "debug: Player" << player->get_index() << " a resource of type " << NameResource[res_type] << " is not routable, increasing priority";
-          res_prio += 26;
         }
+        // if this resource does NOT have a known dest, it will be assigned one when
+        //  a serf picks it up from a flag, then then this check can run
       }
-      // if this resource does NOT have a known dest, it should be assigned one on pickup
-      //  then then this check can run
     }
   }
 
