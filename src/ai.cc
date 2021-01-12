@@ -603,7 +603,7 @@ AI::do_spiderweb_roads2() {
           //std::this_thread::sleep_for(std::chrono::milliseconds(200));
           road_options.set(RoadOption::Improve);
           AILogDebug["do_spiderweb_roads2"] << name << " about to call build_best_road";
-          bool was_built = build_best_road(area_flag_pos, road_options, Building::TypeNone, other_area_flag_pos);
+          bool was_built = build_best_road(area_flag_pos, road_options, Building::TypeNone, Building::TypeNone, other_area_flag_pos);
           road_options.reset(RoadOption::Improve);
           if (was_built) {
             AILogDebug["do_spiderweb_roads2"] << name << " successfully built spider-web2 road between area_flag_pos " << area_flag_pos << " to other_area_flag_pos " << other_area_flag_pos;
@@ -755,7 +755,7 @@ AI::do_spiderweb_roads1() {
           //std::this_thread::sleep_for(std::chrono::milliseconds(200));
           road_options.set(RoadOption::Improve);
           AILogDebug["do_spiderweb_roads1"] << name << " about to call build_best_road";
-          bool was_built = build_best_road(area_flag_pos, road_options, Building::TypeNone, other_area_flag_pos);
+          bool was_built = build_best_road(area_flag_pos, road_options, Building::TypeNone, Building::TypeNone, other_area_flag_pos);
           road_options.reset(RoadOption::Improve);
           if (was_built) {
             AILogDebug["do_spiderweb_roads1"] << name << " successfully built spider-web1 road between area_flag_pos " << area_flag_pos << " to other_area_flag_pos " << other_area_flag_pos;

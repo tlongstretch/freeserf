@@ -118,8 +118,11 @@ class AI {
   bool place_castle(PGame, MapPos, unsigned int);
   static unsigned int spiral_dist(int);   // why does this need to be static?
   void rebuild_all_roads();
-  bool build_best_road(MapPos, RoadOptions, Building::Type optional_affinity = Building::TypeNone, MapPos optional_target = bad_map_pos);
-  MapPosVector get_affinity(MapPos);
+  // changing these to support *planning* a road without actually building it, prior to placing a new building
+  //bool build_best_road(MapPos, RoadOptions, Building::Type optional_affinity = Building::TypeNone, MapPos optional_target = bad_map_pos);
+  bool build_best_road(MapPos, RoadOptions, Building::Type optional_building_type = Building::TypeNone, Building::Type optional_affinity = Building::TypeNone, MapPos optional_target = bad_map_pos);
+  //MapPosVector get_affinity(MapPos);
+  MapPosVector get_affinity(MapPos, Building::Type optional_building_type = Building::TypeNone);
   Building* find_nearest_building(MapPos, unsigned int, Building::Type);
   Building* find_nearest_completed_building(MapPos, unsigned int, Building::Type);
   Road trace_existing_road(PMap, MapPos, Direction);

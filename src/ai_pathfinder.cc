@@ -104,7 +104,7 @@ AI::plot_road(PMap map, unsigned int player_index, MapPos start_pos, MapPos end_
         node = node->parent;
       }
       unsigned int new_length = static_cast<unsigned int>(breadcrumb_solution.get_length());
-      AILogDebug["plot_road"] << name << "plot_road: solution found, new segment length is " << breadcrumb_solution.get_length();
+      AILogDebug["plot_road"] << name << " plot_road: solution found, new segment length is " << breadcrumb_solution.get_length();
       // now inverse the entire road so that it stats at start_pos and ends at end_pos, so the Road object is logical instead of backwards
       Road solution = reverse_road(map, breadcrumb_solution);
       // copy the solution to Road direct_road to be returned.  This isn't necessary but seems clearer,
@@ -136,7 +136,7 @@ AI::plot_road(PMap map, unsigned int player_index, MapPos start_pos, MapPos end_
         //   create a "fake flag" solution and include it as a potential road
         //
         if (fake_flags_count > max_fake_flags) {
-          AILogDebug["plot_road"] << name << "reached max_fake_flags count " << max_fake_flags << ", not considering any more fake flag solutions";
+          AILogDebug["plot_road"] << name << " reached max_fake_flags count " << max_fake_flags << ", not considering any more fake flag solutions";
           continue;
         }
         // split road found if can build a flag, and that flag is already part of a road (meaning it has at least one path)
@@ -144,7 +144,7 @@ AI::plot_road(PMap map, unsigned int player_index, MapPos start_pos, MapPos end_
           (map->has_path(new_pos, Direction(0)) || map->has_path(new_pos, Direction(1)) || map->has_path(new_pos, Direction(2)) ||
             map->has_path(new_pos, Direction(3)) || map->has_path(new_pos, Direction(4)) || map->has_path(new_pos, Direction(5)))) {
           fake_flags_count++;
-          AILogDebug["plot_road"] << name << "plot_road: alternate/split_road solution found while pathfinding to " << end_pos << ", a new flag could be built at pos " << new_pos;
+          AILogDebug["plot_road"] << name << " plot_road: alternate/split_road solution found while pathfinding to " << end_pos << ", a new flag could be built at pos " << new_pos;
           // retrace the "bread crumb trail" tile by tile from end to start
           //   this creates a Road with 'source' of end_pos and 'last' of start_pos
           //     which is backwards from the direction the pathfinding ran
@@ -181,10 +181,10 @@ AI::plot_road(PMap map, unsigned int player_index, MapPos start_pos, MapPos end_
           // restore original node so search can resume
           node = orig_node;
           unsigned int new_length = static_cast<unsigned int>(split_flag_breadcrumb_solution.get_length());
-          AILogDebug["plot_road"] << name << "plot_road: split_flag_breadcrumb_solution found, new segment length is " << split_flag_breadcrumb_solution.get_length();
+          AILogDebug["plot_road"] << name << " plot_road: split_flag_breadcrumb_solution found, new segment length is " << split_flag_breadcrumb_solution.get_length();
           // now inverse the entire road so that it stats at start_pos and ends at end_pos, so the Road object is logical instead of backwards
           Road split_flag_solution = reverse_road(map, split_flag_breadcrumb_solution);
-          AILogDebug["plot_road"] << name << "plot_road: inserting alternate/fake flag Road solution to PotentialRoads, new segment length would be " << split_flag_solution.get_length();
+          AILogDebug["plot_road"] << name << " plot_road: inserting alternate/fake flag Road solution to PotentialRoads, new segment length would be " << split_flag_solution.get_length();
           potential_roads->push_back(split_flag_solution);
           split_road_solutions++;
         }
@@ -259,9 +259,9 @@ AI::plot_road(PMap map, unsigned int player_index, MapPos start_pos, MapPos end_
     } // foreach direction
   } // while nodes left to search
 
-  AILogDebug["plot_road"] << name << "done plot_road, found_direct_road: " << std::to_string(found_direct_road) << ".  additional potential_roads (split_roads): " << split_road_solutions;
+  AILogDebug["plot_road"] << name << " done plot_road, found_direct_road: " << std::to_string(found_direct_road) << ".  additional potential_roads (split_roads): " << split_road_solutions;
   if (direct_road.get_source() == bad_map_pos) {
-    AILogDebug["plot_road"] << name << "NO DIRECT SOLUTION FOUND for start_pos " << start_pos << " to end_pos " << end_pos;
+    AILogDebug["plot_road"] << name << " NO DIRECT SOLUTION FOUND for start_pos " << start_pos << " to end_pos " << end_pos;
   }
   duration = (std::clock() - start) / static_cast<double>(CLOCKS_PER_SEC);
   AILogDebug["plot_road"] << name << " plot road call took " << duration;
@@ -300,7 +300,7 @@ AI::score_flag(PMap map, unsigned int player_index, RoadBuilder *rb, RoadOptions
 
   // handle split_road / fake flag solutions
   if (!map->has_flag(flag_pos)) {
-    AILogDebug["score_flag"] << name << "flag not found at flag_pos " << flag_pos << ", assuming this is a fake flag/split road solution and using closest adjacent flag + tile dist from fake flag";
+    AILogDebug["score_flag"] << name << " flag not found at flag_pos " << flag_pos << ", assuming this is a fake flag/split road solution and using closest adjacent flag + tile dist from fake flag";
     // fake_flags can't be scored normally because their SerfPathData isn't complete so the flag->get_other_end_dir used in flag-path finding doesn't work
     // instead, of the two flags adjacent to the fake flag, the best-scoring one will be used and then add 1 flag dist and actual traced tile dist between fake flag and that flag
     //    to get the correct score for evaluation
@@ -314,30 +314,30 @@ AI::score_flag(PMap map, unsigned int player_index, RoadBuilder *rb, RoadOptions
     unsigned int best_adjacent_flag_adjusted_score = bad_score;
     MapPos best_adjacent_flag_pos = bad_map_pos;
     for (Direction dir : cycle_directions_cw()) {
-      AILogDebug["score_flag"] << name << "looking for a path in dir " << NameDirection[dir];
+      AILogDebug["score_flag"] << name << " looking for a path in dir " << NameDirection[dir];
       if (!map->has_path(splitting_flag_pos, dir)) {
         continue;
       }
-      AILogDebug["score_flag"] << name << "found a path in dir " << NameDirection[dir] << name << ", tracing road";
+      AILogDebug["score_flag"] << name << " found a path in dir " << NameDirection[dir] << name << ", tracing road";
       Road split_road = trace_existing_road(map, splitting_flag_pos, dir);
       adjacent_flag_pos = split_road.get_end(map.get());
       unsigned int tiles_to_adjacent_flag = static_cast<unsigned int>(split_road.get_length());
-      AILogDebug["score_flag"] << name << "split road in dir " << NameDirection[dir] << name << " has length " << tiles_to_adjacent_flag << " to adjacent flag at pos " << adjacent_flag_pos;
+      AILogDebug["score_flag"] << name << " split road in dir " << NameDirection[dir] << name << " has length " << tiles_to_adjacent_flag << " to adjacent flag at pos " << adjacent_flag_pos;
       unsigned int tile_dist = bad_score;
       unsigned int flag_dist = bad_score;
       unsigned int adjusted_score = bad_score;
       bool contains_castle_flag = false;
       // go score the adjacent flags if they aren't already known (sometimes they will already have been checked)
       if (!rb->has_score(adjacent_flag_pos)) {
-        AILogDebug["score_flag"] << name << "score_flag, rb doesn't have score yet for adjacent flag_pos " << adjacent_flag_pos << ", will try to score it";
+        AILogDebug["score_flag"] << name << " score_flag, rb doesn't have score yet for adjacent flag_pos " << adjacent_flag_pos << ", will try to score it";
         if (find_flag_and_tile_dist(map, player_index, rb, adjacent_flag_pos, castle_flag_pos, ai_mark_pos)) {
-          AILogDebug["score_flag"] << name << "score_flag, splitting_flag find_flag_and_tile_dist() returend true from flag_pos " << adjacent_flag_pos << " to target_pos " << target_pos;
+          AILogDebug["score_flag"] << name << " score_flag, splitting_flag find_flag_and_tile_dist() returend true from flag_pos " << adjacent_flag_pos << " to target_pos " << target_pos;
         }
         else{
-          AILogDebug["score_flag"] << name << "score_flag, splitting_flag find_flag_and_tile_dist() returned false, cannot find flag-path solution from flag_pos " << adjacent_flag_pos << " to target_pos " << target_pos << ".  Returning false";
+          AILogDebug["score_flag"] << name << " score_flag, splitting_flag find_flag_and_tile_dist() returned false, cannot find flag-path solution from flag_pos " << adjacent_flag_pos << " to target_pos " << target_pos << ".  Returning false";
           // if not found just let rb->get_score call fail and it wlil use the default bad_scores given.
-          AILogDebug["score_flag"] << name << "score_flag returned false for adjacent flag at pos " << adjacent_flag_pos;
-          AILogDebug["score_flag"] << name << "for now, leaving default bogus super-high score for adjacent flag";
+          AILogDebug["score_flag"] << name << " score_flag returned false for adjacent flag at pos " << adjacent_flag_pos;
+          AILogDebug["score_flag"] << name << " for now, leaving default bogus super-high score for adjacent flag";
           std::this_thread::sleep_for(std::chrono::milliseconds(0));
         }
       }
@@ -345,16 +345,16 @@ AI::score_flag(PMap map, unsigned int player_index, RoadBuilder *rb, RoadOptions
       tile_dist = score.get_tile_dist();
       flag_dist = score.get_flag_dist();
       contains_castle_flag = score.get_contains_castle_flag();   // keep whatever value the adjacent flag has, it's flag-path could very well contain the castle flag
-      AILogDebug["score_flag"] << name << "adjacent flag at " << adjacent_flag_pos << " has tile_dist " << tile_dist << ", flag dist " << flag_dist << ", contains_castle_flag " << contains_castle_flag;
+      AILogDebug["score_flag"] << name << " adjacent flag at " << adjacent_flag_pos << " has tile_dist " << tile_dist << ", flag dist " << flag_dist << ", contains_castle_flag " << contains_castle_flag;
       tile_dist += tiles_to_adjacent_flag;
       flag_dist += 1;
-      AILogDebug["score_flag"] << name << "splitting_flag has tile_dist: " << tile_dist << ", flag_dist: " << flag_dist;
+      AILogDebug["score_flag"] << name << " splitting_flag has tile_dist: " << tile_dist << ", flag_dist: " << flag_dist;
       adjusted_score = tile_dist + tiles_to_adjacent_flag + flag_dist;
       if (road_options.test(RoadOption::PenalizeCastleFlag) && contains_castle_flag == true) {
         adjusted_score += contains_castle_flag_penalty;
-        AILogDebug["score_flag"] << name << "applying contains_castle_flag penalty of " << contains_castle_flag_penalty;
+        AILogDebug["score_flag"] << name << " applying contains_castle_flag penalty of " << contains_castle_flag_penalty;
       }
-      AILogDebug["score_flag"] << name << "adjacent flag at " << adjacent_flag_pos << " has adjusted_score " << adjusted_score;
+      AILogDebug["score_flag"] << name << " adjacent flag at " << adjacent_flag_pos << " has adjusted_score " << adjusted_score;
       //rb->set_score(best_adjacent_flag_pos, tile_dist, flag_dist, contains_castle_flag);
       // use the score from whichever adjacent flag is better (because the game will use the best route serfs/resources)
       if (adjusted_score < best_adjacent_flag_adjusted_score) {
@@ -363,9 +363,9 @@ AI::score_flag(PMap map, unsigned int player_index, RoadBuilder *rb, RoadOptions
         best_adjacent_flag_adjusted_score = adjusted_score;
         rb->set_score(splitting_flag_pos, tile_dist, flag_dist, contains_castle_flag);
       }
-      AILogDebug["score_flag"] << name << "best adjacent flag right now is best_adjacent_flag_pos " << best_adjacent_flag_pos << " with adjusted_score " << best_adjacent_flag_adjusted_score;
+      AILogDebug["score_flag"] << name << " best adjacent flag right now is best_adjacent_flag_pos " << best_adjacent_flag_pos << " with adjusted_score " << best_adjacent_flag_adjusted_score;
     }
-    AILogDebug["score_flag"] << name << "done with flag flag/split road solution at flag_pos " << flag_pos << "'s adjacent_flag scoring";
+    AILogDebug["score_flag"] << name << " done with flag flag/split road solution at flag_pos " << flag_pos << "'s adjacent_flag scoring";
     return true;
   } // if split road / fake flag
 
@@ -374,19 +374,19 @@ AI::score_flag(PMap map, unsigned int player_index, RoadBuilder *rb, RoadOptions
     // this is a *direct route* to the target flag with no intermediate flags
     //    so the only scoring factor will be the new segment's tile length
     //     ??  need to add penalties??
-    AILogDebug["score_flag"] << name << "score_flag, flag_pos *IS* target_pos, setting values 0,0";
+    AILogDebug["score_flag"] << name << " score_flag, flag_pos *IS* target_pos, setting values 0,0";
     //ai_mark_pos->erase(flag_pos);
     //ai_mark_pos->insert(ColorDot(flag_pos, "coral"));
     std::this_thread::sleep_for(std::chrono::milliseconds(0));
     // note that this blindly ignores if castle flag / area part of solution, FIX!
     rb->set_score(flag_pos, 0, 0, false);
-    AILogDebug["score_flag"] << name << "score_flag, flag_pos *IS* target_pos, returning true";
+    AILogDebug["score_flag"] << name << " score_flag, flag_pos *IS* target_pos, returning true";
     return true;
   }
 
   // handle most common case, regular scoring
   if (!find_flag_and_tile_dist(map, player_index, rb, flag_pos, castle_flag_pos, ai_mark_pos)) {
-    AILogDebug["score_flag"] << name << "score_flag, find_flag_and_tile_dist() returned false, cannot find flag-path solution from flag_pos " << flag_pos << " to target_pos " << target_pos << ".  Returning false";
+    AILogDebug["score_flag"] << name << " score_flag, find_flag_and_tile_dist() returned false, cannot find flag-path solution from flag_pos " << flag_pos << " to target_pos " << target_pos << ".  Returning false";
     return false;
   }
 
@@ -394,9 +394,9 @@ AI::score_flag(PMap map, unsigned int player_index, RoadBuilder *rb, RoadOptions
   FlagScore score = rb->get_score(flag_pos);
   unsigned int flag_dist = score.get_flag_dist();
   unsigned int tile_dist = score.get_tile_dist();
-  AILogDebug["score_flag"] << name << "score_flag, find_flag_and_tile_dist() from flag_pos " << flag_pos << " to target_pos " << target_pos << " found flag_dist " << flag_dist << ", tile_dist " << tile_dist;
+  AILogDebug["score_flag"] << name << " score_flag, find_flag_and_tile_dist() from flag_pos " << flag_pos << " to target_pos " << target_pos << " found flag_dist " << flag_dist << ", tile_dist " << tile_dist;
 
-  AILogDebug["score_flag"] << name << "done score_flag, found solution, returning true";
+  AILogDebug["score_flag"] << name << " done score_flag, found solution, returning true";
   return true;
 }
 
@@ -428,7 +428,7 @@ AI::get_roadends(PMap map, Road road) {
 // reverse a Road object - end_pos becomes start_pos, vice versa, and all directions inside reversed to match
 Road
 AI::reverse_road(PMap map, Road road) {
-  AILogDebug["reverse_road"] << name << "inside reverse_road, for a road with source " << road.get_source() << ", end " << road.get_end(map.get()) << ", and length " << road.get_length();
+  AILogDebug["reverse_road"] << name << " inside reverse_road, for a road with source " << road.get_source() << ", end " << road.get_end(map.get()) << ", and length " << road.get_length();
   Road reversed_road;
   reversed_road.start(road.get_end(map.get()));
   std::list<Direction> dirs = road.get_dirs();
@@ -436,7 +436,7 @@ AI::reverse_road(PMap map, Road road) {
   for (r = dirs.rbegin(); r != dirs.rend(); r++) {
     reversed_road.extend(reverse_direction(*r));
   }
-  AILogDebug["reverse_road"] << name << "returning reversed_road which has source " << reversed_road.get_source() << ", end " << reversed_road.get_end(map.get()) << ", and length " << reversed_road.get_length();
+  AILogDebug["reverse_road"] << name << " returning reversed_road which has source " << reversed_road.get_source() << ", end " << reversed_road.get_end(map.get()) << ", and length " << reversed_road.get_length();
   return reversed_road;
 }
 
