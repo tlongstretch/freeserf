@@ -72,6 +72,10 @@ class AI {
   Serf::SerfMap serfs_potential;
   int *serfs_total;
   bool need_tools;
+  //
+  // Now that multiple economies implemented I think the entire XXX_building_counts are worthless
+  //   remove the entire concept and instead just search for nearby buildings
+  //
   int building_count[25] = {0};
   int completed_building_count[25] = {0};
   //int incomplete_building_count[25] = {0};
@@ -123,8 +127,13 @@ class AI {
   bool build_best_road(MapPos, RoadOptions, Building::Type optional_building_type = Building::TypeNone, Building::Type optional_affinity = Building::TypeNone, MapPos optional_target = bad_map_pos);
   //MapPosVector get_affinity(MapPos);
   MapPosVector get_affinity(MapPos, Building::Type optional_building_type = Building::TypeNone);
+  /*
+  // make these wrappers aroud a single function?  or single function with args?
   Building* find_nearest_building(MapPos, unsigned int, Building::Type);
+  Building* find_nearest_connected_building(MapPos, unsigned int, Building::Type);
   Building* find_nearest_completed_building(MapPos, unsigned int, Building::Type);
+  */
+  Building* find_nearest_building(MapPos, CompletionLevel, Building::Type, unsigned int max_dist = -1);
   Road trace_existing_road(PMap, MapPos, Direction);
   MapPosVector get_corners(MapPos);
   MapPosVector get_corners(MapPos, unsigned int distance);
@@ -215,7 +224,9 @@ class AI {
   //
   // ai_pathfinder.cc
   //
-  Road plot_road(PMap map, unsigned int player_index, MapPos start, MapPos end, Roads * const &potential_roads);
+  // adding support for HoldBuildingPos
+  //Road plot_road(PMap map, unsigned int player_index, MapPos start, MapPos end, Roads * const &potential_roads);
+  Road plot_road(PMap map, unsigned int player_index, MapPos start, MapPos end, Roads * const &potential_roads, bool hold_building_pos = false);
   int get_straightline_tile_dist(PMap map, MapPos start_pos, MapPos end_pos);
   bool score_flag(PMap map, unsigned int player_index, RoadBuilder *rb, RoadOptions road_options, MapPos flag_pos, MapPos castle_flag_pos, ColorDotMap *ai_mark_pos);
   bool find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb, MapPos flag_pos, MapPos castle_flag_pos, ColorDotMap *ai_mark_pos);

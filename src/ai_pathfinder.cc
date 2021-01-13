@@ -55,12 +55,25 @@ flagsearch_node_less(const PFlagSearchNode &left, const PFlagSearchNode &right) 
 //    will be included, but not positions that are not organically checked by the direct pathfinding logic.
 //    The set will include the original-specified-end direct Road if it is valid
 // is road_options actually used here??? or only by build_best_road??
+//   seems that RoadOptions is not used, but I think I need it to be for HoldBuildingPos
 Road
-AI::plot_road(PMap map, unsigned int player_index, MapPos start_pos, MapPos end_pos, Roads * const &potential_roads) {
+// adding support for HoldBuildingPos
+//AI::plot_road(PMap map, unsigned int player_index, MapPos start_pos, MapPos end_pos, Roads * const &potential_roads) {
+AI::plot_road(PMap map, unsigned int player_index, MapPos start_pos, MapPos end_pos, Roads * const &potential_roads, bool hold_building_pos) {
   AILogDebug["plot_road"] << name << " inside plot_road for Player" << player_index << " with start " << start_pos << ", end " << end_pos;
+  
   std::vector<PSearchNode> open;
   std::list<PSearchNode> closed;
   PSearchNode node(new SearchNode);
+
+  if (hold_building_pos == true){
+    AILogDebug["plot_road"] << name << " DEBUG - hold_building_pos is TRUE!";
+    PSearchNode hold_building_pos_node(new SearchNode);
+    hold_building_pos_node->pos = map->move_up_left(start_pos);
+    closed.push_front(hold_building_pos_node);
+    AILogDebug["plot_road"] << name << " DEBUG - hold_building_pos is TRUE, added hold_building_pos " << hold_building_pos_node->pos << " which is up-left of start_pos " << start_pos;
+  }
+
   // time this function for debugging
   std::clock_t start;
   double duration;

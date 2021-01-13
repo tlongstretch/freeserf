@@ -61,6 +61,7 @@ AI::AI(PGame current_game, unsigned int _player_index, AIPlusOptions _aiplus_opt
   road_options.reset(RoadOption::Improve);
   road_options.reset(RoadOption::ReducedNewLengthPenalty);
   road_options.set(RoadOption::AllowWaterRoad);
+  road_options.reset(RoadOption::HoldBuildingPos);
 
   need_tools = false;
 
@@ -2270,11 +2271,17 @@ AI::do_build_sawmill_lumberjacks() {
             AILogDebug["do_build_sawmill_lumberjacks"] << name << " built sawmill at pos " << built_pos;
             break;
           }
-          if (built_pos == stopbuilding_pos) { return; }
+          if (built_pos == stopbuilding_pos) { 
+            AILogDebug["do_build_sawmill_lumberjacks"] << name << " DEBUG! got stopbuilding_pos " << built_pos;
+            return;
+          }
+          AILogDebug["do_build_sawmill_lumberjacks"] << name << " DEBUG got built_pos??? " << built_pos;
         }
       }
+      update_building_counts();
       sawmill_count = stock_buildings.at(stock_pos).count[Building::TypeSawmill];
       if (sawmill_count > 0) {
+        AILogDebug["do_build_sawmill_lumberjacks"] << name << " DEBUG have a sawmill";
         //
         // build two lumberjacks near corner where sawmill was built, or corner with most trees
         //
@@ -2282,6 +2289,7 @@ AI::do_build_sawmill_lumberjacks() {
         //  push the location of the sawmill (built_pos) to the front of the search path to help keep lumberjacks close
         search_positions.insert(search_positions.begin(), built_pos);
         for (MapPos search_pos : search_positions) {
+          AILogDebug["do_build_sawmill_lumberjacks"] << name << " DEBUG checking search_pos " << search_pos;
           // try to build two
           for (int x = 0; x < 2; x++) {
             update_building_counts();
@@ -3342,7 +3350,7 @@ AI::do_build_warehouse() {
   MapPos built_pos;
   for (MapPos search_pos : search_positions) {
     //ai_mark_pos.clear();
-    if (find_nearest_building(search_pos, AI::spiral_dist(15), Building::TypeStock) != nullptr) {
+    if (find_nearest_building(search_pos, CompletionLevel::Unfinished, Building::TypeStock, AI::spiral_dist(15)) != nullptr) {
       AILogDebug["do_build_warehouse"] << name << " there is already a stock near search_pos " << search_pos << ", skipping this area";
       continue;
     }
@@ -3381,7 +3389,7 @@ AI::do_build_warehouse() {
     MapPos built_pos;
     for (MapPos search_pos : search_positions) {
       //ai_mark_pos.clear();
-      if (find_nearest_building(search_pos, AI::spiral_dist(15), Building::TypeStock) != nullptr) {
+      if (find_nearest_building(search_pos, CompletionLevel::Unfinished, Building::TypeStock, AI::spiral_dist(15)) != nullptr) {
         AILogDebug["do_build_warehouse"] << name << " there is already a stock near search_pos " << search_pos << ", skipping this area";
         continue;
       }

@@ -7,13 +7,13 @@
 #define SRC_LOOKUP_H_
 
 #include <bitset>      // used for RoadOptions bools
-#include <set>        // for MapPosSet typedef
+#include <set>         // for MapPosSet typedef
 #include <vector>      // for MapPosVector typedef
-#include <utility>      // to satisfy cpplint
-#include <map>        // to satisfy cpplint
+#include <utility>     // to satisfy cpplint
+#include <map>         // to satisfy cpplint
 #include <string>      // to satisfy cpplint
 #include "src/building.h"  // used to know Building classconst char*
-#include "src/gfx.h"    // for AI overlay, needed to get Color class, maybe find a simpler way?
+#include "src/gfx.h"   // for AI overlay, needed to get Color class, maybe find a simpler way?
 
 //
 // NOTE - cpplint says to change const std:string to const char* but when I do so it causesconst char*
@@ -338,7 +338,8 @@ const std::string NameRoadOption[] = {
         "PenalizeCastleFlag",
         "Improve",
         "ReducedNewLengthPenalty",
-        "AllowWaterRoad"
+        "AllowWaterRoad",
+        "HoldBuildingPos"
 };
 
 
@@ -566,23 +567,23 @@ const Building::Type BuildingAffinity[25][2] = {
 };
 
 typedef enum RoadOption {
-  Direct = 0,      // connect directly to target building's flag, any potential routes via other flags, no splitting roads, ignores Improve flag (will build regardless)
-  SplitRoads,      // allow creating new flags (splitting roads) when optimal
+  Direct = 0,         // connect directly to target building's flag, any potential routes via other flags, no splitting roads, ignores Improve flag (will build regardless)
+  SplitRoads,         // allow creating new flags (splitting roads) when optimal
   PenalizeNewLength,  // disfavor creating new roads, prefer connecting to existing paths when optimal
-  AvoidCastleArea,  // disfavor any pos surrounding the castle, to avoid congesting that area
+  AvoidCastleArea,    // disfavor any pos surrounding the castle, to avoid congesting that area
   PenalizeCastleFlag, // disfavor any flag-path that includes the castle flag, for resources that route directly to consumers
-  Improve,      // allow creating new roads even if start_pos already has any existing path (otherwise disallow it)
+  Improve,            // allow creating new roads even if start_pos already has any existing path (otherwise disallow it)
   ReducedNewLengthPenalty, // reduced penalty, experimental, probably should just change overall new_length_penalty to penalize longer roads less
-  AllowWaterRoad    // allow creating water roads, this is on by default but if a water road is about to be built the build_best_road function willconst char*
-            //   make a recursive call to itself with AllowWater disabled to ensure that a land route is also available, to avoid issue whereconst char*
-            //   serfs cannot reach the construction site/building because serfs cannot travel in boats (which is dumb)
+  AllowWaterRoad,     // allow creating water roads, this is on by default but if a water road is about to be built the build_best_road function will
+                      //   make a recursive call to itself with AllowWater disabled to ensure that a land route is also available, to avoid issue where
+                      //   serfs cannot reach the construction site/building because serfs cannot travel in boats (which is dumb)
+  HoldBuildingPos     // when plotting a road, do not allow the road to pass through the pos UpLeft from the dest, so it does not prevent a building there
 } RoadOption;
-typedef std::bitset<8> RoadOptions;
+typedef std::bitset<9> RoadOptions;
 typedef std::vector<Road> Roads;
 
 
-
-// I was originally setting -1 here to be the worst-possible score, but because other lengths/penalties are ADDED to this score, it wraps back aroundconst char*
+// I was originally setting -1 here to be the worst-possible score, but because other lengths/penalties are ADDED to this score, it wraps back around
 //     to be a very-low/good score again!   Instead, setting to HALF of -1 (4294967295) ... which is 2147483647.5 or 2147483648
 // GAH, this STILL doesn't work safely, because scores get ADDED and very commonly bad_score + bad_score overflows it
 //   changing to a much lower number that is still obviously wrong
@@ -606,6 +607,18 @@ typedef enum AIPlusOption {
   QuickDemoEmptyBuildSites,
 } AIPlusOption;
 typedef std::bitset<4> AIPlusOptions;
+
+typedef enum CompletionLevel {
+  Unfinished = 0,
+  Connected = 1,
+  Completed = 2,
+} CompletionLevel;
+
+const std::string NameCompletionLevel[] = {
+        "Unfinished",
+        "Connected",
+        "Completed",
+};
 
 
 
