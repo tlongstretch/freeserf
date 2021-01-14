@@ -156,14 +156,18 @@ class AI {
   void update_stocks_pos();
   MapPos get_halfway_pos(MapPos, MapPos);
   ResourceMap realm_inv;
-  MapPos stock_pos;
-  MapPos find_nearest_stock(MapPos);
+  MapPos inventory_pos;
+  MapPos find_nearest_inventory(MapPos);
   bool scoring_attack;
   bool scoring_warehouse;
   bool cannot_expand_borders_this_loop;
   void score_enemy_targets(MapPosSet*);
   void attack_nearest_target(MapPosSet*);
 
+  //
+  // I do not think this is needed anymore now that multiple economies
+  //  implemented??
+  //
   struct StockBuildings {
     int count[25] = { 0 };
     int connected_count[25] = { 0 };

@@ -145,17 +145,17 @@ AI::update_building_counts() {
   //memset(incomplete_building_count, 0, sizeof(incomplete_building_count));
   memset(occupied_building_count, 0, sizeof(occupied_building_count));
   memset(connected_building_count, 0, sizeof(connected_building_count));
-  for (MapPos stock_pos : stocks_pos) {
-    AILogDebug["util_update_building_counts"] << name << " inside AI::update_building_counts, clearing counts for stock_pos " << stock_pos;
-    memset(stock_buildings.at(stock_pos).count, 0, sizeof(stock_buildings.at(stock_pos).count));
-    memset(stock_buildings.at(stock_pos).completed_count, 0, sizeof(stock_buildings.at(stock_pos).completed_count));
-    memset(stock_buildings.at(stock_pos).occupied_count, 0, sizeof(stock_buildings.at(stock_pos).occupied_count));
-    memset(stock_buildings.at(stock_pos).connected_count, 0, sizeof(stock_buildings.at(stock_pos).connected_count));
-    stock_buildings.at(stock_pos).occupied_military_pos.clear();
-    stock_buildings.at(stock_pos).unfinished_count = 0;
-    stock_buildings.at(stock_pos).unfinished_hut_count = 0;
-    AILogDebug["util_update_building_counts"] << name << " RESET unfinished_hut_count for stock_pos " << stock_pos << ", is now: " << stock_buildings.at(stock_pos).unfinished_hut_count;
-    AILogDebug["util_update_building_counts"] << name << " RESET unfinished_building_count, for stock_pos " << stock_pos << ", is now: " << stock_buildings.at(stock_pos).unfinished_count;
+  for (MapPos inventory_pos : stocks_pos) {
+    AILogDebug["util_update_building_counts"] << name << " inside AI::update_building_counts, clearing counts for inventory_pos " << inventory_pos;
+    memset(stock_buildings.at(inventory_pos).count, 0, sizeof(stock_buildings.at(inventory_pos).count));
+    memset(stock_buildings.at(inventory_pos).completed_count, 0, sizeof(stock_buildings.at(inventory_pos).completed_count));
+    memset(stock_buildings.at(inventory_pos).occupied_count, 0, sizeof(stock_buildings.at(inventory_pos).occupied_count));
+    memset(stock_buildings.at(inventory_pos).connected_count, 0, sizeof(stock_buildings.at(inventory_pos).connected_count));
+    stock_buildings.at(inventory_pos).occupied_military_pos.clear();
+    stock_buildings.at(inventory_pos).unfinished_count = 0;
+    stock_buildings.at(inventory_pos).unfinished_hut_count = 0;
+    AILogDebug["util_update_building_counts"] << name << " RESET unfinished_hut_count for inventory_pos " << inventory_pos << ", is now: " << stock_buildings.at(inventory_pos).unfinished_hut_count;
+    AILogDebug["util_update_building_counts"] << name << " RESET unfinished_building_count, for inventory_pos " << inventory_pos << ", is now: " << stock_buildings.at(inventory_pos).unfinished_count;
   }
 
   for (Building *building : buildings) {
@@ -190,13 +190,13 @@ AI::update_building_counts() {
     }
     if (type == Building::TypeStock && building->is_done())
       continue;
-    AILogDebug["util_update_building_counts"] << name << " about to call find_nearest_stock for building at pos " << building->get_position() << " with type " << NameBuilding[type];
-    MapPos nearest_stock = find_nearest_stock(building->get_position());
+    AILogDebug["util_update_building_counts"] << name << " about to call find_nearest_inventory for building at pos " << building->get_position() << " with type " << NameBuilding[type];
+    MapPos nearest_stock = find_nearest_inventory(building->get_position());
     AILogDebug["util_update_building_counts"] << name << " nearest stock to this building is " << nearest_stock;
     if (!building->is_done()) {
       if (type == Building::TypeHut) {
         stock_buildings.at(nearest_stock).unfinished_hut_count++;
-        AILogDebug["util_update_building_counts"] << name << " incrementing unfinished_hut_count for stock_pos " << nearest_stock << ", is now: " << stock_buildings.at(nearest_stock).unfinished_hut_count;
+        AILogDebug["util_update_building_counts"] << name << " incrementing unfinished_hut_count for inventory_pos " << nearest_stock << ", is now: " << stock_buildings.at(nearest_stock).unfinished_hut_count;
       }
       else if (building->get_type() == Building::TypeCoalMine
         || building->get_type() == Building::TypeIronMine
@@ -206,7 +206,7 @@ AI::update_building_counts() {
       }
       else {
         stock_buildings.at(nearest_stock).unfinished_count++;
-        AILogDebug["util_update_building_counts"] << name << " found unfinished building of type " << NameBuilding[building->get_type()] << ", incrementing unfinished_building_count for stock_pos " << nearest_stock << ", is now: " << stock_buildings.at(nearest_stock).unfinished_count;
+        AILogDebug["util_update_building_counts"] << name << " found unfinished building of type " << NameBuilding[building->get_type()] << ", incrementing unfinished_building_count for inventory_pos " << nearest_stock << ", is now: " << stock_buildings.at(nearest_stock).unfinished_count;
       }
     }
     building_count[type]++;
@@ -225,19 +225,19 @@ AI::update_building_counts() {
         stock_buildings.at(nearest_stock).occupied_count[type]++;
       }
       if (building->is_military() && building->is_active()) {
-        AILogDebug["util_update_building_counts"] << name << " adding occupied military building at " << building->get_position() << " to list for stock_pos " << nearest_stock;
+        AILogDebug["util_update_building_counts"] << name << " adding occupied military building at " << building->get_position() << " to list for inventory_pos " << nearest_stock;
         realm_occupied_military_pos.push_back(building->get_position());
         stock_buildings.at(nearest_stock).occupied_military_pos.push_back(building->get_position());
       }
     }
   }
   // debug
-  for (MapPos stock_pos : stocks_pos) {
-    AILogDebug["util_update_building_counts"] << name << " stock at pos " << stock_pos << " has all/completed/occupied buildings: ";
+  for (MapPos inventory_pos : stocks_pos) {
+    AILogDebug["util_update_building_counts"] << name << " stock at pos " << inventory_pos << " has all/completed/occupied buildings: ";
     int type = 0;
     for (int count : building_count) {
-      AILogDebug["util_update_building_counts"] << name << " type " << type << " / " << NameBuilding[type] << ": " << stock_buildings.at(stock_pos).count[type]
-        << "/" << stock_buildings.at(stock_pos).completed_count[type] << "/" << stock_buildings.at(stock_pos).occupied_count[type];
+      AILogDebug["util_update_building_counts"] << name << " type " << type << " / " << NameBuilding[type] << ": " << stock_buildings.at(inventory_pos).count[type]
+        << "/" << stock_buildings.at(inventory_pos).completed_count[type] << "/" << stock_buildings.at(inventory_pos).occupied_count[type];
       type++;
     }
   }
@@ -667,13 +667,13 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
   }
   AILogDebug["util_build_best_road"] << name << " targets contains " << targets.size() << " affinity / target buildings";
   if (targets.size() == 0){
-    MapPos nearest_stock = find_nearest_stock(start_pos);
-    AILogDebug["util_build_best_road"] << name << " no valid target found, setting target to nearest_stock_pos " << nearest_stock;
+    MapPos nearest_stock = find_nearest_inventory(start_pos);
+    AILogDebug["util_build_best_road"] << name << " no valid target found, setting target to nearest_inventory_pos " << nearest_stock;
     targets.push_back(nearest_stock);
   }
   unsigned int roads_built = 0;
   unsigned int target_count = static_cast<unsigned int>(targets.size());
-  int flag_index_of_selected_stock = game->get_flag_at_pos(stock_pos)->get_index();
+  int flag_index_of_selected_stock = game->get_flag_at_pos(inventory_pos)->get_index();
   //
   // change this to its own function so there isn't a foreach loop for hundreds of lines to handle two targets
   //
@@ -885,7 +885,7 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
         continue;
       }
       if (flag_index_of_nearest_res_inventory_to_end_pos != flag_index_of_selected_stock){
-        AILogDebug["build_best_road"] << name << " flag at end_pos " << end_pos << " is not closest to current stock_pos " << stock_pos << ", skipping";
+        AILogDebug["build_best_road"] << name << " flag at end_pos " << end_pos << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
         continue;
       }
       AILogDebug["util_build_best_road"] << name << " this potential road solution is acceptable so far in terms of NEW length only, adding to RoadBuilder potential_roads";
@@ -933,7 +933,7 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
               disqualified++;
             }
             if (flag_index_of_nearest_res_inventory_to_split_end_pos != flag_index_of_selected_stock){
-              AILogDebug["build_best_road"] << name << " potential split_road flag at split_end_pos " << split_end_pos << " is not closest to current stock_pos " << stock_pos << ", skipping";
+              AILogDebug["build_best_road"] << name << " potential split_road flag at split_end_pos " << split_end_pos << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
               disqualified++;
             }
           }
@@ -1247,9 +1247,9 @@ AI::get_affinity(MapPos flag_pos, Building::Type optional_building_type){
 // front of the vector, not the end
   // always have nearest_stock pos as the fallback in case no affinity
   // ***** THIS NEEDS TO BE CHANGED TO FIND NEAREST STOCK WITH A FLAG SEARCH!!  ******
-  // wait this doesn't need to be down-right because stock_pos IS the flag pos, right???
-  //MapPos nearest_inventory_flag = map->move_down_right(find_nearest_stock(flag_pos));
-  MapPos nearest_inventory_flag = find_nearest_stock(flag_pos);
+  // wait this doesn't need to be down-right because inventory_pos IS the flag pos, right???
+  //MapPos nearest_inventory_flag = map->move_down_right(find_nearest_inventory(flag_pos));
+  MapPos nearest_inventory_flag = find_nearest_inventory(flag_pos);
   // does this need to push the stock pos TWICE in case no affinity buildings found?
   //  I think it does, if the call to this function is expecting two results
   // OR, is it working through a whole list that could have multiple buildings of each type?? I forget
@@ -1452,21 +1452,21 @@ AI::building_exists_near_pos(MapPos center_pos, unsigned int distance, Building:
 //   and find the halfway point between those two and return it
 // for trying to build between two buildings, such as building a SteelSmelter halfway between CoalMine and IronMine
 //   currently this is ONLY used for placing a steelsmelter between coal and iron mines
-//  since enabling multiple economies, this function only considers buildings attached to the current stock_pos
+//  since enabling multiple economies, this function only considers buildings attached to the current inventory_pos
 
 // ***** THIS NEEDS TO BE CHANGED TO FIND NEAREST STOCK WITH A FLAG SEARCH!!  ******
 
 MapPos
 AI::find_halfway_pos_between_buildings(Building::Type first, Building::Type second) {
-  AILogDebug["util_find_halfway_pos_between_buildings"] << name << " inside get_halfway_pos_between_buildings, type1 " << NameBuilding[first] << " type2 " << NameBuilding[second] << " for stock_pos " << stock_pos;
+  AILogDebug["util_find_halfway_pos_between_buildings"] << name << " inside get_halfway_pos_between_buildings, type1 " << NameBuilding[first] << " type2 " << NameBuilding[second] << " for inventory_pos " << inventory_pos;
   update_building_counts();
   Building::Type type[2] = { first, second };
   MapPos found_pos[2] = { bad_map_pos, bad_map_pos };
   for (int x = 0; x < 2; x++) {
     AILogDebug["util_find_halfway_pos_between_buildings"] << name << " searching this stock area for a building of type" << x << " " << NameBuilding[type[x]];
-    if (stock_buildings.at(stock_pos).occupied_count[type[x]] >= 1) {
+    if (stock_buildings.at(inventory_pos).occupied_count[type[x]] >= 1) {
       AILogDebug["util_find_halfway_pos_between_buildings"] << name << " searching for an OCCUPIED building of type" << x << " " << NameBuilding[type[x]];
-      for (MapPos center_pos : stock_buildings.at(stock_pos).occupied_military_pos) {
+      for (MapPos center_pos : stock_buildings.at(inventory_pos).occupied_military_pos) {
         for (unsigned int i = 0; i < spiral_dist(9); i++) {
           MapPos pos = map->pos_add_extended_spirally(center_pos, i);
           if (!map->has_building(pos))
@@ -1492,7 +1492,7 @@ AI::find_halfway_pos_between_buildings(Building::Type first, Building::Type seco
     }
     else if (completed_building_count[type[x]] >= 1) {
       AILogDebug["util_find_halfway_pos_between_buildings"] << name << " searching for a COMPLETED building of type" << x << " " << NameBuilding[type[x]];
-      for (MapPos center_pos : stock_buildings.at(stock_pos).occupied_military_pos) {
+      for (MapPos center_pos : stock_buildings.at(inventory_pos).occupied_military_pos) {
         for (unsigned int i = 0; i < spiral_dist(9); i++) {
           MapPos pos = map->pos_add_extended_spirally(center_pos, i);
           if (!map->has_building(pos))
@@ -1518,7 +1518,7 @@ AI::find_halfway_pos_between_buildings(Building::Type first, Building::Type seco
     }
     else if (building_count[type[x]] >= 1) {
       AILogDebug["util_find_halfway_pos_between_buildings"] << name << " searching for ANY building of type" << x << " " << NameBuilding[type[x]];
-      for (MapPos center_pos : stock_buildings.at(stock_pos).occupied_military_pos) {
+      for (MapPos center_pos : stock_buildings.at(inventory_pos).occupied_military_pos) {
         AILogDebug["util_find_halfway_pos_between_buildings"] << name << " searching around center_pos " << center_pos;
         for (unsigned int i = 0; i < spiral_dist(9); i++) {
           MapPos pos = map->pos_add_extended_spirally(center_pos, i);
@@ -1789,9 +1789,9 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
   /*
   // I forgot I had this check here already... I think it is redundant
   //  and not needed anymore
-  MapPos nearest_stock = find_nearest_stock(center_pos);
-  if (nearest_stock != stock_pos) {
-    AILogDebug["util_build_near_pos"] << name << " this center_pos " << center_pos << " is closer to another stock (at pos " << nearest_stock << ") than the current stock_pos " << stock_pos << ", returning notplaced_pos";
+  MapPos nearest_stock = find_nearest_inventory(center_pos);
+  if (nearest_stock != inventory_pos) {
+    AILogDebug["util_build_near_pos"] << name << " this center_pos " << center_pos << " is closer to another stock (at pos " << nearest_stock << ") than the current inventory_pos " << inventory_pos << ", returning notplaced_pos";
     return notplaced_pos;
   }
   */
@@ -1799,7 +1799,7 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
   //
   // *** TEMPORARILY *** KEEP THIS TO AVOID HAVING TO ADD FLAG-SEARCH TO FIND nearest_stock 
   //// ***** THIS NEEDS TO BE CHANGED TO FIND NEAREST STOCK WITH A FLAG SEARCH!!  ******
-  MapPos nearest_stock = find_nearest_stock(center_pos);
+  MapPos nearest_stock = find_nearest_inventory(center_pos);
 
   if (building_type == Building::TypeHut) {
     if (stock_buildings.at(nearest_stock).unfinished_hut_count >= max_unfinished_huts) {
@@ -1947,8 +1947,8 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
     /*
     // make sure this pos is closest to the currently selected stock
     if (verify_stock){
-      AILogDebug["util_build_near_pos"] << name << " checking that this tracked economy building is closest to stock_pos " << stock_pos;
-      //if (find_nearest_stock(pos) == stock_pos){
+      AILogDebug["util_build_near_pos"] << name << " checking that this tracked economy building is closest to inventory_pos " << inventory_pos;
+      //if (find_nearest_inventory(pos) == inventory_pos){
       // changing this to use nearest-by-flag instead of nearest-by-straightline-dist
       //  note that find_nearest_inventory_for_resource only considers Inventories that are accepting resources!
       //
@@ -2086,9 +2086,9 @@ AI::expand_borders(MapPos center_pos) {
   std::clock_t start;
   double duration;
   start = std::clock();
-  AILogDebug["util_expand_borders"] << name << " inside AI::expand_borders for stock_pos " << stock_pos;
+  AILogDebug["util_expand_borders"] << name << " inside AI::expand_borders for inventory_pos " << inventory_pos;
   ai_status.assign("EXPANDING BORDERS");
-  if (stock_buildings.at(stock_pos).unfinished_hut_count >= max_unfinished_buildings) {
+  if (stock_buildings.at(inventory_pos).unfinished_hut_count >= max_unfinished_buildings) {
     AILogDebug["util_expand_borders"] << name << " max unfinished huts limit " << max_unfinished_huts << " reached, not building";
     // should be returning not_built_pos or bad_map pos?? stopbuilding is less appropriate with separate counts set up for huts vs other buildings
     return stopbuilding_pos;
@@ -2111,7 +2111,7 @@ AI::expand_borders(MapPos center_pos) {
   AILogDebug["util_expand_borders"] << name << " thread #" << std::this_thread::get_id() << " AI is unlocking mutex after calling game->get_player_buildings(player) (for expand_borders)";
   game->get_mutex()->unlock();
   AILogDebug["util_expand_borders"] << name << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling game->get_player_buildings(player) (for expand_borders)";
-  for (MapPos center_pos : stock_buildings.at(stock_pos).occupied_military_pos) {
+  for (MapPos center_pos : stock_buildings.at(inventory_pos).occupied_military_pos) {
     duration = (std::clock() - start) / static_cast<double>(CLOCKS_PER_SEC);
     AILogDebug["util_expand_borders"] << name << " about to check around pos " << center_pos << ", SO FAR util_expand_borders call took " << duration;
     // find territory edge in each direction
@@ -2339,25 +2339,25 @@ AI::get_halfway_pos(MapPos start_pos, MapPos end_pos) {
 // return the MapPos of the stock nearest to the specified MapPos, including castle
 //   if not found, default to castle_pos?
 MapPos
-AI::find_nearest_stock(MapPos pos) {
-  AILogDebug["util_find_nearest_stock"] << name << " inside find_nearest_stock to pos " << pos;
+AI::find_nearest_inventory(MapPos pos) {
+  AILogDebug["util_find_nearest_inventory"] << name << " inside find_nearest_inventory to pos " << pos;
   // try searching by straightline pos instead of spirally
   unsigned int best_dist = bad_score;
   MapPos closest_stock = bad_map_pos;
-  for (MapPos stock_pos : stocks_pos) {
-    AILogDebug["util_find_nearest_stock"] << name << " considering stock_pos " << stock_pos;
-    unsigned int dist = AI::get_straightline_tile_dist(map, pos, stock_pos);
-    AILogDebug["util_find_nearest_stock"] << name << " straightline tile dist from pos " << pos << " to stock_pos " << stock_pos << " is " << dist;
+  for (MapPos inventory_pos : stocks_pos) {
+    AILogDebug["util_find_nearest_inventory"] << name << " considering inventory_pos " << inventory_pos;
+    unsigned int dist = AI::get_straightline_tile_dist(map, pos, inventory_pos);
+    AILogDebug["util_find_nearest_inventory"] << name << " straightline tile dist from pos " << pos << " to inventory_pos " << inventory_pos << " is " << dist;
     if (dist < best_dist) {
-      AILogDebug["util_find_nearest_stock"] << name << " stock at stock_pos " << stock_pos << " is the closest so far to pos " << pos << ", with dist " << dist;
+      AILogDebug["util_find_nearest_inventory"] << name << " stock at inventory_pos " << inventory_pos << " is the closest so far to pos " << pos << ", with dist " << dist;
       best_dist = dist;
-      closest_stock = stock_pos;
+      closest_stock = inventory_pos;
     }
   }
   if (closest_stock == bad_map_pos || best_dist == bad_score) {
-    AILogDebug["util_find_nearest_stock"] << name << " not found??  closest_stock: " << closest_stock << ", best_dist: " << best_dist;
+    AILogDebug["util_find_nearest_inventory"] << name << " not found??  closest_stock: " << closest_stock << ", best_dist: " << best_dist;
   }
-  AILogDebug["util_find_nearest_stock"] << name << " done find_nearest_stock to pos " << pos << ", closest stock is " << closest_stock << " with straightline dist " << best_dist;
+  AILogDebug["util_find_nearest_inventory"] << name << " done find_nearest_inventory to pos " << pos << ", closest stock is " << closest_stock << " with straightline dist " << best_dist;
   return closest_stock;
 }
 
