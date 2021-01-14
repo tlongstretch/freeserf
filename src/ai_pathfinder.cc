@@ -420,19 +420,19 @@ AI::score_flag(PMap map, unsigned int player_index, RoadBuilder *rb, RoadOptions
 //     which means fake flags will work
 RoadEnds
 AI::get_roadends(PMap map, Road road) {
-  AILogDebug["get_roadends"] << name << "inside get_roadends";
+  AILogDebug["get_roadends"] << name << " inside get_roadends";
   std::list<Direction> dirs = road.get_dirs();
   std::list<Direction>::iterator i;
   for (i = dirs.begin(); i != dirs.end(); i++) {
     Direction dir = *i;
-    AILogVerbose["get_roadends"] << name << "get_roadends - Direction " << dir << " / " << NameDirection[dir];
+    AILogVerbose["get_roadends"] << name << " get_roadends - Direction " << dir << " / " << NameDirection[dir];
   }
   MapPos start_pos = road.get_source();
   MapPos end_pos = road.get_end(map.get());  // this function just traces the road along the existing path anyway
   Direction start_dir = road.get_dirs().front();
   // the Direction of the path leading back to the start is the reverse of the last dir in the road (the dir that leads to the end flag)
   Direction end_dir = reverse_direction(road.get_dirs().back());
-  AILogDebug["get_roadends"] << name << "inside get_roadends, start_pos " << start_pos << ", start_dir: " << NameDirection[start_dir] << name << ", end_pos " << end_pos << ", end_dir: " << NameDirection[end_dir];
+  AILogDebug["get_roadends"] << name << " inside get_roadends, start_pos " << start_pos << ", start_dir: " << NameDirection[start_dir] << name << ", end_pos " << end_pos << ", end_dir: " << NameDirection[end_dir];
   RoadEnds ends = std::make_tuple(start_pos, start_dir, end_pos, end_dir);
   return ends;
 }

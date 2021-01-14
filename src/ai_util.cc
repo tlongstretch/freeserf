@@ -518,7 +518,7 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
   double duration;
   start = std::clock();
 
-  AILogDebug["util_build_best_road"] << name << " inside AI::build_best_road with start pos " << start_pos << ", optional_affinity " << NameBuilding[optional_affinity] << ", optional_target " << optional_target;
+  AILogDebug["util_build_best_road"] << name << " inside AI::build_best_road with start pos " << start_pos << ", optional_building_type " << NameBuilding[optional_building_type] << ", optional_affinity " << NameBuilding[optional_affinity] << ", optional_target " << optional_target;
   // print RoadOptions for debugging
   for (unsigned int i = 0; i < road_options.size(); i++) {
     AILogDebug["util_build_best_road"] << name << " RoadOption: " << NameRoadOption[i] << " = " << bool(road_options.test(i));
@@ -579,14 +579,18 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
 
   MapPosVector targets;  // these are flag positions
 
-  if (optional_affinity != Building::TypeNone) {
+  //if (optional_affinity != Building::TypeNone) {
+
+    /* this whole section is redundant, isn't it?  because optional_building_type
+    //  is now an option to get_affinity, so it already happens
+
     // for rebuild all roads (at least), override affinity table and instead use the specified affinity building type
     AILogDebug["util_build_best_road"] << name << " using optional_affinity " << NameBuilding[optional_affinity] << " specified in build_best_road call";
     // ************************** **************************
     // make this a function, also do same inside AI::get_affinity it is repetative copy/paste
     // ************************** **************************
     AILogDebug["util_build_best_road"] << name << " looking for nearest connected building of type " << NameBuilding[optional_affinity];
-    Building *building = AI::find_nearest_building(start_pos, CompletionLevel::Connected, optional_affinity, AI::spiral_dist(15));
+    Building *building = AI::find_nearest_building(start_pos, CompletionLevel::Connected, optional_affinity, 15);
     if (building != nullptr) {
       AILogDebug["util_build_best_road"] << name << " found connected optional_affinity building at pos " << building->get_position();
       // get the flag position of the building
@@ -632,7 +636,9 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
       }
     }
   }
-  else if (optional_target != bad_map_pos) {
+  */
+  //else if (optional_target != bad_map_pos) {
+  if (optional_target != bad_map_pos) {
     // only for specific road improvements, target a specific flag or building pos rather than "connect to road system"
     AILogDebug["util_build_best_road"] << name << " using optional_target pos " << optional_target << " specified in build_best_road call";
     // check to if target is a building or a flag
@@ -660,13 +666,32 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
     targets = AI::get_affinity(start_pos, optional_building_type);
   }
   AILogDebug["util_build_best_road"] << name << " targets contains " << targets.size() << " affinity / target buildings";
+  if (targets.size() == 0){
+    MapPos nearest_stock = find_nearest_stock(start_pos);
+    AILogDebug["util_build_best_road"] << name << " no valid target found, setting target to nearest_stock_pos " << nearest_stock;
+    targets.push_back(nearest_stock);
+  }
   unsigned int roads_built = 0;
   unsigned int target_count = static_cast<unsigned int>(targets.size());
   int flag_index_of_selected_stock = game->get_flag_at_pos(stock_pos)->get_index();
   //
   // change this to its own function so there isn't a foreach loop for hundreds of lines to handle two targets
   //
+  //
+  // CONSIDER MOVING THE get_affinity CALL TO INSIDE THIS FUNCTION SO THAT IT CAN TRY A SERIES OF AFFINITY BUILDINGS
+  //  INSTEAD OF JUST THE CLOSEST ONE
+  //
+
+  int target_num = 0;  // TEMP UNTIL REVAMP
   for (MapPos target_pos : targets) {
+    //
+    // TEMP UNTIL REVAMP
+    //
+    target_num++;
+    if (target_num > 2){
+      AILogDebug["util_build_best_road"] << name << " TEMPORARY -  NOT ALLOWING MORE THAN 2 TARGETS - breaking";
+      break;
+    }
     if (target_pos == bad_map_pos) {
       AILogDebug["util_build_best_road"] << name << " no more affinity targets left";
       break;
@@ -854,7 +879,7 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
         continue;
       }
       // if this is "tracked economy building", ensure the end_pos flag is closest to the currently selected Inventory (castle/warehouse)
-      int flag_index_of_nearest_res_inventory_to_end_pos = game->get_flag_at_pos(end_pos)->find_nearest_inventory_for_resource();
+      int flag_index_of_nearest_res_inventory_to_end_pos = game->get_flag_at_pos(end_pos)->find_nearest_inventory_for_resource_ignore_transporter();
       if (flag_index_of_nearest_res_inventory_to_end_pos < 0){
         AILogDebug["build_best_road"] << name << " inventory not found for flag at end_pos " << end_pos << ", maybe this flag isn't part of the road system??";
         continue;
@@ -902,7 +927,7 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
             AILogDebug["build_best_road"] << name << " found a path for splitting flag at split_end_pos " << split_end_pos << " in dir " << NameDirection[dir];
             MapPos adjacent_flag_pos = split_road.get_end(map.get());
             AILogDebug["build_best_road"] << name << " path for splitting flag at split_end_pos " << split_end_pos << " in dir " << NameDirection[dir] << " ends at flag at pos " << adjacent_flag_pos;
-            int flag_index_of_nearest_res_inventory_to_split_end_pos = game->get_flag_at_pos(adjacent_flag_pos)->find_nearest_inventory_for_resource();
+            int flag_index_of_nearest_res_inventory_to_split_end_pos = game->get_flag_at_pos(adjacent_flag_pos)->find_nearest_inventory_for_resource_ignore_transporter();
             if (flag_index_of_nearest_res_inventory_to_split_end_pos < 0){
               AILogDebug["build_best_road"] << name << " inventory not found for potential split_road flag at split_end_pos " << split_end_pos << ", maybe this flag isn't part of the road system??";
               disqualified++;
@@ -1148,9 +1173,7 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
       }
       //
       // insert code here to check if the second road is actually better than the first road built (if one was built) !!
-      //   otherwise, don't build.  Adding this because often a stubby second road is built when the first road is already optimal
-      //      to connect to the second affinity building
-      //  Is this actually still an issue?  I think they "stubby second road" issue was actually a result of a pathfinding bug that was fixed   - dec14 2020
+      //   otherwise, don't build. 
       //
       if (true) {
         if (roads_built >= 1) {
@@ -1205,20 +1228,12 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
 
 MapPosVector
 // return a vector of MapPos of affinity building[s], or a default if none defined in BuildingAffinity table (castle)
-// adding support for checking affinity of buildings not yet placed
+//***************************************
+// THIS FUNCTION SHOULD EITHER RETURN TWO FIXED ITEMS OR TWO LISTS OF POTENTIAL TARGET BUILDINGS IN ORDER OF DIST/BUILD PROGRESS!
+//((((((((((((((((((()))))))))))))))))))
 //
-//
-// THIS WHOLE FUNCTION NEEDS TO BE IMPROVED:
-//  - I already started changing 'completed' requirement to 'connected', because obviously a newly placed lumberjack
-//     should be built next to newly placed sawmill, and mill/baker near each other and farms
-//  - the find_nearest_XXX should always fall back to searching a larger area (entire realm?  in what order??)
-//     not just in dual-affinity cases
-//  - most of these checks are redundant copy and paste, consolidate into functions
-//
-//
-//AI::get_affinity(MapPos flag_pos) {
 AI::get_affinity(MapPos flag_pos, Building::Type optional_building_type){
-  AILogDebug["util_get_affinity"] << name << " inside AI::get_affinity for flag pos " << flag_pos;
+  AILogDebug["util_get_affinity"] << name << " inside AI::get_affinity for flag_pos " << flag_pos;
 
   // time this function for debugging
   std::clock_t start;
@@ -1227,198 +1242,69 @@ AI::get_affinity(MapPos flag_pos, Building::Type optional_building_type){
 
   MapPosVector affinity;
 
-  // no affinity buildings - use castle/stock
+/* no, DON'T do this, let the calling function deal with fallback to nearest_stock
+// this results in the wrong ordering anyway, the better results need to be added to the
+// front of the vector, not the end
+  // always have nearest_stock pos as the fallback in case no affinity
   // ***** THIS NEEDS TO BE CHANGED TO FIND NEAREST STOCK WITH A FLAG SEARCH!!  ******
-  MapPos nearest_stock = find_nearest_stock(flag_pos);
-  if (optional_building_type == Building::TypeNone && !game->get_flag_at_pos(flag_pos)->has_building()) {
-    AILogDebug["util_get_affinity"] << name << " flag has no attached building, setting destination to nearest_stock " << nearest_stock;
-    affinity.push_back(nearest_stock);
-    return affinity;
-  }
+  // wait this doesn't need to be down-right because stock_pos IS the flag pos, right???
+  //MapPos nearest_inventory_flag = map->move_down_right(find_nearest_stock(flag_pos));
+  MapPos nearest_inventory_flag = find_nearest_stock(flag_pos);
+  // does this need to push the stock pos TWICE in case no affinity buildings found?
+  //  I think it does, if the call to this function is expecting two results
+  // OR, is it working through a whole list that could have multiple buildings of each type?? I forget
+  //   NEED TO CHECK ON THIS
+  AILogDebug["util_get_affinity"] << name << " adding flag pos of nearest_inventory_flag pos " << nearest_inventory_flag << " to affinity list as a fallback";
+  affinity.push_back(nearest_inventory_flag);
+  // just do it twice for now
+  affinity.push_back(nearest_inventory_flag);
+*/
 
   // find out what kind of building we are getting affinity for
-  AILogDebug["util_get_affinity"] << name << " flag at flag_pos " << flag_pos << " is attached to a building";
-  Building::Type building_type = Building::TypeNone;
+  Building::Type request_type = Building::TypeNone;
   if (optional_building_type != Building::TypeNone){
-    building_type = optional_building_type;
-    AILogDebug["util_get_affinity"] << name << " using specified optional_building_type " << NameBuilding[building_type];
+    request_type = optional_building_type;
+    AILogDebug["util_get_affinity"] << name << " using specified optional_building_type " << NameBuilding[request_type];
   }else{
-    building_type = game->get_flag_at_pos(flag_pos)->get_building()->get_type();
-    AILogDebug["util_get_affinity"] << name << " flag at flag_pos " << flag_pos << " is attached to a building of type " << NameBuilding[building_type];
+    if (!map->has_flag(flag_pos)){
+      AILogDebug["util_get_affinity"] << name << " no flag at flag_pos " << flag_pos << " and no optional_affinity building specified, returning empty vector";
+      return affinity;
+    }
+    if (!map->has_building(map->move_up_left(flag_pos))){
+      AILogDebug["util_get_affinity"] << name << " no building attached to flag_pos " << flag_pos << " and no optional_affinity building specified, returning empty vector";
+      return affinity;
+    }
+    request_type = game->get_flag_at_pos(flag_pos)->get_building()->get_type();
+    AILogDebug["util_get_affinity"] << name << " flag at flag_pos " << flag_pos << " is attached to a building of type " << NameBuilding[request_type];
   }
 
-  //
-  // MOVE THIS TO go with earlier check that does the same thing?  if no building attached
-  //
-  // ***** THIS NEEDS TO BE CHANGED TO FIND NEAREST STOCK WITH A FLAG SEARCH!!  ******
-  if (BuildingAffinity[building_type][0] == Building::TypeNone && BuildingAffinity[building_type][1] == Building::TypeNone) {
-    AILogDebug["util_get_affinity"] << name << " building type " << NameBuilding[building_type] << " has no BuildingAffinity, connect to nearest_stock (" << nearest_stock << ")";
-    affinity.push_back(nearest_stock);
+  // up to two affinity types for a given request type
+  for (int i = 0; i < 2; i++){
+    Building::Type affinity_type = BuildingAffinity[request_type][i];
+    if (affinity_type == Building::TypeNone){
+      AILogDebug["util_get_affinity"] << name << " requested building of type " << NameBuilding[request_type] << " has no affinity type #" << i << ", returning affinity list so far";
+      return affinity;
+    }
+    AILogDebug["util_get_affinity"] << name << " looking for nearest connected building of affinity type#" << i << " " << NameBuilding[affinity_type];
+    Building *building = AI::find_nearest_building(flag_pos, CompletionLevel::Connected, affinity_type);
+    if (building == nullptr) {
+      AILogDebug["util_get_affinity"] << name << " could not find any connected affinity building of type#" << i << " " << NameBuilding[affinity_type] << " for this building of request_type " << NameBuilding[request_type] << ", returning affinity list so far";
+      return affinity;
+    }
+    MapPos found_pos = building->get_position();
+    AILogDebug["util_get_affinity"] << name << " closest connected affinity building of affinity type#" << i << " " << NameBuilding[affinity_type] << " found at found_pos " << found_pos << ", adding its flag to affinity list";
+    MapPos building_flag_pos = game->get_flag(building->get_flag_index())->get_position();
+    AILogDebug["util_get_affinity"] << name << " adding found building's flag_pos " << building_flag_pos << " to affinity list";
+    affinity.push_back(building_flag_pos);
   }
 
-  // single affinity building
-  else if (BuildingAffinity[building_type][0] != Building::TypeNone && BuildingAffinity[building_type][1] == Building::TypeNone) {
-    Building::Type single_affinity = BuildingAffinity[building_type][0];
-    AILogDebug["util_get_affinity"] << name << " building type " << NameBuilding[building_type] << " has single BuildingAffinity, with " << NameBuilding[single_affinity];
-    update_building_counts();
-    // are these 'connected_building_counts useless now that multiple economies are in place?
-    //  I don't see the value in it anymore.  I guess it saves a bit of time during the initial castle
-    //   area phase, but after that it seems pointless
-    if (connected_building_count[single_affinity] < 1) {
-      // ***** THIS NEEDS TO BE CHANGED TO FIND NEAREST STOCK WITH A FLAG SEARCH!!  ******
-      AILogDebug["util_get_affinity"] << name << " player has no connected buildings of single affinity type " << NameBuilding[single_affinity] << ", setting road_to target to nearest_stock " << nearest_stock;
-      
-      affinity.push_back(nearest_stock);
-    }
-    else {
-      AILogDebug["util_get_affinity"] << name << " looking for nearest connected building of type " << NameBuilding[single_affinity];
-      Building *building = AI::find_nearest_building(flag_pos, CompletionLevel::Connected, single_affinity, AI::spiral_dist(9));
-      if (building != nullptr) {
-        AILogDebug["util_get_affinity"] << name << " found connected affinity building at pos " << building->get_position();
-        // ***** THIS NEEDS TO BE CHANGED TO FIND NEAREST STOCK WITH A FLAG SEARCH!!  ******
-        MapPos building_flag_pos = game->get_flag(building->get_flag_index())->get_position();
-        AILogDebug["util_get_affinity"] << name << " setting road_to target to building_flag_pos " << building_flag_pos;
-        affinity.push_back(building_flag_pos);
-      }
-      else {
-        // is this redundant?
-        // ***** THIS NEEDS TO BE CHANGED TO FIND NEAREST STOCK WITH A FLAG SEARCH!!  ******
-        AILogDebug["util_get_affinity"] << name << " couldn't find any connected affinity building";
-        AILogDebug["util_get_affinity"] << name << " setting road_to target to nearest_stock " << nearest_stock;
-        affinity.push_back(nearest_stock);
-      }
-    }
-  }
-
-  //  two affinity buildings
-  else if (BuildingAffinity[building_type][0] != Building::TypeNone && BuildingAffinity[building_type][1] != Building::TypeNone) {
-    Building::Type first_affinity = BuildingAffinity[building_type][0];
-    Building::Type second_affinity = BuildingAffinity[building_type][1];
-    AILogDebug["util_get_affinity"] << name << " building type " << NameBuilding[building_type] << " has dual BuildingAffinity, with " << NameBuilding[first_affinity] << " and " << NameBuilding[second_affinity];
-    int notfound = 0;
-    update_building_counts();
-    if (connected_building_count[first_affinity] < 1) {
-      AILogDebug["util_get_affinity"] << name << " player has no connected buildings of first affinity type " << NameBuilding[first_affinity] << ", skipping";
-      notfound++;
-    }
-    else {
-      AILogDebug["util_get_affinity"] << name << " looking for nearest connected building of first type " << NameBuilding[first_affinity];
-      Building *first_building = AI::find_nearest_building(flag_pos, CompletionLevel::Connected, first_affinity, AI::spiral_dist(9));
-      if (first_building != nullptr) {
-        AILogDebug["util_get_affinity"] << name << " found connected first_affinity building at pos " << first_building->get_position();
-        // get the flag position of the building
-        MapPos first_building_flag_pos = game->get_flag(first_building->get_flag_index())->get_position();
-        // allow disconnected buildings to make rebuild_all_roads work, instead we are now checking that they are COMPLETED
-        //if (!game->get_flag_at_pos(first_building_flag_pos)->is_connected()) {
-        //  AILogDebug["util_get_affinity"] << name << " affinity building flag is not connected!  skipping";
-        //}
-        //else {
-          AILogDebug["util_get_affinity"] << name << " setting road_to target to connected affinity building_flag_pos " << first_building_flag_pos;
-          affinity.push_back(first_building_flag_pos);
-        //}
-      }
-      else {
-        AILogDebug["util_get_affinity"] << name << " couldn't find any connected first_affinity building nearby, checking entire realm";
-        bool found = false;
-        AILogDebug["util_get_affinity"] << name << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->get_player_buildings(player) (for get_affinity)";
-        game->get_mutex()->lock();
-        AILogDebug["util_get_affinity"] << name << " thread #" << std::this_thread::get_id() << " AI has locked mutex before calling game->get_player_buildings(player) (for get_affinity)";
-        Game::ListBuildings buildings = game->get_player_buildings(player);
-        AILogDebug["util_get_affinity"] << name << " thread #" << std::this_thread::get_id() << " AI is unlocking mutex after calling game->get_player_buildings(player) (for get_affinity)";
-        game->get_mutex()->unlock();
-        AILogDebug["util_get_affinity"] << name << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling game->get_player_buildings(player) (for get_affinity)";
-        for (Building *building : buildings) {
-          if (building->get_type() == first_affinity) {
-            if (building->is_burning()) {
-              continue;
-            }
-            MapPos first_building_flag_pos = map->move_down_right(building->get_position());
-            AILogDebug["util_get_affinity"] << name << " found one with flag pos " << first_building_flag_pos;
-            if (!game->get_flag_at_pos(first_building_flag_pos)->is_connected()) {
-              AILogDebug["util_get_affinity"] << name << " affinity building flag is not connected!  skipping";
-            }
-            else {
-              AILogDebug["util_get_affinity"] << name << " setting road_to target to affinity building_flag_pos " << first_building_flag_pos;
-              affinity.push_back(first_building_flag_pos);
-              found = true;
-              break;
-            }
-          }
-        }
-        if (!found) {
-          notfound++;
-        }
-      }
-    }
-    if (completed_building_count[second_affinity] < 1) {
-      AILogDebug["util_get_affinity"] << name << " player has no completed buildings of second affinity type " << NameBuilding[second_affinity] << ", skipping";
-      notfound++;
-    }
-    // this should become a function called twice instead of copy/paste
-    else {
-      AILogDebug["util_get_affinity"] << name << " looking for nearest building of second type " << NameBuilding[second_affinity];
-      Building *second_building = AI::find_nearest_building(flag_pos, CompletionLevel::Connected, second_affinity, AI::spiral_dist(9));
-      if (second_building != nullptr) {
-        AILogDebug["util_get_affinity"] << name << " found second_affinity building at pos " << second_building->get_position();
-        // get the flag position of the building
-        MapPos second_building_flag_pos = game->get_flag(second_building->get_flag_index())->get_position();
-        // allow disconnected buildings to make rebuild_all_roads work, instead we are now checking that they are COMPLETED
-        //if (!game->get_flag_at_pos(second_building_flag_pos)->is_connected()) {
-        //  AILogDebug["util_get_affinity"] << name << " affinity building flag is not connected!  skipping";
-        //}
-        //else {
-          AILogDebug["util_get_affinity"] << name << " setting road_to target to affinity building_flag_pos " << second_building_flag_pos;
-          affinity.push_back(second_building_flag_pos);
-        //}
-      }
-      else {
-        AILogDebug["util_get_affinity"] << name << " couldn't find any second_affinity building nearby, checking entire realm";
-        bool found = false;
-        AILogDebug["util_get_affinity"] << name << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->get_player_buildings(player) (for get_affinity)";
-        game->get_mutex()->lock();
-        AILogDebug["util_get_affinity"] << name << " thread #" << std::this_thread::get_id() << " AI has locked mutex before calling game->get_player_buildings(player) (for get_affinity)";
-        Game::ListBuildings buildings = game->get_player_buildings(player);
-        AILogDebug["util_get_affinity"] << name << " thread #" << std::this_thread::get_id() << " AI is unlocking mutex after calling game->get_player_buildings(player) (for get_affinity)";
-        game->get_mutex()->unlock();
-        AILogDebug["util_get_affinity"] << name << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling game->get_player_buildings(player) (for get_affinity)";
-        for (Building *building : buildings) {
-          if (building->get_type() == second_affinity) {
-            if (building->is_burning()) {
-              AILogDebug["util_get_affinity"] << name << " this building is on fire!  skipping";
-              continue;
-            }
-            MapPos second_building_flag_pos = map->move_down_right(building->get_position());
-            AILogDebug["util_get_affinity"] << name << " found one at pos " << second_building_flag_pos;
-            if (!game->get_flag_at_pos(second_building_flag_pos)->is_connected()) {
-              AILogDebug["util_get_affinity"] << name << " affinity building flag is not connected!  skipping";
-            }
-            else {
-              AILogDebug["util_get_affinity"] << name << " setting road_to target to affinity building_flag_pos " << second_building_flag_pos;
-              affinity.push_back(second_building_flag_pos);
-              found = true;
-              break;
-            }
-          }
-        }
-        if (!found) {
-          notfound++;
-        }
-      }
-    }
-    if (notfound >= 2) {
-      AILogDebug["util_get_affinity"] << name << " couldn't find any of either affinity building";
-      // ***** THIS NEEDS TO BE CHANGED TO FIND NEAREST STOCK WITH A FLAG SEARCH!!  ******
-      AILogDebug["util_get_affinity"] << name << " setting road_to target to nearest_stock " << nearest_stock;
-      affinity.push_back(nearest_stock);
-    }
-  }
-  AILogDebug["util_get_affinity"] << name << " returning " << affinity.size() << " affinity building targets";
-  return affinity;
+  AILogDebug["util_get_affinity"] << name << " found buildings for two affinity types, returning the flag_pos of both";
   duration = (std::clock() - start) / static_cast<double>(CLOCKS_PER_SEC);
   AILogDebug["util_get_affinity"] << name << " done util_get_affinity call took " << duration;
+  return affinity;
 }
 
-// return Building* for first building of the specified type 
+// return Building* for the nearst building of the specified type 
 //  that meets the minimum specified completion level
 // this function uses straight-line distance instead of spiral-dist
 //  because it considers the entire realm which is too far for
@@ -1431,25 +1317,35 @@ AI::find_nearest_building(MapPos pos, CompletionLevel level, Building::Type buil
   AILogDebug["util_find_nearest_building"] << name << " inside find_nearest_building of type " << NameBuilding[building_type] << ", completion_level " << NameCompletionLevel[level] << ", max_dist " << (signed)max_dist << ", and pos " << pos;
   unsigned int shortest_dist = bad_score;
   Building *closest_building = nullptr;
+  //
   // mutex lock this!
+  //
   for (Building *building : game->get_player_buildings(player)) {
+    if (building == nullptr)
+      continue;
     if (building->is_burning())
       continue;
     if (building->get_type() != building_type)
       continue;
-    MapPos building_pos = building->get_position();
-    unsigned int dist = (unsigned)get_straightline_tile_dist(map, pos, building_pos);
+    AILogDebug["util_find_nearest_building"] << name << " debug1, building exists of type " << NameBuilding[building_type];
+    MapPos building_flag_pos = map->move_down_right(building->get_position());
+    AILogDebug["util_find_nearest_building"] << name << " debug2, building_flag_pos " << building_flag_pos;
+    unsigned int dist = (unsigned)get_straightline_tile_dist(map, pos, building_flag_pos);
+    AILogDebug["util_find_nearest_building"] << name << " debug3, dist: " << dist << ", max_dist: " << max_dist << ", shortest_dist: " << shortest_dist;
     if (dist > max_dist || dist >= shortest_dist)
       continue;
+    AILogDebug["util_find_nearest_building"] << name << " debug4";
     if ((level <= Unfinished) ||
-        (level == Connected && game->get_flag_at_pos(map->move_down_right(building_pos))->is_connected()) ||
+        (level == Connected && game->get_flag_at_pos(building_flag_pos)) ||
         (level >= Completed && building->is_done())){
-      AILogDebug["util_find_nearest_building"] << name << " SO FAR, the closest " << NameCompletionLevel[level] << " building of type " << NameBuilding[building_type] << " within max_dist " << max_dist << " to center pos " << pos << " found at " << closest_building->get_position();
+          AILogDebug["util_find_nearest_building"] << name << " debug5, dist: " << dist;
+      AILogDebug["util_find_nearest_building"] << name << " SO FAR, the closest " << NameCompletionLevel[level] << " building of type " << NameBuilding[building_type] << " within max_dist " << max_dist << " to center pos " << pos << " found at " << building_flag_pos;
       shortest_dist = dist;
       closest_building = building;
       continue;
     }
   }
+  AILogDebug["util_find_nearest_building"] << name << " debugA";
   if (closest_building != nullptr){
     AILogDebug["util_find_nearest_building"] << name << " closest " << NameCompletionLevel[level] << " building of type " << NameBuilding[building_type] << " within max_dist " << (signed)max_dist << " to center pos " << pos << " found at " << closest_building->get_position();
   }else{

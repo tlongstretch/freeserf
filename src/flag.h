@@ -237,6 +237,11 @@ class Flag : public GameObject {
   void invalidate_resource_path(Direction dir);
 
   int find_nearest_inventory_for_resource();
+  // quick hack for building placement for AI
+  //  need to be able to do a flagsearch that finds a resource-receiving Inventory
+  //   such as the castle, or a warehouse, but the path to it does NOT
+  //   need to have a transporter already (which the normal function requires)
+  int find_nearest_inventory_for_resource_ignore_transporter();
   int find_nearest_inventory_for_serf();
 
   void link_with_flag(Flag *dest_flag, bool water_path, size_t length,

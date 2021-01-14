@@ -1725,7 +1725,7 @@ AI::do_demolish_excess_lumberjacks() {
         //if (find_nearest_stock(pos) != stock_pos) {
         // changing this to use nearest-by-flag instead of nearest-by-straightline-dist
         //  note that find_nearest_inventory_for_resource only considers Inventories that are accepting resources!
-        int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_resource();
+        int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_resource_ignore_transporter();
         if (flag_index_of_nearest_res_inventory < 0){
           AILogDebug["do_demolish_excess_lumberjacks"] << name << " inventory not found, maybe this flag isn't part of the road system??";
           continue;
@@ -1785,7 +1785,7 @@ AI::do_demolish_excess_fishermen() {
         //if (find_nearest_stock(pos) != stock_pos) {
         // changing this to use nearest-by-flag instead of nearest-by-straightline-dist
         //  note that find_nearest_inventory_for_resource only considers Inventories that are accepting resources!
-        int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_resource();
+        int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_resource_ignore_transporter();
         if (flag_index_of_nearest_res_inventory < 0){
           AILogDebug["do_demolish_excess_fishermen"] << name << " inventory not found, maybe this flag isn't part of the road system??";
           continue;
