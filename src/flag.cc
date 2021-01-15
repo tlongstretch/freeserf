@@ -565,6 +565,7 @@ find_nearest_inventory_search_cb(Flag *flag, void *data) {
 }
 
 /* Return the flag index of the inventory nearest to flag. */
+//  this search requires that transporters are already in place along the route
 int
 Flag::find_nearest_inventory_for_resource() {
   Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_resource";
@@ -584,17 +585,20 @@ Flag::find_nearest_inventory_for_resource() {
 }
 
 /* Return the flag index of the inventory nearest to flag. */
+//  this search does NOT require that transporters are already in place along the route
+//  meant for checking which Inventory a building will send its non-directly-routable 
+//   resources to (i.e. where they will pile up in storage) - for congestion planning
 int
-Flag::find_nearest_inventory_for_resource_ignore_transporter() {
-  Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_resource_ignore_transporter";
+Flag::find_nearest_inventory_for_res_producer() {
+  Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_res_producer";
   
   Flag *dest = NULL;
   FlagSearch::single(this, find_nearest_inventory_search_cb, false, false,
                      &dest);
                      if (dest == nullptr){
-                        Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_resource_ignore_transporter, returned nullptr!";
+                        Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_res_producer, returned nullptr!";
                      }else{
-                        Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_resource_ignore_transporter, returned dest flag pos " << dest->get_position();        
+                        Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_res_producer, returned dest flag pos " << dest->get_position();        
                      }
 
   if (dest != NULL) return dest->get_index();

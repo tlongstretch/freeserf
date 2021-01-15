@@ -161,6 +161,7 @@ AI::next_loop(){
   do_attack();
   do_manage_knight_occupation_levels();
 
+  // rename this to Inventories instead of Stocks
   update_stocks_pos();
   for (MapPos this_inventory_pos : stocks_pos) {
     inventory_pos = this_inventory_pos;
@@ -1725,7 +1726,7 @@ AI::do_demolish_excess_lumberjacks() {
         //if (find_nearest_inventory(pos) != inventory_pos) {
         // changing this to use nearest-by-flag instead of nearest-by-straightline-dist
         //  note that find_nearest_inventory_for_resource only considers Inventories that are accepting resources!
-        int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_resource_ignore_transporter();
+        int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_res_producer();
         if (flag_index_of_nearest_res_inventory < 0){
           AILogDebug["do_demolish_excess_lumberjacks"] << name << " inventory not found, maybe this flag isn't part of the road system??";
           continue;
@@ -1785,7 +1786,7 @@ AI::do_demolish_excess_fishermen() {
         //if (find_nearest_inventory(pos) != inventory_pos) {
         // changing this to use nearest-by-flag instead of nearest-by-straightline-dist
         //  note that find_nearest_inventory_for_resource only considers Inventories that are accepting resources!
-        int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_resource_ignore_transporter();
+        int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_res_producer();
         if (flag_index_of_nearest_res_inventory < 0){
           AILogDebug["do_demolish_excess_fishermen"] << name << " inventory not found, maybe this flag isn't part of the road system??";
           continue;

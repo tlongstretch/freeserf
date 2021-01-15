@@ -150,14 +150,15 @@ class AI {
   unsigned int count_stones_near_pos(MapPos, unsigned int);
   unsigned int count_knights_affected_by_occupation_level_change(unsigned int, unsigned int);
   MapPos expand_borders(MapPos);
-  unsigned int score_area(MapPos, unsigned int);
+  unsigned int score_area(MapPos, unsigned int);  
   bool is_bad_building_pos(MapPos, Building::Type);
   void update_building_counts();
   void update_stocks_pos();
   MapPos get_halfway_pos(MapPos, MapPos);
   ResourceMap realm_inv;
   MapPos inventory_pos;
-  MapPos find_nearest_inventory(MapPos);
+  // MapPos find_nearest_inventory(MapPos);   // deprecating this and replacing with find_nearest_inventory_for_res_producer()
+  MapPos find_nearest_inventory(MapPos);  // nevermind, rewriting it but keeping same function name and input/output type
   bool scoring_attack;
   bool scoring_warehouse;
   bool cannot_expand_borders_this_loop;

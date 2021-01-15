@@ -158,6 +158,11 @@ AI::update_building_counts() {
     AILogDebug["util_update_building_counts"] << name << " RESET unfinished_building_count, for inventory_pos " << inventory_pos << ", is now: " << stock_buildings.at(inventory_pos).unfinished_count;
   }
 
+  // now that a flagsearch is being used to find the nearest Inventory rather than straight-line
+  //  distance, it might be possible to optimize this process by searching outward from each
+  //  inventory once?  or caching results or something like that?  
+  //  only bother if this function is taking a significant amount of time
+  //  it does get called a lot, though
   for (Building *building : buildings) {
     //AILogDebug["util_update_building_counts"] << name << " has a building";
     if (building == nullptr)
@@ -168,10 +173,12 @@ AI::update_building_counts() {
     //AILogDebug["util_update_building_counts"] << name << " has a building that is not on fire";
     Building::Type type = building->get_type();
     AILogDebug["util_update_building_counts"] << name << " has a building of type " << NameBuilding[type];
+
     if (type == Building::TypeNone) {
       AILogDebug["util_update_building_counts"] << name << " has a building of TypeNone!  why does this happen??";
       continue;
     }
+
     if (type == Building::TypeCastle) {
       //AILogDebug["util_update_building_counts"] << name << " has a castle";
       if (!building->is_done()) {
@@ -181,6 +188,7 @@ AI::update_building_counts() {
           std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         }
         AILogDebug["util_update_building_counts"] << name << "'s castle is now built, updating stocks";
+        // does this logic rely on the Castle always being the first building?  does it matter?
         update_stocks_pos();
       }
       //AILogDebug["util_update_building_counts"] << name << " has a completed castle at pos " << building->get_position() << " with flag pos " << map->move_down_right(building->get_position());
@@ -188,46 +196,60 @@ AI::update_building_counts() {
       stock_buildings.at(map->move_down_right(building->get_position())).occupied_military_pos.push_back(building->get_position());
       continue;
     }
+    
+    // skip completed Stocks, they are tracked elsewhere
     if (type == Building::TypeStock && building->is_done())
       continue;
-    AILogDebug["util_update_building_counts"] << name << " about to call find_nearest_inventory for building at pos " << building->get_position() << " with type " << NameBuilding[type];
-    MapPos nearest_stock = find_nearest_inventory(building->get_position());
-    AILogDebug["util_update_building_counts"] << name << " nearest stock to this building is " << nearest_stock;
+
+    // skip disconnected buildings, they cannot complete a FlagSearch (to find nearest Inventory)
+    if (!game->get_flag_at_pos(map->move_down_right(building->get_position()))->is_connected())
+      continue;
+
+    AILogDebug["util_update_building_counts"] << name << " about to call find_nearest_inventory for connected building at pos " << building->get_position() << " with type " << NameBuilding[type];
+    //MapPos inventory_pos = find_nearest_inventory(building->get_position());
+    // oh boy this is an ugly call chain
+    //MapPos inventory_pos = game->get_flag(game->get_flag(building->get_flag_index())->find_nearest_inventory_for_res_producer())->get_position();
+    // instead I am rewriting the find_nearest_inventory function to input/output MapPos and hide the flag stuff inside of it
+    MapPos inventory_pos = find_nearest_inventory(building->get_position());
+    AILogDebug["util_update_building_counts"] << name << " nearest stock to this connected building is " << inventory_pos;
     if (!building->is_done()) {
       if (type == Building::TypeHut) {
-        stock_buildings.at(nearest_stock).unfinished_hut_count++;
-        AILogDebug["util_update_building_counts"] << name << " incrementing unfinished_hut_count for inventory_pos " << nearest_stock << ", is now: " << stock_buildings.at(nearest_stock).unfinished_hut_count;
+        stock_buildings.at(inventory_pos).unfinished_hut_count++;
+        AILogDebug["util_update_building_counts"] << name << " incrementing unfinished_hut_count for inventory_pos " << inventory_pos << ", is now: " << stock_buildings.at(inventory_pos).unfinished_hut_count;
       }
+      /* this works reliably, I don't think I need it
+      //   now that disconnected buildings are skipped
       else if (building->get_type() == Building::TypeCoalMine
         || building->get_type() == Building::TypeIronMine
         || building->get_type() == Building::TypeGoldMine
         || building->get_type() == Building::TypeStoneMine) {
         AILogDebug["util_update_building_counts"] << name << " unfinished building is a Mine, not incrementing unfinished_building_count";
       }
+      */
       else {
-        stock_buildings.at(nearest_stock).unfinished_count++;
-        AILogDebug["util_update_building_counts"] << name << " found unfinished building of type " << NameBuilding[building->get_type()] << ", incrementing unfinished_building_count for inventory_pos " << nearest_stock << ", is now: " << stock_buildings.at(nearest_stock).unfinished_count;
+        stock_buildings.at(inventory_pos).unfinished_count++;
+        AILogDebug["util_update_building_counts"] << name << " found unfinished building of type " << NameBuilding[building->get_type()] << ", incrementing unfinished_building_count for inventory_pos " << inventory_pos << ", is now: " << stock_buildings.at(inventory_pos).unfinished_count;
       }
     }
     building_count[type]++;
-    stock_buildings.at(nearest_stock).count[type]++;
+    stock_buildings.at(inventory_pos).count[type]++;
     if (game->get_flag(building->get_flag_index())->is_connected()) {
       connected_building_count[type]++;
-      stock_buildings.at(nearest_stock).connected_count[type]++;
+      stock_buildings.at(inventory_pos).connected_count[type]++;
     }
     if (building->is_done()){
       completed_building_count[type]++;
-      stock_buildings.at(nearest_stock).completed_count[type]++;
+      stock_buildings.at(inventory_pos).completed_count[type]++;
       // has_serf is not a good enough test alone to see if occupied, as it seems to be true when a builder is constructing the building!
       //  so moved this check to inside building->is_done because if building is done the only serf there should be the professional (I think)
       if (building->has_serf()) {
         occupied_building_count[type]++;
-        stock_buildings.at(nearest_stock).occupied_count[type]++;
+        stock_buildings.at(inventory_pos).occupied_count[type]++;
       }
       if (building->is_military() && building->is_active()) {
-        AILogDebug["util_update_building_counts"] << name << " adding occupied military building at " << building->get_position() << " to list for inventory_pos " << nearest_stock;
+        AILogDebug["util_update_building_counts"] << name << " adding occupied military building at " << building->get_position() << " to list for inventory_pos " << inventory_pos;
         realm_occupied_military_pos.push_back(building->get_position());
-        stock_buildings.at(nearest_stock).occupied_military_pos.push_back(building->get_position());
+        stock_buildings.at(inventory_pos).occupied_military_pos.push_back(building->get_position());
       }
     }
   }
@@ -567,12 +589,6 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
     AILogDebug["util_build_best_road"] << name << " no flag exists at start_pos " << start_pos << ", this must be a pre-building check, continuing";
   }
 
-  // if an optional_building_type is set, this must be a pre-building road
-  //  so we must enable HoldBuildingPos to ensure the road doesn't block the planned building
-  if (optional_building_type != Building::TypeNone){
-    AILogDebug["util_build_best_road"] << name << " optional_building_type is set, this must be a pre-building road.  Setting RoadOption::HoldbuildingPos to true";
-    road_options.set(RoadOption::HoldBuildingPos);
-  }
 
   // check BuildingAffinity table to see if the start_pos is attached to a building that should prioritize connection to another existing building type
   //  if there is no affinity the default target is the player's castle or nearest stock
@@ -664,13 +680,26 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
   else {
     // most common - use the building affinity table to figure out what to connect to
     targets = AI::get_affinity(start_pos, optional_building_type);
+    AILogDebug["util_build_best_road"] << name << " targets contains " << targets.size() << " affinity / target buildings";
+    // if no targets found, fall back to nearest or selected inv
+    if (targets.size() == 0){
+      AILogDebug["util_build_best_road"] << name << " no valid target found from get_affinity, trying to find a nearest connected inventory";
+      MapPos fallback_inv_pos = bad_map_pos;
+      if (map->has_flag(start_pos) && map->has_building(map->move_up_left(start_pos))){
+        MapPos nearest_inv_pos = find_nearest_inventory(start_pos);
+        if (nearest_inv_pos != bad_map_pos){
+          AILogDebug["util_build_best_road"] << name << " no valid target found, setting target to nearest_inv_pos " << nearest_inv_pos;
+          fallback_inv_pos = nearest_inv_pos;
+        }
+      }
+      if (fallback_inv_pos == bad_map_pos){
+        fallback_inv_pos = inventory_pos;
+        AILogDebug["util_build_best_road"] << name << " no valid target found and could not find nearest_inv_pos, setting target to current inventory_pos " << inventory_pos;
+      }
+      targets.push_back(fallback_inv_pos);
+    }
   }
-  AILogDebug["util_build_best_road"] << name << " targets contains " << targets.size() << " affinity / target buildings";
-  if (targets.size() == 0){
-    MapPos nearest_stock = find_nearest_inventory(start_pos);
-    AILogDebug["util_build_best_road"] << name << " no valid target found, setting target to nearest_inventory_pos " << nearest_stock;
-    targets.push_back(nearest_stock);
-  }
+
   unsigned int roads_built = 0;
   unsigned int target_count = static_cast<unsigned int>(targets.size());
   int flag_index_of_selected_stock = game->get_flag_at_pos(inventory_pos)->get_index();
@@ -879,7 +908,7 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
         continue;
       }
       // if this is "tracked economy building", ensure the end_pos flag is closest to the currently selected Inventory (castle/warehouse)
-      int flag_index_of_nearest_res_inventory_to_end_pos = game->get_flag_at_pos(end_pos)->find_nearest_inventory_for_resource_ignore_transporter();
+      int flag_index_of_nearest_res_inventory_to_end_pos = game->get_flag_at_pos(end_pos)->find_nearest_inventory_for_res_producer();
       if (flag_index_of_nearest_res_inventory_to_end_pos < 0){
         AILogDebug["build_best_road"] << name << " inventory not found for flag at end_pos " << end_pos << ", maybe this flag isn't part of the road system??";
         continue;
@@ -927,7 +956,7 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
             AILogDebug["build_best_road"] << name << " found a path for splitting flag at split_end_pos " << split_end_pos << " in dir " << NameDirection[dir];
             MapPos adjacent_flag_pos = split_road.get_end(map.get());
             AILogDebug["build_best_road"] << name << " path for splitting flag at split_end_pos " << split_end_pos << " in dir " << NameDirection[dir] << " ends at flag at pos " << adjacent_flag_pos;
-            int flag_index_of_nearest_res_inventory_to_split_end_pos = game->get_flag_at_pos(adjacent_flag_pos)->find_nearest_inventory_for_resource_ignore_transporter();
+            int flag_index_of_nearest_res_inventory_to_split_end_pos = game->get_flag_at_pos(adjacent_flag_pos)->find_nearest_inventory_for_res_producer();
             if (flag_index_of_nearest_res_inventory_to_split_end_pos < 0){
               AILogDebug["build_best_road"] << name << " inventory not found for potential split_road flag at split_end_pos " << split_end_pos << ", maybe this flag isn't part of the road system??";
               disqualified++;
@@ -1242,10 +1271,10 @@ AI::get_affinity(MapPos flag_pos, Building::Type optional_building_type){
 
   MapPosVector affinity;
 
-/* no, DON'T do this, let the calling function deal with fallback to nearest_stock
+/* no, DON'T do this, let the calling function deal with fallback to inventory_pos
 // this results in the wrong ordering anyway, the better results need to be added to the
 // front of the vector, not the end
-  // always have nearest_stock pos as the fallback in case no affinity
+  // always have inventory_pos pos as the fallback in case no affinity
   // ***** THIS NEEDS TO BE CHANGED TO FIND NEAREST STOCK WITH A FLAG SEARCH!!  ******
   // wait this doesn't need to be down-right because inventory_pos IS the flag pos, right???
   //MapPos nearest_inventory_flag = map->move_down_right(find_nearest_inventory(flag_pos));
@@ -1789,20 +1818,24 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
   /*
   // I forgot I had this check here already... I think it is redundant
   //  and not needed anymore
-  MapPos nearest_stock = find_nearest_inventory(center_pos);
-  if (nearest_stock != inventory_pos) {
-    AILogDebug["util_build_near_pos"] << name << " this center_pos " << center_pos << " is closer to another stock (at pos " << nearest_stock << ") than the current inventory_pos " << inventory_pos << ", returning notplaced_pos";
+  MapPos inventory_pos = find_nearest_inventory(center_pos);
+  if (inventory_pos != inventory_pos) {
+    AILogDebug["util_build_near_pos"] << name << " this center_pos " << center_pos << " is closer to another stock (at pos " << inventory_pos << ") than the current inventory_pos " << inventory_pos << ", returning notplaced_pos";
     return notplaced_pos;
   }
   */
 
   //
-  // *** TEMPORARILY *** KEEP THIS TO AVOID HAVING TO ADD FLAG-SEARCH TO FIND nearest_stock 
+  // *** TEMPORARILY *** KEEP THIS TO AVOID HAVING TO ADD FLAG-SEARCH TO FIND inventory_pos 
   //// ***** THIS NEEDS TO BE CHANGED TO FIND NEAREST STOCK WITH A FLAG SEARCH!!  ******
-  MapPos nearest_stock = find_nearest_inventory(center_pos);
+  // this is updated to use flagsearch now, but it now requires that a Flag already exist
+  //  at this pos, and that the flag is connected to road system.  Disabling this check for now
+  //MapPos inventory_pos = find_nearest_inventory(center_pos);
 
+  // this function is being changed from using the *nearest* Inventory to using the *current*
+  //  inventory, does that introduce any problems?
   if (building_type == Building::TypeHut) {
-    if (stock_buildings.at(nearest_stock).unfinished_hut_count >= max_unfinished_huts) {
+    if (stock_buildings.at(inventory_pos).unfinished_hut_count >= max_unfinished_huts) {
       AILogDebug["util_build_near_pos"] << name << " max unfinished huts limit " << max_unfinished_huts << " reached, not building";
       // should be returning not_built_pos or bad_map pos?? stopbuilding is less appropriate with separate counts set up for huts vs other buildings
       return stopbuilding_pos;
@@ -1811,7 +1844,7 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
 
   // always be willing to build wood/stone buildings and knight huts or everything can grind to a halt
   //   also Mines, but don't connect these to the road network yet
-  if (stock_buildings.at(nearest_stock).unfinished_count >= max_unfinished_buildings && building_type != Building::TypeSawmill
+  if (stock_buildings.at(inventory_pos).unfinished_count >= max_unfinished_buildings && building_type != Building::TypeSawmill
   //if (unfinished_building_count >= max_unfinished_buildings && building_type != Building::TypeSawmill
     && building_type != Building::TypeLumberjack && building_type != Building::TypeStonecutter
     && building_type != Building::TypeHut && building_type != Building::TypeCoalMine
@@ -1931,11 +1964,11 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
       }else{
         AILogDebug["util_build_near_pos"] << name << " successfully connected flag at flag_pos " << flag_pos << " to road network.  For potential new building of type " << NameBuilding[building_type];
         //if (building_type == Building::TypeHut) {
-        //  stock_buildings.at(nearest_stock).unfinished_hut_count++;
+        //  stock_buildings.at(inventory_pos).unfinished_hut_count++;
         //  AILogDebug["util_build_near_pos"] << name << " incrementing unfinished_hut_count, is now: " << unfinished_hut_count;
         //}
         //else {
-        //  stock_buildings.at(nearest_stock).unfinished_count++;
+        //  stock_buildings.at(inventory_pos).unfinished_count++;
         //  AILogDebug["util_build_near_pos"] << name << " found unfinished " << NameBuilding[building_type] << ", incrementing unfinished_building_count, is now: " << unfinished_building_count;
         //}
         //duration = (std::clock() - start) / static_cast<double>(CLOCKS_PER_SEC);
@@ -1990,12 +2023,12 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
 
     // increment unfinished building counts
     if (building_type == Building::TypeHut) {
-      stock_buildings.at(nearest_stock).unfinished_hut_count++;
-      AILogDebug["util_build_near_pos"] << name << " incrementing unfinished_hut_count, is now: " << stock_buildings.at(nearest_stock).unfinished_hut_count;
+      stock_buildings.at(inventory_pos).unfinished_hut_count++;
+      AILogDebug["util_build_near_pos"] << name << " incrementing unfinished_hut_count, is now: " << stock_buildings.at(inventory_pos).unfinished_hut_count;
     }
     else {
-      stock_buildings.at(nearest_stock).unfinished_count++;
-      AILogDebug["util_build_near_pos"] << name << " found unfinished " << NameBuilding[building_type] << ", incrementing unfinished_building_count, is now: " << stock_buildings.at(nearest_stock).unfinished_count;
+      stock_buildings.at(inventory_pos).unfinished_count++;
+      AILogDebug["util_build_near_pos"] << name << " found unfinished " << NameBuilding[building_type] << ", incrementing unfinished_building_count, is now: " << stock_buildings.at(inventory_pos).unfinished_count;
     }
 
     duration = (std::clock() - start) / static_cast<double>(CLOCKS_PER_SEC);
@@ -2336,6 +2369,9 @@ AI::get_halfway_pos(MapPos start_pos, MapPos end_pos) {
 }
 
 
+/* deprecating this and replacing it with an "internal game style" FlagSearch of the new
+//   type find_nearest_inventory_for_res_producer()
+//
 // return the MapPos of the stock nearest to the specified MapPos, including castle
 //   if not found, default to castle_pos?
 MapPos
@@ -2360,7 +2396,73 @@ AI::find_nearest_inventory(MapPos pos) {
   AILogDebug["util_find_nearest_inventory"] << name << " done find_nearest_inventory to pos " << pos << ", closest stock is " << closest_stock << " with straightline dist " << best_dist;
   return closest_stock;
 }
+*/
 
+// nevermind, for now replacing this with a function that has the same input/output of MapPos
+//  instead of having to change all the calling code to use Flag* type or having all of the ugly
+//  conversion code being done in the calling code
+//
+// return the MapPos of the Flag* of the Inventory (castle, stock/warehouse) that is the shortest
+//  number of Flags away from the MapPos of the requested Flag or Building
+//
+//  this function accepts EITHER a Flag pos, OR a Building pos (for which it will check the flag)
+//
+//  - the Inventory must be accepting Resources
+//  - no consideration for if the Inventory is accepting Serfs
+//  - no consideration of tile/straightline distance, only Flag distance matters
+//  - no check to see if transporters/sailors are already in place along the path
+//
+// the intention of this function is to help "pair" most buildings in the AI player's realm to a
+// given Inventory so that each Inventory can have accurate counts and limits of the buildings
+// "paired" with that Inventory. The reason that straightline distance cannot be used (as it 
+//  originally was) is that only Flag distance determines which Inventory a resource-producing
+//  -building will send non-directly-routable resources to (i.e. ones piling up in storage)
+//  If straightline-dist is used when determining nearest Inventory, but flag distance is used when
+//   serfs transport resources to Inventories, the Inventory that receives the resouce may not be 
+//   the Inventory "paired" with the building, and so the "stop XXX when resource limit reached"
+//   checks would never be triggered because the check is running against one Inventory while
+//   some other Inventory is actually piling up resources and may have already passed its limit.
+//
+//  the AI does not currently change these stock accept/reject/purge resource/serf settings so
+//   I do not think these should introduce any issues, unless a human player modifies the settings
+//    of an AI player's game?  Not sure if it matters much
+//
+//
+// this will return bad_map_pos if there is no Flag at the requested pos
+//  AND no Building at the requested pos
+MapPos
+AI::find_nearest_inventory(MapPos pos) {
+  AILogDebug["util_find_nearest_inventory"] << name << " inside find_nearest_inventory to pos " << pos;
+  if (!map->has_flag(pos) && !map->has_building(pos)){
+    AILogWarn["util_find_nearest_inventory"] << name << " no flag or building found at pos " << pos << " as expected!  Cannot run search, returning bad_map_pos";
+    return bad_map_pos;
+  }
+  MapPos flag_pos = bad_map_pos;
+  if (map->has_building(pos)){
+    AILogDebug["util_find_nearest_inventory"] << name << " request pos " << pos << " is a building pos, using its flag pos " << flag_pos << " instead";
+    flag_pos = map->move_down_right(pos);
+  }else{
+    flag_pos = pos;
+  }
+  Flag *flag = game->get_flag_at_pos(flag_pos);
+  if (flag == nullptr){
+    AILogWarn["util_find_nearest_inventory"] << name << " got nullptr for Flag at flag_pos " << flag_pos << "!  Cannot run search, returning bad_map_pos";
+    return bad_map_pos;
+  }
+  int inv_flag_index = flag->find_nearest_inventory_for_res_producer();
+  if (inv_flag_index < 0){
+    AILogDebug["util_find_nearest_inventory"] << name << " find_nearest_inventory_for_res_producer returned invalid result (flag index " << inv_flag_index << ") for flag_pos " << flag_pos << "!  maybe this flag isn't part of the road system??";
+    return bad_map_pos;
+  }
+  Flag *inv_flag = game->get_flag(inv_flag_index);
+  if (inv_flag == nullptr){
+    AILogWarn["util_find_nearest_inventory"] << name << " got nullptr for Inventory Flag with index " << inv_flag_index << " found by flagsearch starting at flag_pos " << flag_pos << "!  returning bad_map_pos";
+    return bad_map_pos;
+  }
+  MapPos inv_flag_pos = inv_flag->get_position();
+  AILogDebug["util_find_nearest_inventory"] << name << " successful find_nearest_inventory_for_res_producer search for flag_pos " << flag_pos << ", returning Inventory flag pos " << inv_flag_pos;
+  return inv_flag_pos;
+}
 
 
 void
