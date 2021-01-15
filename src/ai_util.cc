@@ -211,6 +211,10 @@ AI::update_building_counts() {
     //MapPos inventory_pos = game->get_flag(game->get_flag(building->get_flag_index())->find_nearest_inventory_for_res_producer())->get_position();
     // instead I am rewriting the find_nearest_inventory function to input/output MapPos and hide the flag stuff inside of it
     MapPos inventory_pos = find_nearest_inventory(building->get_position());
+    if (inventory_pos == bad_map_pos){
+      AILogDebug["util_update_building_counts"] << name << " find_nearest_inventory call for building pos " << building->get_position() << " returned bad_map_pos, skipping this building";
+      continue;
+    }
     AILogDebug["util_update_building_counts"] << name << " nearest stock to this connected building is " << inventory_pos;
     if (!building->is_done()) {
       if (type == Building::TypeHut) {
@@ -589,6 +593,12 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
     AILogDebug["util_build_best_road"] << name << " no flag exists at start_pos " << start_pos << ", this must be a pre-building check, continuing";
   }
 
+  // if an optional_building_type is set, this must be a pre-building road
+  //  so we must enable HoldBuildingPos to ensure the road doesn't block the planned building
+  if (optional_building_type != Building::TypeNone){
+    AILogDebug["util_build_best_road"] << name << " optional_building_type is set, this must be a pre-building road.  Setting RoadOption::HoldbuildingPos to true";
+    road_options.set(RoadOption::HoldBuildingPos);
+  }
 
   // check BuildingAffinity table to see if the start_pos is attached to a building that should prioritize connection to another existing building type
   //  if there is no affinity the default target is the player's castle or nearest stock
@@ -1346,10 +1356,14 @@ AI::find_nearest_building(MapPos pos, CompletionLevel level, Building::Type buil
   AILogDebug["util_find_nearest_building"] << name << " inside find_nearest_building of type " << NameBuilding[building_type] << ", completion_level " << NameCompletionLevel[level] << ", max_dist " << (signed)max_dist << ", and pos " << pos;
   unsigned int shortest_dist = bad_score;
   Building *closest_building = nullptr;
-  //
-  // mutex lock this!
-  //
-  for (Building *building : game->get_player_buildings(player)) {
+  AILogDebug["util_find_nearest_building"] << name << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->get_player_buildings";
+  game->get_mutex()->lock();
+  AILogDebug["util_find_nearest_building"] << name << " thread #" << std::this_thread::get_id() << " AI has locked mutex before calling game->get_player_buildings";
+  Game::ListBuildings buildings = game->get_player_buildings(player);
+  AILogDebug["util_find_nearest_building"] << name << " thread #" << std::this_thread::get_id() << " AI is unlocking mutex after calling game->get_player_buildings";
+  game->get_mutex()->unlock();
+  AILogDebug["util_find_nearest_building"] << name << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling game->get_player_buildings";
+  for (Building *building : buildings) {
     if (building == nullptr)
       continue;
     if (building->is_burning())

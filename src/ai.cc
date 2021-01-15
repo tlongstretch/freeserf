@@ -2603,7 +2603,7 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
     update_building_counts();
     int farm_count = stock_buildings.at(inventory_pos).count[Building::TypeFarm];
     if (farm_count == 0) {
-      AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << name << " zero farms, need to build one";
+      AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << name << " has zero farms, need to build one";
       need_farm = true;
     }
     else {
@@ -2688,13 +2688,14 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
       // for first farm (or as fallback if can't connect to existing food buildings)
       //    try to build near open grass tiles
       // because farms take up a lot of space, try to place them a bit away from the castle
-      //  to do this, instead of having castle as the first area tried, make it the last but otherwise check centers in usual order
-      //   this should result in a farm being built near the first knight hut expansion, or one of the first few
+      //  to do this, instead of having current inventory_pos as the first area tried, make it the last but otherwise
+      //   check centers in usual order this should result in a farm being built near the first knight hut expansion,
+      //    or one of the first few.  THIS WAS WRITTEN PRIOR TO MULTIPLE ECONOMIES - needs work?
       MapPosVector farm_centers = stock_buildings.at(inventory_pos).occupied_military_pos;
       // remove first element, which is always castle_pos  (NOT castle_flag_pos, which might make more sense)
       farm_centers.erase(farm_centers.begin(), farm_centers.begin() + 1);
-      // add castle_pos back to the end
-      farm_centers.push_back(castle_pos);
+      // add current inventory_pos back to the end
+      farm_centers.push_back(inventory_pos);
       // append the farm_centers to the farm_search list, which began with any existing farms
       farm_search.insert(farm_search.end(), farm_centers.begin(), farm_centers.end());
       MapPosSet count_by_corner;

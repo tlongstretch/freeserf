@@ -981,10 +981,9 @@ Serf::change_direction(Direction dir, int alt_end) {
   // adding support for AIPlusOption::CanTransportSerfsInBoats
   //
 
-  //
-  //  NOTE - should it be disallowed for a sailor to be passenger in a boat? i.e. boat in boat?  
-  //   it seems funny but not much different than carrying a heavy load of gold or some other resource
-  //
+  // BUG - I am seeing serfs walking on water paths as of jan14 2021
+  //   this is happening when CanTransportSerfsInBoats is *not* true!
+  // hmm... I cannot reproduce this now using a human player  jan14 2021
 
   // handle sailor carrying a passenger in his boat
   if (type == Serf::TypeSailor && state == State::StateTransporting

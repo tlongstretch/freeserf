@@ -44,7 +44,7 @@ FlagSearch::add_source(Flag *flag) {
 bool
 FlagSearch::execute(flag_search_func *callback, bool land,
                     bool transporter, void *data) {
-  Log::Info["flag"] << "debug: inside FlagSearch::execute with current flag queue.front()" << queue.front()->get_position();
+  //Log::Info["flag"] << "debug: inside FlagSearch::execute with current flag queue.front()" << queue.front()->get_position();
   for (int i = 0; i < SEARCH_MAX_DEPTH && !queue.empty(); i++) {
     Flag *flag = queue.front();
     queue.erase(queue.begin());
@@ -87,35 +87,41 @@ FlagSearch::execute(flag_search_func *callback, bool land,
     //  ... unless there is already a boat and AIPlusOption::CanTransportSerfsInBoats is set
     //Log::Info["flag"] << "debug a";
     for (Direction i : cycle_directions_ccw()) {
-      Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i;
+      //Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i;
       // sanity check my assumption that 'land' and 'transporter' are exclusive (two sides of the same coin)
       if (land == true && transporter == true){
         throw ExceptionFreeserf("faulty Flagsearch::execute logic!  both 'land' and 'transporter' bools are true but I assume this can never happen!");
       }
       
       if (!flag->has_path(i)){
-        Log::Info["flag"] << "debug: inside FlagSearch::execute, no path in dir " << i << ", skipping this dir";
+        //Log::Info["flag"] << "debug: inside FlagSearch::execute, no path in dir " << i << ", skipping this dir";
         // ... skip this dir/flag
         continue;
       }
 
       // if a serf is being routed... ('land = true' suggests it is a serf)
       if (land == true){
-        Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i << ", 'land' == true";
+        //Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i << ", 'land' == true";
         // ...and this is a water route (which requires a sailor to transport serfs)
         // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
         //if (flag->has_path(i) && flag->is_water_path(i)){
         // checking flag->has_path earlier now
         if (flag->is_water_path(i)){
+          // debug - I am seeing serfs walking on water paths when CanTransportSerfsInBoats is *OFF* 
+          // hmm... I cannot reproduce this now using a human player
+          Log::Info["flag"] << "debug SERFS WALKING ON WATER, skipping flag " << flag->get_index() << " dir " << NameDirection[i] << " is water path";
           // ...but CanTransportSerfsInBoats option is not on...
           if (!game->get_ai_options_ptr()->test(AIPlusOption::CanTransportSerfsInBoats)){
             // ... skip this dir/flag
+            // debug - I am seeing serfs walking on water paths when CanTransportSerfsInBoats is *OFF*
+            // hmm... I cannot reproduce this now using a human player
+            Log::Info["flag"] << "debug SERFS WALKING ON WATER, skipping flag " << flag->get_index() << " dir " << NameDirection[i] << " because is water path but CanTransportSerfsInBoats is false";
             continue;
           }
           //Log::Info["flag"] << "debug e";
           // ...but no sailor is on the water route...
           if (!flag->has_transporter(i)){
-            Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i << ", 'land' == true, this flag has a water path, but this flag-dir has no sailor!  skipping this dir";
+            //Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i << ", 'land' == true, this flag has a water path, but this flag-dir has no sailor!  skipping this dir";
             // ... skip this dir/flag
             continue;
           }
@@ -127,26 +133,26 @@ FlagSearch::execute(flag_search_func *callback, bool land,
       //   NOTE it should be possible to remove the 'transporter == true' check if we are sure that land and transporter bools are exclusive
       //Log::Info["flag"] << "debug g";
       if (transporter && !flag->has_transporter(i)){
-        Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i << ", 'transporter' == true but this flag-dir has no transporter!  skipping this dir";
+        //Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i << ", 'transporter' == true but this flag-dir has no transporter!  skipping this dir";
         // ... skip this dir/flag
         continue;
       }
       
       // if this is the same flag we just checked(?)
-      Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i << ", about to check flag->other_endpoint.f[" << i << "]->search_num to see if it matches id " << id;
+      //Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i << ", about to check flag->other_endpoint.f[" << i << "]->search_num to see if it matches id " << id;
       if (flag->other_endpoint.f[i]->search_num == id) {
-        Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i << "flag->other_endpoint.f[" << i << "]->search_num matches id " << id << " (meaning already visited this?), skipping this dir";
+        //Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i << "flag->other_endpoint.f[" << i << "]->search_num matches id " << id << " (meaning already visited this?), skipping this dir";
         // ... skip this dir/flag
         continue;
       }
-      Log::Info["flag"] << "debug: inside FlagSearch::execute, continuing search";
+      //Log::Info["flag"] << "debug: inside FlagSearch::execute, continuing search";
 
       // if NONE of the above exclusions were true, continue the search
       flag->other_endpoint.f[i]->search_num = id;
       flag->other_endpoint.f[i]->search_dir = flag->search_dir;
       Flag *other_flag = flag->other_endpoint.f[i];
       queue.push_back(other_flag);
-      Log::Info["flag"] << "debug: inside FlagSearch::execute, done adding new node at end of loop";
+      //Log::Info["flag"] << "debug: inside FlagSearch::execute, done adding new node at end of loop";
     }
 
   }
@@ -554,13 +560,13 @@ Flag::schedule_slot_to_unknown_dest(int slot_num) {
 static bool
 find_nearest_inventory_search_cb(Flag *flag, void *data) {
   Flag **dest = reinterpret_cast<Flag**>(data);
-  Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_search_cb, considering flag at pos " << flag->get_position();
+  //Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_search_cb, considering flag at pos " << flag->get_position();
   if (flag->accepts_resources()) {
-    Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_search_cb FOOTRUE";
+    //Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_search_cb FOOTRUE";
     *dest = flag;
     return true;
   }
-  Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_search_cb FOOFALSE";
+  //Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_search_cb FOOFALSE";
   return false;
 }
 
