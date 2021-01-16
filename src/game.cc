@@ -189,7 +189,7 @@ Game::update_inventories_cb(Flag *flag, void *d) {
   //   of the Inventory (castle, warehouse/stock) that the flag is attached to 
   //   and it is only always 0/East/DirectionRight for the castle inventory, 
   //   but for other warehouse will be 1, 2, 100, and so on
-  //Log::Info["game"] << "debug: inside Game::update_inventories_cb, flag pos = " << flag->get_position() << ", \"flag->search_dir\" i.e. inv[#] = " << inv;
+  Log::Info["game"] << "thread #" << std::this_thread::get_id() << " debug: inside Game::update_inventories_cb, flag pos = " << flag->get_position() << ", \"flag->search_dir\" i.e. inv[#] = " << inv;
 
   if (data->max_prio[inv] < 255 && flag->has_building()) {
     Building *building = flag->get_building();
@@ -270,6 +270,7 @@ Game::update_inventories_cb(Flag *flag, void *d) {
    resources that are needed outside of the inventory into the out queue. */
 void
 Game::update_inventories() {
+	Log::Debug["game"] << " debug: inside Game::update_inventories(), start of function";
   const Resource::Type arr_1[] = {
     Resource::TypePlank,
     Resource::TypeStone,
@@ -454,7 +455,7 @@ Game::update_inventories() {
       // the update_inventories_cb does stuff but can only return false,
       //  maybe it is not intended to end early and simply to do some work
       //  as part of the flag search?
-      //Log::Info["game"] << "debug: starting Game::update_inventories flagsearch";
+      Log::Info["game"] << "debug: starting Game::update_inventories flagsearch";
       search.execute(update_inventories_cb, false, true, &data);
 
       for (int i = 0; i < n; i++) {
@@ -463,6 +464,8 @@ Game::update_inventories() {
         if (max_prio[i] > 0) {
           Log::Verbose["game"] << " dest for inventory " << i << "found";
           Resource::Type res = (Resource::Type)arr[0];
+		  
+		  Log::Info["game"] << " debug: inside update_inventories, i == " << i << ", expecting it to be way under 256";
 
           Building *dest_bld = flags_[i]->get_building();
           //Log::Info["flag"] << "inside Game::update_inventories, about to call add_requested_resource for dest_bld of type " << NameBuilding[dest_bld->get_type()];

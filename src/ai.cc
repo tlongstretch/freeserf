@@ -131,7 +131,7 @@ AI::next_loop(){
   do_update_clear_reset();
   update_stocks_pos();
   update_building_counts();
-  do_get_inventory(castle_pos);
+  do_get_inventory(castle_flag_pos);
   do_get_serfs();
   do_debug_building_triggers();
 
@@ -492,7 +492,9 @@ AI::do_connect_disconnected_flags() {
       // yes!  let's try that
       if (flag->has_building()) {
         AILogDebug["do_connect_disconnected_flags"] << name << " failed to connect disconnected flag to road network!  BURNING ATTACHED BUILDING!";
-        game->demolish_building(flag->get_position(), player);
+		// how did this ever work before??
+        //game->demolish_building(flag->get_position(), player);
+		game->demolish_building(map->move_up_left(flag->get_position()), player);
       }
       AILogDebug["do_connect_disconnected_flags"] << name << " failed to connect disconnected flag to road network!  removing it";
       game->demolish_flag(flag->get_position(), player);
@@ -631,7 +633,7 @@ AI::do_spiderweb_roads2() {
 //  to disfavor transport paths that would otherwise route through the castle, encouraging alternate routes
 void
 AI::do_pollute_castle_area_roads_with_flags() {
-  AILogDebug["do_pollute_castle_area_roads_with_flags"] << name << " inside do_pollute_castle_area_roads_with_flagsderweb_roads2";
+  AILogDebug["do_pollute_castle_area_roads_with_flags"] << name << " inside do_pollute_castle_area_roads_with_flags";
   ai_status.assign("HOUSEKEEPING - do_pollute_castle_area_roads_with_flags");
   // only do this every X loops, and only once a certain number of huts have been built
   //  and don't do it again after a few more huts built, because it only ever needs to be done once
@@ -3421,7 +3423,8 @@ AI::do_get_inventory(MapPos inventory_pos) {
   //ResourceMap get_all_resources() { return resources; }
   // this gets a ResourceMap for AGGREGATE INVENTORY of all player stocks including castle
   //ResourceMap resources = interface->get_player()->get_stats_resources();
-  AILogDebug["do_get_inventory"] << name << " inside do_get_inventory";
+  AILogDebug["do_get_inventory"] << name << " inside do_get_inventory for pos " << inventory_pos;
+  AILogDebug["do_get_inventory"] << name << " DEBUG inside do_get_inventory, inventory_pos=" << inventory_pos << ", castle_flag_pos=" << castle_flag_pos;
   if (inventory_pos == castle_flag_pos) {
     AILogDebug["do_get_inventory"] << name << " this stock is the castle ";
   }

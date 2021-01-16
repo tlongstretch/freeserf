@@ -166,7 +166,7 @@ class Flag : public GameObject {
   void serf_request_clear() { transporter &= ~BIT(7); }
 
   // adding support for requested resource timeouts
-  unsigned int get_road_length(Direction dir) const { return length[dir]; }
+  size_t get_road_length(Direction dir) const { return length[dir]; }
   /* Current number of transporters on path. */
   unsigned int free_transporter_count(Direction dir) const {
     return length[dir] & 0xf; }

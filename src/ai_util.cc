@@ -210,7 +210,7 @@ AI::update_building_counts() {
     // oh boy this is an ugly call chain
     //MapPos inventory_pos = game->get_flag(game->get_flag(building->get_flag_index())->find_nearest_inventory_for_res_producer())->get_position();
     // instead I am rewriting the find_nearest_inventory function to input/output MapPos and hide the flag stuff inside of it
-    MapPos inventory_pos = find_nearest_inventory(building->get_position());
+    MapPos inventory_pos = find_nearest_inventory(map, player_index, building->get_position(), &ai_mark_pos);
     if (inventory_pos == bad_map_pos){
       AILogDebug["util_update_building_counts"] << name << " find_nearest_inventory call for building pos " << building->get_position() << " returned bad_map_pos, skipping this building";
       continue;
@@ -696,7 +696,7 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
       AILogDebug["util_build_best_road"] << name << " no valid target found from get_affinity, trying to find a nearest connected inventory";
       MapPos fallback_inv_pos = bad_map_pos;
       if (map->has_flag(start_pos) && map->has_building(map->move_up_left(start_pos))){
-        MapPos nearest_inv_pos = find_nearest_inventory(start_pos);
+        MapPos nearest_inv_pos = find_nearest_inventory(map, player_index, start_pos, &ai_mark_pos);
         if (nearest_inv_pos != bad_map_pos){
           AILogDebug["util_build_best_road"] << name << " no valid target found, setting target to nearest_inv_pos " << nearest_inv_pos;
           fallback_inv_pos = nearest_inv_pos;
@@ -1610,7 +1610,7 @@ AI::find_halfway_pos_between_buildings(Building::Type first, Building::Type seco
 //    until another flag is found.  The start pos doesn't have to be a real flag
 Road
 AI::trace_existing_road(PMap map, MapPos start_pos, Direction dir) {
-  AILogDebug["util_trace_existing_road"] << name << "  inside trace_existing_road, start_pos " << start_pos << ", dir: " << NameDirection[dir];
+  AILogDebug["util_trace_existing_road"] << name << " inside trace_existing_road, start_pos " << start_pos << ", dir: " << NameDirection[dir];
   Road road;
   if (!map->has_path(start_pos, dir)) {
     AILogDebug["util_trace_existing_road"] << name << " no path found at " << start_pos << " in direction " << NameDirection[dir] << "!  FIND OUT WHY";
@@ -1827,7 +1827,7 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
   double duration;
   start = std::clock();
 
-  AILogDebug["util_build_near_pos"] << name << " inside AI::build_near_pos with building type index " << NameBuilding[building_type] << ", distance " << distance << ", and target pos " << center_pos;
+  AILogDebug["util_build_near_pos"] << name << " inside AI::build_near_pos with building type index " << NameBuilding[building_type] << ", distance " << distance << ", target pos " << center_pos << ", inventory_pos " << inventory_pos;
 
   /*
   // I forgot I had this check here already... I think it is redundant
@@ -1975,6 +1975,8 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
         AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling game->demolish_flag (build_near_pos failed to connect)";
         // mark as bad pos, to avoid repeateadly rebuilding same building in same spot
         bad_building_pos.insert(std::make_pair(pos, building_type));
+		// try the next position
+		continue;
       }else{
         AILogDebug["util_build_near_pos"] << name << " successfully connected flag at flag_pos " << flag_pos << " to road network.  For potential new building of type " << NameBuilding[building_type];
         //if (building_type == Building::TypeHut) {
@@ -2026,9 +2028,9 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
     game->get_mutex()->unlock();
     AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling game->build_building (build_near_pos) of type " << NameBuilding[building_type];
     if (!was_built) {
-      AILogDebug["util_build_near_pos"] << name << " failed to build building of type " << NameBuilding[building_type] << " despite can_build being true!  WAITING 10sec - look at the pos in cyan!";
+      AILogDebug["util_build_near_pos"] << name << " failed to build building of type " << NameBuilding[building_type] << " despite can_build being true!  WAITING 10sec - look at the pos in coral!";
       ai_mark_pos.erase(pos);
-      ai_mark_pos.insert(std::make_pair(pos, "cyan"));
+      ai_mark_pos.insert(std::make_pair(pos, "coral"));
       std::this_thread::sleep_for(std::chrono::milliseconds(10000));
       continue;
     }
@@ -2412,6 +2414,7 @@ AI::find_nearest_inventory(MapPos pos) {
 }
 */
 
+/* moving this to ai_pathfinder.cc
 // nevermind, for now replacing this with a function that has the same input/output of MapPos
 //  instead of having to change all the calling code to use Flag* type or having all of the ugly
 //  conversion code being done in the calling code
@@ -2453,8 +2456,8 @@ AI::find_nearest_inventory(MapPos pos) {
   }
   MapPos flag_pos = bad_map_pos;
   if (map->has_building(pos)){
+	flag_pos = map->move_down_right(pos);
     AILogDebug["util_find_nearest_inventory"] << name << " request pos " << pos << " is a building pos, using its flag pos " << flag_pos << " instead";
-    flag_pos = map->move_down_right(pos);
   }else{
     flag_pos = pos;
   }
@@ -2477,6 +2480,7 @@ AI::find_nearest_inventory(MapPos pos) {
   AILogDebug["util_find_nearest_inventory"] << name << " successful find_nearest_inventory_for_res_producer search for flag_pos " << flag_pos << ", returning Inventory flag pos " << inv_flag_pos;
   return inv_flag_pos;
 }
+*/
 
 
 void

@@ -158,7 +158,10 @@ class AI {
   ResourceMap realm_inv;
   MapPos inventory_pos;
   // MapPos find_nearest_inventory(MapPos);   // deprecating this and replacing with find_nearest_inventory_for_res_producer()
-  MapPos find_nearest_inventory(MapPos);  // nevermind, rewriting it but keeping same function name and input/output type
+  //MapPos find_nearest_inventory(MapPos);  // nevermind, rewriting it but keeping same function name and input/output type
+  // moving this to ai_pathfinder.cc and totally changing it to use the ai_pathfinder pyrdacor style FlagSearch that does not 
+  //  require the use of flag->search_xxx vars that are not threadsafe
+  //MapPos find_nearest_inventory(PMap map, unsigned int player_index, MapPos pos, ColorDotMap *ai_mark_pos);
   bool scoring_attack;
   bool scoring_warehouse;
   bool cannot_expand_borders_this_loop;
@@ -235,6 +238,7 @@ class AI {
   int get_straightline_tile_dist(PMap map, MapPos start_pos, MapPos end_pos);
   bool score_flag(PMap map, unsigned int player_index, RoadBuilder *rb, RoadOptions road_options, MapPos flag_pos, MapPos castle_flag_pos, ColorDotMap *ai_mark_pos);
   bool find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb, MapPos flag_pos, MapPos castle_flag_pos, ColorDotMap *ai_mark_pos);
+  MapPos find_nearest_inventory(PMap map, unsigned int player_index, MapPos flag_pos, ColorDotMap *ai_mark_pos);
   RoadEnds get_roadends(PMap map, Road road);
   Road reverse_road(PMap map, Road road);
 };

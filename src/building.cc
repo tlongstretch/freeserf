@@ -830,7 +830,7 @@ Building::update() {
             }
             count++;
             // find any expired timeouts
-            if (stock[j].req_timeout_tick[x] < game->get_const_tick()){
+            if (stock[j].req_timeout_tick[x] < (signed)game->get_const_tick()){
               Log::Info["building"] << "debug: inside Building::update(), building type " << NameBuilding[type] << " at pos " << get_position() << ", res type " << stock[j].type << ", resource request timeout triggered! req_timeout_tick = " << stock[j].req_timeout_tick[x] << ", current tick = " << game->get_const_tick();
               // decrement the requested count so another can be requested
               stock[j].requested -= 1;

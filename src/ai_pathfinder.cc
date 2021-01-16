@@ -272,7 +272,7 @@ AI::plot_road(PMap map, unsigned int player_index, MapPos start_pos, MapPos end_
     } // foreach direction
   } // while nodes left to search
 
-  AILogDebug["plot_road"] << name << " done plot_road, found_direct_road: " << std::to_string(found_direct_road) << ".  additional potential_roads (split_roads): " << split_road_solutions;
+  AILogDebug["plot_road"] << name << " done plot_road, found_direct_road: " << std::to_string(found_direct_road) << ". additional potential_roads (split_roads): " << split_road_solutions;
   if (direct_road.get_source() == bad_map_pos) {
     AILogDebug["plot_road"] << name << " NO DIRECT SOLUTION FOUND for start_pos " << start_pos << " to end_pos " << end_pos;
   }
@@ -456,6 +456,7 @@ AI::reverse_road(PMap map, Road road) {
 
 // perform FlagSearch to find best flag-path from flag_pos to target_pos and determine tile path along the way.
 // return true if solution found, false if not
+// store the solution/scores in the RoadBuilder object passed into function
 //  this function will NOT work for fake flags / splitting flags
 bool
 AI::find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb, MapPos flag_pos, MapPos castle_flag_pos, ColorDotMap *ai_mark_pos) {
@@ -465,7 +466,7 @@ AI::find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb
 
   //ai_mark_pos->erase(flag_pos);
   //ai_mark_pos->insert(ColorDot(flag_pos, "dk_blue"));
-  std::this_thread::sleep_for(std::chrono::milliseconds(0));
+  //std::this_thread::sleep_for(std::chrono::milliseconds(0));
   std::vector<PFlagSearchNode> open;
   std::list<PFlagSearchNode> closed;
   PFlagSearchNode fnode(new FlagSearchNode);
@@ -486,7 +487,7 @@ AI::find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb
     if (fnode->pos == target_pos) {
       //ai_mark_pos->erase(fnode->pos);
       //ai_mark_pos->insert(ColorDot(fnode->pos, "cyan"));
-      std::this_thread::sleep_for(std::chrono::milliseconds(0));
+      //std::this_thread::sleep_for(std::chrono::milliseconds(0));
       //
       // target_pos flag reached!
       //
@@ -521,6 +522,20 @@ AI::find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb
         }
         else {
           // trace the road to get the tile-path (we already have the flag-path in the FlagSearch object
+			/* this seems to happen any time a split road tries to connect to castle flag road, especially if from north of the castle
+		  // TRY TO FIGURE OUR RARE ISSUE WHERE castle flag says there is a path up-left , INTO the castle!
+			if (map->has_building(map->move_up_left(end1))) {
+				Building *foo = game->get_building_at_pos(map->move_up_left(end1));
+				if (foo->get_type() == Building::TypeCastle) {
+					AILogInfo["find_flag_and_tile_dist"] << name << " debug: end1 pos " << end1 << " is castle flag";
+					if (map->has_path(end1, DirectionUpLeft)) {
+						AILogError["find_flag_and_tile_dist"] << name << " debug: end1 pos " << end1 << " is castle flag AND IT SAYS THERE IS A PATH Up-Left INTO THE CASTLE!!!  why??";
+						ai_mark_pos->erase(end1);
+						ai_mark_pos->insert(ColorDot(end1, "lime"));
+						std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+					}
+				}
+			}*/
           existing_road = trace_existing_road(map, end1, dir1);
           //after tracing complex bug it seems like end2 should not be fnode->pos but instead
           //  should be determined by the result of the trace_existing_road call??
@@ -560,28 +575,48 @@ AI::find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb
         }
         AILogDebug["find_flag_and_tile_dist"] << name << "score_flag: total so far road from flag_pos " << flag_pos << " to target_pos " << target_pos << " is flag_dist " << flag_dist << ", tile_dist " << tile_dist;
       } // while fnode->parent / retrace flag-solution
-      AILogDebug["find_flag_and_tile_dist"] << name << "score_flag: final total for road from flag_pos " << flag_pos << " to target_pos " << target_pos << " is flag_dist " << flag_dist << ", tile_dist " << tile_dist;
+      AILogDebug["find_flag_and_tile_dist"] << name << " score_flag: final total for road from flag_pos " << flag_pos << " to target_pos " << target_pos << " is flag_dist " << flag_dist << ", tile_dist " << tile_dist;
       rb->set_score(flag_pos, flag_dist, tile_dist, contains_castle_flag);
-      AILogDebug["find_flag_and_tile_dist"] << name << "done score_road, found solution, returning true";
+      AILogDebug["find_flag_and_tile_dist"] << name << " done score_road, found solution, returning true";
       //return std::make_tuple(flag_dist, tile_dist, contains_castle_flag);
       return true;
     } // if found solution
 
-    AILogVerbose["find_flag_and_tile_dist"] << name << "fsearchnode - node->pos is not target_pos " << target_pos << " yet";
+    AILogVerbose["find_flag_and_tile_dist"] << name << " fsearchnode - node->pos is not target_pos " << target_pos << " yet";
     closed.push_front(fnode);
     // for each direction that has a path, trace the path until a flag is reached
     for (Direction d : cycle_directions_cw()) {
+	  // attempt to work around the issue with castle flag appearing to have a path UpLeft from its flag into
+	  //  the castle, which breaks pathfinding
+	  //  is this an issue for Warehouses/Stocks, too??  should instead check for "is Inventory" or similar??
+	  if (fnode->pos == castle_flag_pos && d == DirectionUpLeft) {
+		AILogDebug["find_flag_and_tile_dist"] << name << " skipping UpLeft dir because fnode->pos == castle_flag_pos, to avoid what appears to be a bug";
+	    continue;
+	  }
       if (map->has_path(fnode->pos, d)) {
         //ai_mark_pos->erase(map->move(fnode->pos, d));
         //ai_mark_pos->insert(ColorDot(map->move(fnode->pos, d), "gray"));
-        std::this_thread::sleep_for(std::chrono::milliseconds(0));
+        //std::this_thread::sleep_for(std::chrono::milliseconds(0));
         // NOTE - if the solution is found here... can't we just quit and return it rather than continuing with this node?  there can't be a better one, right?
-
+		  /* this seems to happen any time a split road tries to connect to castle flag road, especially if from north of the castle
+		  // TRY TO FIGURE OUR RARE ISSUE WHERE castle flag says there is a path up-left , INTO the castle!
+		  if (map->has_building(map->move_up_left(fnode->pos))) {
+			  Building *foo = game->get_building_at_pos(map->move_up_left(fnode->pos));
+			  if (foo->get_type() == Building::TypeCastle) {
+				  AILogInfo["find_flag_and_tile_dist"] << name << " debug2: fnode->pos pos " << fnode->pos << " is castle flag";
+				  if (map->has_path(fnode->pos, DirectionUpLeft)) {
+					  AILogError["find_flag_and_tile_dist"] << name << " debug2: fnode->pos pos " << fnode->pos << " is castle flag AND IT SAYS THERE IS A PATH Up-Left INTO THE CASTLE!!!  why??";
+					  ai_mark_pos->erase(fnode->pos);
+					  ai_mark_pos->insert(ColorDot(fnode->pos, "lime"));
+					  std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+				  }
+			  }
+		  }*/
         Road fsearch_road = trace_existing_road(map, fnode->pos, d);
         MapPos new_pos = fsearch_road.get_end(map.get());
         //ai_mark_pos->erase(new_pos);
         //ai_mark_pos->insert(ColorDot(new_pos, "dk_gray"));
-        std::this_thread::sleep_for(std::chrono::milliseconds(0));
+        //std::this_thread::sleep_for(std::chrono::milliseconds(0));
         //Direction end_dir = reverse_direction(fsearch_road.get_last());
         AILogVerbose["find_flag_and_tile_dist"] << name << "fsearchnode - fsearch from fnode->pos " << fnode->pos << " and dir " << NameDirection[d] << name << " found flag at pos " << new_pos << " with return dir " << reverse_direction(fsearch_road.get_last());
 
@@ -594,7 +629,7 @@ AI::find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb
           AILogVerbose["find_flag_and_tile_dist"] << name << "fsearchnode - fnode at new_pos " << new_pos << " *IS* target_pos " << target_pos << ", FYI only, NOT breaking early (debug)";
           //ai_mark_pos->erase(new_pos);
           //ai_mark_pos->insert(ColorDot(new_pos, "green"));
-          std::this_thread::sleep_for(std::chrono::milliseconds(0));
+          //std::this_thread::sleep_for(std::chrono::milliseconds(0));
           /*  trying this.. commenting this out and letting it flow to new node as usual
           PFlagSearchNode new_fnode(new FlagSearchNode);
           new_fnode->pos = new_pos;
@@ -617,7 +652,7 @@ AI::find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb
             AILogVerbose["find_flag_and_tile_dist"] << name << "fsearchnode - fnode at new_pos " << new_pos << ", breaking because in fnode already in_closed";
             //ai_mark_pos->erase(new_pos);
             //ai_mark_pos->insert(ColorDot(flag_pos, "dk_red"));
-            std::this_thread::sleep_for(std::chrono::milliseconds(0));
+            //std::this_thread::sleep_for(std::chrono::milliseconds(0));
             break;
           }
         }
@@ -642,7 +677,7 @@ AI::find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb
             }
             //ai_mark_pos->erase(new_pos);
             //ai_mark_pos->insert(ColorDot(new_pos, "dk_green"));
-            std::this_thread::sleep_for(std::chrono::milliseconds(0));
+            //std::this_thread::sleep_for(std::chrono::milliseconds(0));
             break;  // should this be continue like if (in_closed) ???  NO, because it means we've checked every direction ... right?
           }
         }
@@ -651,7 +686,7 @@ AI::find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb
           AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch - fnode at new_pos " << new_pos << " is NOT already in_open, creating a new fnode ";
           //ai_mark_pos->erase(new_pos);
           //ai_mark_pos->insert(ColorDot(new_pos, "lt_green"));
-          std::this_thread::sleep_for(std::chrono::milliseconds(0));
+          //std::this_thread::sleep_for(std::chrono::milliseconds(0));
           PFlagSearchNode new_fnode(new FlagSearchNode);
           new_fnode->pos = new_pos;
           new_fnode->parent = fnode;
@@ -675,4 +710,176 @@ AI::find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb
   AILogDebug["find_flag_and_tile_dist"] << name << " no flag-path solution found from flag_pos " << flag_pos << " to target_pos " << target_pos << ".  returning false";
   //return std::make_tuple(bad_score, bad_score, false);
   return false;
+}
+
+
+// replacing the original AI find_nearest_inventory() function with this one that has the same input/output of MapPos
+//  instead of having to change all the calling code to use Flag* type or having all of the ugly
+//  conversion code being done in the calling code
+//
+// return the MapPos of the Flag* of the Inventory (castle, stock/warehouse) that is the shortest
+//  number of Flags away from the MapPos of the requested Flag or Building
+//
+//  this function accepts EITHER a Flag pos, OR a Building pos (for which it will check the flag)
+//
+//  - the Inventory must be accepting Resources
+//  - no consideration for if the Inventory is accepting Serfs
+//  - no consideration of tile/straightline distance, only Flag distance matters
+//  - no check to see if transporters/sailors are already in place along the path
+//
+// the intention of this function is to help "pair" most buildings in the AI player's realm to a
+// given Inventory so that each Inventory can have accurate counts and limits of the buildings
+// "paired" with that Inventory. The reason that straightline distance cannot be used (as it 
+//  originally was) is that only Flag distance determines which Inventory a resource-producing
+//  -building will send non-directly-routable resources to (i.e. ones piling up in storage)
+//  If straightline-dist is used when determining nearest Inventory, but flag distance is used when
+//   serfs transport resources to Inventories, the Inventory that receives the resouce may not be 
+//   the Inventory "paired" with the building, and so the "stop XXX when resource limit reached"
+//   checks would never be triggered because the check is running against one Inventory while
+//   some other Inventory is actually piling up resources and may have already passed its limit.
+//
+//  the AI does not currently change these stock accept/reject/purge resource/serf settings so
+//   I do not think these should introduce any issues, unless a human player modifies the settings
+//    of an AI player's game?  Not sure if it matters much
+//
+//
+// this will return bad_map_pos if there is no Flag at the requested pos
+//  AND no Building at the requested pos
+MapPos
+AI::find_nearest_inventory(PMap map, unsigned int player_index, MapPos pos, ColorDotMap *ai_mark_pos) {
+	AILogDebug["util_find_nearest_inventory"] << name << " inside find_nearest_inventory to pos " << pos;
+	if (!map->has_flag(pos) && !map->has_building(pos)) {
+		AILogWarn["util_find_nearest_inventory"] << name << " no flag or building found at pos " << pos << " as expected!  Cannot run search, returning bad_map_pos";
+		return bad_map_pos;
+	}
+	MapPos flag_pos = bad_map_pos;
+	if (map->has_building(pos)) {
+		flag_pos = map->move_down_right(pos);
+		AILogDebug["util_find_nearest_inventory"] << name << " request pos " << pos << " is a building pos, using its flag pos " << flag_pos << " instead";
+	}
+	else {
+		flag_pos = pos;
+	}
+	Flag *flag = game->get_flag_at_pos(flag_pos);
+	if (flag == nullptr) {
+		AILogWarn["util_find_nearest_inventory"] << name << " got nullptr for Flag at flag_pos " << flag_pos << "!  Cannot run search, returning bad_map_pos";
+		return bad_map_pos;
+	}
+
+	AILogDebug["find_nearest_inventory"] << name << " preparing to find_nearest_inventory from flag at flag_pos " << flag_pos;
+
+	// now that this function uses the FlagSearchNode search instead of "internal" flag search
+	//  it should probably be switched to operate on Flag* objects instead of MapPos
+	//  to avoid so many MapPos<>Flag* conversions
+	std::vector<PFlagSearchNode> open;
+	std::list<PFlagSearchNode> closed;
+	PFlagSearchNode fnode(new FlagSearchNode);
+	fnode->pos = flag_pos;
+	unsigned int flag_dist = 0;
+	unsigned int tile_dist = 0;
+	open.push_back(fnode);
+	AILogVerbose["find_nearest_inventory"] << name << " fsearchnode - starting fnode search for flag_pos " << flag_pos;
+	while (!open.empty()) {
+		std::pop_heap(open.begin(), open.end(), flagsearch_node_less);
+		fnode = open.back();
+		open.pop_back();
+		AILogVerbose["find_nearest_inventory"] << name << " fsearchnode - inside fnode search for flag_pos " << flag_pos << ", inside while-open-list-not-empty loop";
+
+		if (game->get_flag_at_pos(fnode->pos)->accepts_resources()) {
+			// an Inventory building's flag reached, solution found
+			AILogDebug["find_nearest_inventory"] << name << " flagsearch complete, found solution from flag_pos " << flag_pos << " to an Inventory building's flag";
+			//
+			// NONE of this backtracking is required for this type of search because all that matters is the dest pos, NOT the path to reach it
+			// HOWEVER, if we want to track the flag_dist to the Inventory all that needs to be done is:
+			// ***********************************
+			//		while (fnode->parent){
+			//			fnode = fnode->parent;
+			//			flag_dist++;
+			//		}
+			// ***********************************
+			//while (fnode->parent) {
+				//MapPos end1 = fnode->parent->pos;
+				//MapPos end2 = bad_map_pos;
+				//Direction dir1 = fnode->parent->dir;
+				//Direction dir2 = DirectionNone;
+				// is this needed?
+				//existing_road = trace_existing_road(map, end1, dir1);
+				//end2 = existing_road.get_end(map.get());
+				//fnode = fnode->parent;
+				//flag_dist++;
+			//}
+			AILogDebug["find_nearest_inventory"] << name << " done find_nearest_inventory, found solution, returning Inventory flag pos " << fnode->pos;
+			//return true;
+			// this needs to return the MapPos of the inventory flag (update it later to get rid of all these conversions)
+			return fnode->pos;
+		}
+
+		AILogVerbose["find_nearest_inventory"] << name << " fsearchnode - fnode->pos is not at an Inventory building flag yet, adding fnode to closed list";
+		closed.push_front(fnode);
+
+		// for each direction that has a path, trace the path until a flag is reached
+		for (Direction d : cycle_directions_cw()) {
+			if (map->has_path(fnode->pos, d)) {
+				// couldn't this use the internal flag->other_end_dir stuff instead of tracing it?
+				// maybe...  try that after this is stable
+				Road fsearch_road = trace_existing_road(map, fnode->pos, d);
+				MapPos new_pos = fsearch_road.get_end(map.get());
+				AILogVerbose["find_flag_and_tile_dist"] << name << "fsearchnode - fsearch from fnode->pos " << fnode->pos << " and dir " << NameDirection[d] << name << " found flag at pos " << new_pos << " with return dir " << reverse_direction(fsearch_road.get_last());
+				// check if this flag is already in closed list
+				bool in_closed = false;
+				for (PFlagSearchNode closed_node : closed) {
+					if (closed_node->pos == new_pos) {
+						in_closed = true;
+						AILogVerbose["find_flag_and_tile_dist"] << name << "fsearchnode - fnode at new_pos " << new_pos << ", breaking because in fnode already in_closed";
+						break;
+					}
+				}
+				if (in_closed) continue;
+
+				AILogVerbose["find_flag_and_tile_dist"] << name << "fsearchnode - fnode at new_pos " << new_pos << ", continuing because fnode NOT already in_closed";
+
+				// check if this flag is already in open list
+				bool in_open = false;
+				for (std::vector<PFlagSearchNode>::iterator it = open.begin();
+					it != open.end(); ++it) {
+					PFlagSearchNode n = *it;
+					if (n->pos == new_pos) {
+						in_open = true;
+						AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch - fnode at new_pos " << new_pos << " is already in_open ";
+						if (n->flag_dist >= fnode->flag_dist + 1) {
+							AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch - doing some flag dist compare I don't understand, sorting by flag_dist??";
+							n->flag_dist += 1;
+							n->parent = fnode;
+							iter_swap(it, open.rbegin());
+							std::make_heap(open.begin(), open.end(), flagsearch_node_less);
+						}
+						break;  // should this be continue like if (in_closed) ???  NO, because it means we've checked every direction ... right?
+					}
+				}
+				// this pos has not been seen before, create a new fnode for it
+				if (!in_open) {
+					AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch - fnode at new_pos " << new_pos << " is NOT already in_open, creating a new fnode ";
+					PFlagSearchNode new_fnode(new FlagSearchNode);
+					new_fnode->pos = new_pos;
+					new_fnode->parent = fnode;
+					new_fnode->flag_dist = new_fnode->parent->flag_dist + 1;
+					// when doing a flag search, the parent node's direction *cannot* be inferred by reversing its child node dir
+					//   like when doing tile pathfinding, so it must be set explicitly set. it will be reused and reset into each explored direction
+					//   but that should be okay because once an end solution is found the other directions no longer matter
+					fnode->dir = d;
+					open.push_back(new_fnode);
+					std::push_heap(open.begin(), open.end(), flagsearch_node_less);
+					AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch - fnode at new_pos " << new_pos << " is NOT already in_open, DONE CREATING new fnode ";
+				} // if !in_open
+				AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch end of if(map->has_path)";
+			} // if map->has_path(node->pos, d)
+			AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch end of if dir has path Direction - did I find it??";
+		} // foreach direction
+		AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch end of foreach Direction cycle_dirs";
+	} // while open flag-nodes remain to be checked
+	AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch end of while open flag-nodes remain";
+
+	// if the search ended it means nothing was found, return bad_map_pos
+	AILogDebug["find_flag_and_tile_dist"] << name << " no flag-path solution found from flag_pos " << flag_pos << " to an Inventory building's flag.  returning false";
+	return bad_map_pos;
 }
