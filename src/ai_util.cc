@@ -325,12 +325,24 @@ AI::update_stocks_pos() {
     if (type == Building::TypeStock && (!building->is_done() || !game->get_flag(building->get_flag_index())->is_connected()))
       continue;
     MapPos stock_flag_pos = map->move_down_right(building->get_position());
-    AILogDebug["util_update_stocks_pos"] << name << " the castle or a completed, connected warehouse/stock was found at pos " << building->get_position() << ", with its flag at pos " << stock_flag_pos;
+    if (type == Building::TypeCastle) {
+      AILogDebug["util_update_stocks_pos"] << name << " the castle was found at pos " << building->get_position() << ", with its flag at pos " << stock_flag_pos;
+    }else {
+      AILogDebug["util_update_stocks_pos"] << name << " a completed, connected warehouse/stock was found at pos " << building->get_position() << ", with its flag at pos " << stock_flag_pos;
+    }
     stocks_pos.push_back(stock_flag_pos);
-    //stock_buildings[stock_flag_pos] = { {0},{0},{0},{0},0,0,{} }
-    //stock_buildings.insert(std::make_pair<MapPos, AI::StockBuildings>(stock_flag_pos,AI::StockBuildings{ {0},{0},{0},{0},0,0,{} }));
-    stock_buildings[stock_flag_pos];
-    //stock_buildings.insert(stock_flag_pos, *(new AI::StockBuildings));
+    //stock_buildings[stock_flag_pos];
+    /*
+    struct StockBuildings {
+      int count[25] = { 0 };
+      int connected_count[25] = { 0 };
+      int completed_count[25] = { 0 };
+      int occupied_count[25] = { 0 };
+      int unfinished_count;
+      int unfinished_hut_count;
+      MapPosVector occupied_military_pos;
+    };*/
+    stock_buildings[stock_flag_pos] = { {0},{0},{0},{0},0,0,{} };
   }
   AILogDebug["util_update_stocks_pos"] << name << " done AI::update_stocks_pos";
   duration = (std::clock() - start) / static_cast<double>(CLOCKS_PER_SEC);

@@ -466,8 +466,13 @@ Building::requested_resource_delivered(Resource::Type resource) {
     // 2) turn of req res timeouts for construction materials? this seems like a bad idea, 
     //     and I thought I had actually already done so??
     // 3) quietly ignore unexpected resource deliveries for construction material?  maybe if it seems like a rare problem
-    Log::Error["building"] << "inside Building::requested_resource_delivered, building of type " << NameBuilding[type] << " at pos " << get_position() << ", Delivered unexpected resource: " << resource;
-    throw ExceptionFreeserf("Delivered unexpected resource.");
+    //
+    // jan17 2021
+    // still seeing this happen occasionally, Planks being delivered to already built buildings.  For now quietly ignore it
+    //  but it could become an issue if planks are regularly being sent to already completed buildings and clogging up roads
+    //
+    Log::Error["building"] << "inside Building::requested_resource_delivered, building of type " << NameBuilding[type] << " at pos " << get_position() << ", Delivered unexpected resource: " << NameResource[resource];
+    //throw ExceptionFreeserf("Delivered unexpected resource.");
   }
 }
 

@@ -37,8 +37,7 @@ RoadBuilderRoad::RoadBuilderRoad(RoadEnds ends, Road r) {
   dir2 = std::get<3>(ends);
   road = r;
   contains_castle_flag = false;
-  //Log::Debug["roadbuilder_init"] << "constructed RoadBuilderRoad::RoadBuilderRoad with end1 " << end1 <<
-    ", dir1 " << NameDirection[dir1] << ", end2 " << end2 << ", dir2 " << NameDirection[dir2] << ", road length " << road.get_length();
+  //Log::Debug["roadbuilder_init"] << "constructed RoadBuilderRoad::RoadBuilderRoad with end1 " << end1 << ", dir1 " << NameDirection[dir1] << ", end2 " << end2 << ", dir2 " << NameDirection[dir2] << ", road length " << road.get_length();
 }
 
 

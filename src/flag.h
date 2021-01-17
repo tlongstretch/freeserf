@@ -197,15 +197,17 @@ class Flag : public GameObject {
                         unsigned int *dest);
   // add support for AIPlusOption::CanTransportSerfsInBoats
   bool pick_up_serf();
-  bool drop_off_serf();
+  //bool drop_off_serf();
   bool drop_resource(Resource::Type res, unsigned int dest);
   bool has_empty_slot() const;
   void remove_all_resources();
   Resource::Type get_resource_at_slot(int slot) const;
 
   /* Whether this flag has an inventory building. */
+  // WHY DOES THIS NOT SEEM TO RETURN TRUE FOR Stock/warehouse buildings?????
   bool has_inventory() const { return ((bld_flags >> 6) & 1); }
   /* Whether this inventory accepts resources. */
+  // WHY DOES THIS NOT SEEM TO RETURN TRUE FOR Stock/warehouse buildings?????
   bool accepts_resources() const { return ((bld2_flags >> 7) & 1); }
   /* Whether this inventory accepts serfs. */
   bool accepts_serfs() const { return ((bld_flags >> 7) & 1); }

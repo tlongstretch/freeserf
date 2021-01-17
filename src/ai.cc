@@ -130,6 +130,7 @@ AI::next_loop(){
   do_place_castle();
   do_update_clear_reset();
   update_stocks_pos();
+  inventory_pos = castle_flag_pos;  // need to set this so various functions work on the very first AI loop, before the loop over Inventories starts
   update_building_counts();
   do_get_inventory(castle_flag_pos);
   do_get_serfs();

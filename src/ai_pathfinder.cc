@@ -453,6 +453,31 @@ AI::reverse_road(PMap map, Road road) {
   return reversed_road;
 }
 
+// *********************************************
+//  WAIT AGAIN!  I think flagsearch_node_less is correct, but something else is wrong
+//  it is not using flag->length it is using node->flag_length which should be correct
+// flag dist being set by me in the function
+// *********************************************
+//
+// NOTE - understand why flagsearch_node_less does!  it chooses the flag with the lower flag->length value
+//   BUT, this function actually does a more accurate check than flag->length, it counts exact tile dist
+//  MAKE SURE THAT the flagsearch_node_less is replaced with a function that compares TILE DIST, and one
+//   that correctly compares FLAG DIST in case it is being messed up by that
+// here's the flagsearch_node_less function which returns a bool for the one that is higher/lower than the other:
+//
+// ALSO, it seems to be corrupting things... switching flags?   after it runs I am seeing flag->get_building->get_type return
+//  the wrong building for the pos it is associated with!!!!!
+//
+/*
+static bool
+flagsearch_node_less(const PFlagSearchNode &left, const PFlagSearchNode &right) {
+  // A search node is considered less than the other if
+  // it has a *lower* flag distance.  This means that in the max-heap
+// the shorter distance will go to the top
+  return left->flag_dist < right->flag_dist;
+}
+*/
+//
 
 // perform FlagSearch to find best flag-path from flag_pos to target_pos and determine tile path along the way.
 // return true if solution found, false if not
@@ -724,17 +749,17 @@ MapPosVector
 AI::find_nearest_inventories_to_military_building(MapPos pos) {
 	// hardcoding this here for now, put it in some tuning vars later?
 	unsigned int overlap_threshold = 8;  // 8 tiles
-	AILogDebug["find_nearest_inventories_to_military_building"] << name << " inside find_nearest_inventory_to_military_building to pos " << pos << ", overlap_threshold " << overlap_threshold;
+	AILogDebug["find_nearest_inventories_to_military_building"] << name << " inside find_nearest_inventory_to_military_building to pos " << pos << ", overlap_threshold " << overlap_threshold << ", currently selected inventory_pos is " << inventory_pos;
 	MapPosVector closest_inventories = {};
 	// get inventory distances by straight-line map distance only, ignoring roads, flags, obstacles, etc.
 	unsigned int best_dist = bad_score;
 	MapPosSet inventory_dists = {};
-	for (MapPos inventory_pos : stocks_pos) {
-		unsigned int dist = AI::get_straightline_tile_dist(map, pos, inventory_pos);
-		AILogDebug["find_nearest_inventories_to_military_building"] << name << " straightline tile dist from pos " << pos << " to inventory_pos " << inventory_pos << " is " << dist;
-		inventory_dists.insert(std::make_pair(inventory_pos, dist));
+	for (MapPos inv_pos : stocks_pos) {
+		unsigned int dist = AI::get_straightline_tile_dist(map, pos, inv_pos);
+		AILogDebug["find_nearest_inventories_to_military_building"] << name << " straightline tile dist from pos " << pos << " to inventory_pos " << inv_pos << " is " << dist;
+		inventory_dists.insert(std::make_pair(inv_pos, dist));
 		if (dist < best_dist){
-			AILogDebug["find_nearest_inventories_to_military_building"] << name << " inventory at inventory_pos " << inventory_pos << " is the closest so far to pos " << pos << " , with dist " << dist;
+			AILogDebug["find_nearest_inventories_to_military_building"] << name << " inventory at inventory_pos " << inv_pos << " is the closest so far to pos " << pos << " , with dist " << dist;
 			best_dist = dist;
 		}
 	}
@@ -743,12 +768,12 @@ AI::find_nearest_inventories_to_military_building(MapPos pos) {
 		return closest_inventories;
 	}
 	// create a vector of all inventories within the threshold of the best_dist
-
 	for (std::pair<MapPos, unsigned int> pair : inventory_dists) {
+    unsigned int inv_pos = pair.first;
 		unsigned int dist = pair.second;
 		if (dist < best_dist + overlap_threshold) {
-			AILogDebug["find_nearest_inventories_to_military_building"] << name << " inventory at " << inventory_pos << " has dist " << dist << ", which is within " << best_dist + overlap_threshold << " of pos " << pos << ", including in list";
-			closest_inventories.push_back(inventory_pos);
+			AILogDebug["find_nearest_inventories_to_military_building"] << name << " inventory at " << inv_pos << " has dist " << dist << ", which is within " << best_dist + overlap_threshold << " of pos " << pos << ", including in list";
+			closest_inventories.push_back(inv_pos);
 		}
 	}
 	AILogDebug["find_nearest_inventories_to_military_building"] << name << " done, closest_inventories list has " << std::to_string(closest_inventories.size()) << " items, best_dist is " << best_dist;
@@ -810,7 +835,7 @@ AI::find_nearest_inventory(PMap map, unsigned int player_index, MapPos pos, Colo
 		return bad_map_pos;
 	}
 
-	AILogDebug["find_nearest_inventory"] << name << " preparing to find_nearest_inventory from flag at flag_pos " << flag_pos;
+	//AILogDebug["find_nearest_inventory"] << name << " preparing to find_nearest_inventory from flag at flag_pos " << flag_pos;
 
 	// now that this function uses the FlagSearchNode search instead of "internal" flag search
 	//  it should probably be switched to operate on Flag* objects instead of MapPos
@@ -822,12 +847,12 @@ AI::find_nearest_inventory(PMap map, unsigned int player_index, MapPos pos, Colo
 	unsigned int flag_dist = 0;
 	unsigned int tile_dist = 0;
 	open.push_back(fnode);
-	AILogVerbose["find_nearest_inventory"] << name << " fsearchnode - starting fnode search for flag_pos " << flag_pos;
+	//AILogVerbose["find_nearest_inventory"] << name << " fsearchnode - starting fnode search for flag_pos " << flag_pos;
 	while (!open.empty()) {
 		std::pop_heap(open.begin(), open.end(), flagsearch_node_less);
 		fnode = open.back();
 		open.pop_back();
-		AILogVerbose["find_nearest_inventory"] << name << " fsearchnode - inside fnode search for flag_pos " << flag_pos << ", inside while-open-list-not-empty loop";
+    //AILogDebug["find_nearest_inventory"] << name << " fsearchnode - inside fnode search for flag_pos " << flag_pos << ", inside while-open-list-not-empty loop";
 
 		if (game->get_flag_at_pos(fnode->pos)->accepts_resources()) {
 			// an Inventory building's flag reached, solution found
@@ -858,7 +883,7 @@ AI::find_nearest_inventory(PMap map, unsigned int player_index, MapPos pos, Colo
 			return fnode->pos;
 		}
 
-		AILogVerbose["find_nearest_inventory"] << name << " fsearchnode - fnode->pos is not at an Inventory building flag yet, adding fnode to closed list";
+    //AILogDebug["find_nearest_inventory"] << name << " fsearchnode - fnode->pos " << fnode->pos << " is not at an Inventory building flag yet, adding fnode to closed list";
 		closed.push_front(fnode);
 
 		// for each direction that has a path, trace the path until a flag is reached
@@ -868,41 +893,43 @@ AI::find_nearest_inventory(PMap map, unsigned int player_index, MapPos pos, Colo
 				// maybe...  try that after this is stable
 				Road fsearch_road = trace_existing_road(map, fnode->pos, d);
 				MapPos new_pos = fsearch_road.get_end(map.get());
-				AILogVerbose["find_flag_and_tile_dist"] << name << "fsearchnode - fsearch from fnode->pos " << fnode->pos << " and dir " << NameDirection[d] << name << " found flag at pos " << new_pos << " with return dir " << reverse_direction(fsearch_road.get_last());
+				//AILogDebug["find_flag_and_tile_dist"] << name << " fsearchnode - fsearch from fnode->pos " << fnode->pos << " and dir " << NameDirection[d] << " found flag at pos " << new_pos << " with return dir " << reverse_direction(fsearch_road.get_last());
 				// check if this flag is already in closed list
 				bool in_closed = false;
 				for (PFlagSearchNode closed_node : closed) {
 					if (closed_node->pos == new_pos) {
 						in_closed = true;
-						AILogVerbose["find_flag_and_tile_dist"] << name << "fsearchnode - fnode at new_pos " << new_pos << ", breaking because in fnode already in_closed";
+            //AILogDebug["find_nearest_inventory"] << name << " fsearchnode - fnode at new_pos " << new_pos << ", breaking because in fnode already in_closed";
 						break;
 					}
 				}
 				if (in_closed) continue;
 
-				AILogVerbose["find_flag_and_tile_dist"] << name << "fsearchnode - fnode at new_pos " << new_pos << ", continuing because fnode NOT already in_closed";
+        //AILogDebug["find_nearest_inventory"] << name << " fsearchnode - fnode at new_pos " << new_pos << ", continuing because fnode NOT already in_closed";
 
 				// check if this flag is already in open list
 				bool in_open = false;
-				for (std::vector<PFlagSearchNode>::iterator it = open.begin();
-					it != open.end(); ++it) {
+				for (std::vector<PFlagSearchNode>::iterator it = open.begin(); it != open.end(); ++it) {
 					PFlagSearchNode n = *it;
 					if (n->pos == new_pos) {
 						in_open = true;
-						AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch - fnode at new_pos " << new_pos << " is already in_open ";
+            //AILogDebug["find_nearest_inventory"] << name << " fnodesearch - fnode at new_pos " << new_pos << " is already in_open ";
 						if (n->flag_dist >= fnode->flag_dist + 1) {
-							AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch - doing some flag dist compare I don't understand, sorting by flag_dist??";
+              //AILogDebug["find_nearest_inventory"] << name << " fnodesearch - new_pos " << new_pos << "'s flag_dist is >= fnode->flag_dist + 1";
 							n->flag_dist += 1;
 							n->parent = fnode;
 							iter_swap(it, open.rbegin());
 							std::make_heap(open.begin(), open.end(), flagsearch_node_less);
 						}
-						break;  // should this be continue like if (in_closed) ???  NO, because it means we've checked every direction ... right?
+						break;
 					}
 				}
 				// this pos has not been seen before, create a new fnode for it
+        //
+        // SHOULD WE NOT CHECK FOR THE SUCCESS CONDITION (found inventory) AND QUIT IF SO???  OR AT LEAST BREAK EARLY
+        //   maybe, but that could screw up the whole in_open  and flagsearch_node_less compare stuff?
 				if (!in_open) {
-					AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch - fnode at new_pos " << new_pos << " is NOT already in_open, creating a new fnode ";
+          //AILogDebug["find_nearest_inventory"] << name << " fnodesearch - fnode at new_pos " << new_pos << " is NOT already in_open, creating a new fnode ";
 					PFlagSearchNode new_fnode(new FlagSearchNode);
 					new_fnode->pos = new_pos;
 					new_fnode->parent = fnode;
@@ -913,17 +940,17 @@ AI::find_nearest_inventory(PMap map, unsigned int player_index, MapPos pos, Colo
 					fnode->dir = d;
 					open.push_back(new_fnode);
 					std::push_heap(open.begin(), open.end(), flagsearch_node_less);
-					AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch - fnode at new_pos " << new_pos << " is NOT already in_open, DONE CREATING new fnode ";
+					//AILogVerbose["find_nearest_inventory"] << name << " fnodesearch - fnode at new_pos " << new_pos << " is NOT already in_open, DONE CREATING new fnode ";
 				} // if !in_open
-				AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch end of if(map->has_path)";
+				//AILogVerbose["find_nearest_inventory"] << name << " fnodesearch end of if(map->has_path)";
 			} // if map->has_path(node->pos, d)
-			AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch end of if dir has path Direction - did I find it??";
+			//AILogVerbose["find_nearest_inventory"] << name << " fnodesearch end of if dir has path Direction - did I find it??";
 		} // foreach direction
-		AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch end of foreach Direction cycle_dirs";
+		//AILogVerbose["find_nearest_inventory"] << name << " fnodesearch end of foreach Direction cycle_dirs";
 	} // while open flag-nodes remain to be checked
-	AILogVerbose["find_flag_and_tile_dist"] << name << "fnodesearch end of while open flag-nodes remain";
+	//AILogVerbose["find_nearest_inventory"] << name << " fnodesearch end of while open flag-nodes remain";
 
 	// if the search ended it means nothing was found, return bad_map_pos
-	AILogDebug["find_flag_and_tile_dist"] << name << " no flag-path solution found from flag_pos " << flag_pos << " to an Inventory building's flag.  returning false";
+	AILogDebug["find_nearest_inventory"] << name << " no flag-path solution found from flag_pos " << flag_pos << " to an Inventory building's flag.  returning false";
 	return bad_map_pos;
 }
