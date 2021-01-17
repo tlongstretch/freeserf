@@ -713,6 +713,50 @@ AI::find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb
 }
 
 
+
+// return MapPosVector of the Inventory buildings nearest to the specified MapPos,
+//  including castle, by straightline distance.  This allows "sharing" of a building by 
+//  multiple Inventories if the building is not significantly closer to one (by some threshold)
+// the purpose of this function is to allow tracking of military buildings that hold the
+//  borders around a given Inventory (castle, warehouse/stock) so that they can be iterated
+//  over.  Because it is not imperative that they map 1-to-1, overlap is allowed
+MapPosVector
+AI::find_nearest_inventories_to_military_building(MapPos pos) {
+	// hardcoding this here for now, put it in some tuning vars later?
+	unsigned int overlap_threshold = 8;  // 8 tiles
+	AILogDebug["find_nearest_inventories_to_military_building"] << name << " inside find_nearest_inventory_to_military_building to pos " << pos << ", overlap_threshold " << overlap_threshold;
+	MapPosVector closest_inventories = {};
+	// get inventory distances by straight-line map distance only, ignoring roads, flags, obstacles, etc.
+	unsigned int best_dist = bad_score;
+	MapPosSet inventory_dists = {};
+	for (MapPos inventory_pos : stocks_pos) {
+		unsigned int dist = AI::get_straightline_tile_dist(map, pos, inventory_pos);
+		AILogDebug["find_nearest_inventories_to_military_building"] << name << " straightline tile dist from pos " << pos << " to inventory_pos " << inventory_pos << " is " << dist;
+		inventory_dists.insert(std::make_pair(inventory_pos, dist));
+		if (dist < best_dist){
+			AILogDebug["find_nearest_inventories_to_military_building"] << name << " inventory at inventory_pos " << inventory_pos << " is the closest so far to pos " << pos << " , with dist " << dist;
+			best_dist = dist;
+		}
+	}
+	if (inventory_dists.size() == 0 || best_dist == bad_score) {
+		AILogDebug["find_nearest_inventories_to_military_building"] << name << " no inventories found!  returning empty MapPosVector";
+		return closest_inventories;
+	}
+	// create a vector of all inventories within the threshold of the best_dist
+
+	for (std::pair<MapPos, unsigned int> pair : inventory_dists) {
+		unsigned int dist = pair.second;
+		if (dist < best_dist + overlap_threshold) {
+			AILogDebug["find_nearest_inventories_to_military_building"] << name << " inventory at " << inventory_pos << " has dist " << dist << ", which is within " << best_dist + overlap_threshold << " of pos " << pos << ", including in list";
+			closest_inventories.push_back(inventory_pos);
+		}
+	}
+	AILogDebug["find_nearest_inventories_to_military_building"] << name << " done, closest_inventories list has " << std::to_string(closest_inventories.size()) << " items, best_dist is " << best_dist;
+	return closest_inventories;
+}
+
+
+
 // replacing the original AI find_nearest_inventory() function with this one that has the same input/output of MapPos
 //  instead of having to change all the calling code to use Flag* type or having all of the ugly
 //  conversion code being done in the calling code

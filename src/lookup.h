@@ -621,5 +621,4 @@ const std::string NameCompletionLevel[] = {
 };
 
 
-
 #endif  // SRC_LOOKUP_H_

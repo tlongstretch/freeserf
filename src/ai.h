@@ -72,15 +72,15 @@ class AI {
   Serf::SerfMap serfs_potential;
   int *serfs_total;
   bool need_tools;
-  //
+
   // Now that multiple economies implemented I think the entire XXX_building_counts are worthless
   //   remove the entire concept and instead just search for nearby buildings
-  //
-  int building_count[25] = {0};
-  int completed_building_count[25] = {0};
-  //int incomplete_building_count[25] = {0};
-  int occupied_building_count[25] = {0};
-  int connected_building_count[25] = {0};
+  int realm_building_count[25] = {0};
+  int realm_completed_building_count[25] = {0};
+  //int realm_incomplete_building_count[25] = {0};
+  int realm_occupied_building_count[25] = {0};
+  int realm_connected_building_count[25] = {0};
+
   int change_buffer;
   int previous_knight_occupation_level;
   // list of bad building positions (where buildings had to be demolished for certain reasons)
@@ -239,6 +239,7 @@ class AI {
   bool score_flag(PMap map, unsigned int player_index, RoadBuilder *rb, RoadOptions road_options, MapPos flag_pos, MapPos castle_flag_pos, ColorDotMap *ai_mark_pos);
   bool find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb, MapPos flag_pos, MapPos castle_flag_pos, ColorDotMap *ai_mark_pos);
   MapPos find_nearest_inventory(PMap map, unsigned int player_index, MapPos flag_pos, ColorDotMap *ai_mark_pos);
+  MapPosVector find_nearest_inventories_to_military_building(MapPos pos);
   RoadEnds get_roadends(PMap map, Road road);
   Road reverse_road(PMap map, Road road);
 };

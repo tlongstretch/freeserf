@@ -241,7 +241,7 @@ class Flag : public GameObject {
   //  need to be able to do a flagsearch that finds a resource-receiving Inventory
   //   such as the castle, or a warehouse, but the path to it does NOT
   //   need to have a transporter already (which the normal function requires)
-  int find_nearest_inventory_for_res_producer();
+  //int find_nearest_inventory_for_res_producer();  // replacing this with new find_nearest_inventoryXXXX() functions
   int find_nearest_inventory_for_serf();
 
   void link_with_flag(Flag *dest_flag, bool water_path, size_t length,

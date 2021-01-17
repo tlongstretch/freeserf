@@ -133,7 +133,7 @@ AI::next_loop(){
   update_building_counts();
   do_get_inventory(castle_flag_pos);
   do_get_serfs();
-  do_debug_building_triggers();
+  //do_debug_building_triggers();   // not using these right now
 
   //-----------------------------------------------------------
   // housekeeping tasks
@@ -368,7 +368,7 @@ AI::do_debug_building_triggers() {
   update_building_counts();
   // DEBUG
   //   trigger demolish/rebuild all roads by placing a Pig Farm anywhere in the realm
-  if (building_count[Building::TypePigFarm] > 0) {
+  if (realm_building_count[Building::TypePigFarm] > 0) {
     AILogDebug["do_debug_building_triggers"] << name << " PigFarm found, running rebuild_all_roads";
     rebuild_all_roads();
     // then destroy the pig farm so it doesn't keep rebuilding forever
@@ -404,7 +404,7 @@ AI::do_debug_building_triggers() {
 
   // DEBUG
   //   tell AI to quit by placing a BoatBuilder anywhere in the realm
-  if (building_count[Building::TypeBoatbuilder] > 0) {
+  if (realm_building_count[Building::TypeBoatbuilder] > 0) {
     AILogDebug["do_debug_building_triggers"] << name << " BoatBuilder found, locking all AIs";
     game->lock_ai();
     return;
@@ -530,7 +530,7 @@ AI::do_spiderweb_roads2() {
   AILogDebug["do_spiderweb_roads2"] << name << " HouseKeeping: creating spider-web2 roads near original castle borders";
   // only do this every X loops, and only add one new road per run
   update_building_counts();
-  unsigned int completed_huts = completed_building_count[Building::TypeHut];
+  unsigned int completed_huts = realm_completed_building_count[Building::TypeHut];
   if (loop_count % 10 != 0 || completed_huts < 9 || completed_huts > 16) {
     AILogDebug["do_spiderweb_roads2"] << name << " skipping spider-web2 roads, only running this every X loops and >Y, <Z knight huts built";
   }
@@ -638,7 +638,7 @@ AI::do_pollute_castle_area_roads_with_flags() {
   // only do this every X loops, and only once a certain number of huts have been built
   //  and don't do it again after a few more huts built, because it only ever needs to be done once
   update_building_counts();
-  unsigned int completed_huts = completed_building_count[Building::TypeHut];
+  unsigned int completed_huts = realm_completed_building_count[Building::TypeHut];
   if (loop_count % 5 != 0 || completed_huts < 15 || completed_huts >19) {
     AILogDebug["do_pollute_castle_area_roads_with_flags"] << name << " skipping do_pollute_castle_area_roads_with_flags roads, only running this every X loops, and if >Y and <Z knight huts built";
     return;
@@ -682,7 +682,7 @@ AI::do_spiderweb_roads1() {
   AILogDebug["do_spiderweb_roads1"] << name << " HouseKeeping: creating spider-web1 roads near original castle borders";
   // only do this every X loops, and only add one new road per run
   update_building_counts();
-  unsigned int completed_huts = completed_building_count[Building::TypeHut];
+  unsigned int completed_huts = realm_completed_building_count[Building::TypeHut];
   if (loop_count % 10 != 0 || completed_huts < 6 || completed_huts > 12) {
     AILogDebug["do_spiderweb_roads1"] << name << " skipping spider-web1 roads, only running this every X loops and >Y, <Z knight huts built";
   }
@@ -1115,12 +1115,12 @@ AI::do_send_geologists() {
   update_building_counts();
   // these consider entire REALM, not per-stock, should this be made per-stock?
   // probably so...
-  int completed_coalmine_count = completed_building_count[Building::TypeCoalMine];
-  int completed_ironmine_count = completed_building_count[Building::TypeIronMine];
-  int completed_goldmine_count = completed_building_count[Building::TypeGoldMine];
-  int total_coalmine_count = building_count[Building::TypeCoalMine];
-  int total_ironmine_count = building_count[Building::TypeIronMine];
-  int total_goldmine_count = building_count[Building::TypeGoldMine];
+  int completed_coalmine_count = realm_completed_building_count[Building::TypeCoalMine];
+  int completed_ironmine_count = realm_completed_building_count[Building::TypeIronMine];
+  int completed_goldmine_count = realm_completed_building_count[Building::TypeGoldMine];
+  int total_coalmine_count = realm_building_count[Building::TypeCoalMine];
+  int total_ironmine_count = realm_building_count[Building::TypeIronMine];
+  int total_goldmine_count = realm_building_count[Building::TypeGoldMine];
   // true if at least one COMPLETED mine of each type, plus type-specific max which includes placed-but-incomplete mines
   if ((completed_coalmine_count >= 1 && completed_ironmine_count >= 1 && completed_goldmine_count) &&
     (total_coalmine_count >= max_coalmines && total_ironmine_count >= max_ironmines && total_goldmine_count >= max_goldmines)) {
@@ -1725,15 +1725,12 @@ AI::do_demolish_excess_lumberjacks() {
     for (Building *building : buildings) {
       if (building->get_type() == Building::TypeLumberjack) {
         MapPos pos = building->get_position();
-        //if (find_nearest_inventory(pos) != inventory_pos) {
-        // changing this to use nearest-by-flag instead of nearest-by-straightline-dist
-        //  note that find_nearest_inventory_for_resource only considers Inventories that are accepting resources!
-        int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_res_producer();
-        if (flag_index_of_nearest_res_inventory < 0){
+        int nearest_inventory = find_nearest_inventory(map, player_index, building->get_flag_index(), &ai_mark_pos);
+        if (nearest_inventory < 0){
           AILogDebug["do_demolish_excess_lumberjacks"] << name << " inventory not found, maybe this flag isn't part of the road system??";
           continue;
         }
-        if (flag_index_of_nearest_res_inventory != flag_index_of_selected_stock){
+        if (nearest_inventory != inventory_pos){
           AILogDebug["do_demolish_excess_lumberjacks"] << name << " lumberjack at pos " << pos << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
           continue;
         }
@@ -1788,12 +1785,13 @@ AI::do_demolish_excess_fishermen() {
         //if (find_nearest_inventory(pos) != inventory_pos) {
         // changing this to use nearest-by-flag instead of nearest-by-straightline-dist
         //  note that find_nearest_inventory_for_resource only considers Inventories that are accepting resources!
-        int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_res_producer();
-        if (flag_index_of_nearest_res_inventory < 0){
+        //int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_res_producer();
+        int nearest_inventory = find_nearest_inventory(map, player_index, building->get_flag_index(), &ai_mark_pos);
+        if (nearest_inventory < 0){
           AILogDebug["do_demolish_excess_fishermen"] << name << " inventory not found, maybe this flag isn't part of the road system??";
           continue;
         }
-        if (flag_index_of_nearest_res_inventory != flag_index_of_selected_stock){
+        if (nearest_inventory != inventory_pos){
           AILogDebug["do_demolish_excess_fishermen"] << name << " fishermen at pos " << pos << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
           continue;
         }
@@ -1863,7 +1861,7 @@ AI::do_manage_tool_priorities() {
   }
   update_building_counts();
   // this is one toolmaker in entire REALM, but that is okay
-  if (building_count[Building::TypeToolMaker] < 1) {
+  if (realm_building_count[Building::TypeToolMaker] < 1) {
     AILogDebug["do_manage_tool_priorities"] << name << " no toolmaker exists yet!";
   }
   else if (need_tools) {
@@ -2500,7 +2498,7 @@ AI::do_build_toolmaker_steelsmelter() {
   ai_status.assign("MAIN LOOP - tools");
   update_building_counts();
   // one toolmaker in entire REALM
-  int toolmaker_count = building_count[Building::TypeToolMaker];
+  int toolmaker_count = realm_building_count[Building::TypeToolMaker];
   if (toolmaker_count < 1) {
     if (need_tools) {
       AILogDebug["do_build_toolmaker_steelsmelter"] << name << " need tools but have no toolmaker, trying to build one near castle";
@@ -2695,6 +2693,8 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
       //    or one of the first few.  THIS WAS WRITTEN PRIOR TO MULTIPLE ECONOMIES - needs work?
       MapPosVector farm_centers = stock_buildings.at(inventory_pos).occupied_military_pos;
       // remove first element, which is always castle_pos  (NOT castle_flag_pos, which might make more sense)
+	  // EXCEPTION HERE, CANNOT SEEK VALUE INITIALIZED ITERATORS - right after building first warehouse
+	  //  look into stock_buildings.at for warehouses
       farm_centers.erase(farm_centers.begin(), farm_centers.begin() + 1);
       // add current inventory_pos back to the end
       farm_centers.push_back(inventory_pos);
@@ -3320,8 +3320,8 @@ void
 AI::do_build_warehouse() {
   AILogDebug["do_build_warehouse"] << name << " inside do_build_warehouse";
   update_building_counts();
-  int warehouse_count = building_count[Building::TypeStock];
-  int completed_warehouse_count = completed_building_count[Building::TypeStock];
+  int warehouse_count = realm_building_count[Building::TypeStock];
+  int completed_warehouse_count = realm_completed_building_count[Building::TypeStock];
   if (warehouse_count > completed_warehouse_count) {
     AILogDebug["do_build_warehouse"] << name << " already placed new warehouse (stock), not building another until previous one is built";
     return;

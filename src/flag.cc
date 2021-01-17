@@ -44,7 +44,7 @@ FlagSearch::add_source(Flag *flag) {
 bool
 FlagSearch::execute(flag_search_func *callback, bool land,
                     bool transporter, void *data) {
-  //Log::Info["flag"] << "debug: inside FlagSearch::execute with current flag queue.front()" << queue.front()->get_position();
+  //Log::Info["flag"] << "thread #" << std::this_thread::get_id() << "debug: inside FlagSearch::execute with current flag queue.front()" << queue.front()->get_position();
   for (int i = 0; i < SEARCH_MAX_DEPTH && !queue.empty(); i++) {
     Flag *flag = queue.front();
     queue.erase(queue.begin());
@@ -139,11 +139,11 @@ FlagSearch::execute(flag_search_func *callback, bool land,
       }
       
       // if this is the same flag we just checked(?)
-      Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i << ", for flag at pos " << flag->get_position() << ", about to check flag->other_endpoint.f[" << i << "]->search_num to see if it matches id " << id;
+      //Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i << ", for flag at pos " << flag->get_position() << ", about to check flag->other_endpoint.f[" << i << "]->search_num to see if it matches id " << id;
 	  // got a crash here, access violation for flag->other_endpoint.f[i]
 	  // again
       if (flag->other_endpoint.f[i]->search_num == id) {
-        Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i << " flag->other_endpoint.f[" << i << "]->search_num matches id " << id << " (meaning already visited this?), skipping this dir";
+        //Log::Info["flag"] << "debug: inside FlagSearch::execute, checking dir: " << i << " flag->other_endpoint.f[" << i << "]->search_num matches id " << id << " (meaning already visited this?), skipping this dir";
         // ... skip this dir/flag
         continue;
       }
@@ -169,7 +169,7 @@ bool
 FlagSearch::single(Flag *src, flag_search_func *callback, bool land,
                    bool transporter, void *data) {
   FlagSearch search(src->get_game());
-  Log::Info["flag"] << "debug: inside FlagSearch::single with src flag at pos " << src->get_position();
+  //Log::Info["flag"] << "debug: inside FlagSearch::single with src flag at pos " << src->get_position();
   search.add_source(src);
   return search.execute(callback, land, transporter, data);
 }
@@ -576,16 +576,16 @@ find_nearest_inventory_search_cb(Flag *flag, void *data) {
 //  this search requires that transporters are already in place along the route
 int
 Flag::find_nearest_inventory_for_resource() {
-  Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_resource";
+  //Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_resource";
   
   Flag *dest = NULL;
   FlagSearch::single(this, find_nearest_inventory_search_cb, false, true,
                      &dest);
-                     if (dest == nullptr){
-                        Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_resource, returned nullptr!";
-                     }else{
-                        Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_resource, returned dest flag pos " << dest->get_position();        
-                     }
+                     //if (dest == nullptr){
+                        //Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_resource, returned nullptr!";
+                     //}else{
+                        //Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_resource, returned dest flag pos " << dest->get_position();        
+                     //}
 
   if (dest != NULL) return dest->get_index();
 
@@ -608,6 +608,7 @@ Flag::find_nearest_inventory_for_resource() {
 	  flag->other_endpoint.f[i]->search_num = id;
 	  flag->other_endpoint.f[i]->search_dir = flag->search_dir;
 	  */
+/* replacing this with updated AI::find_nearest_inventoryXXXXX() functions
 int
 Flag::find_nearest_inventory_for_res_producer() {
   Log::Info["flag"] << "thread #" << std::this_thread::get_id() << " debug: inside Flag::find_nearest_inventory_for_res_producer";
@@ -626,10 +627,11 @@ Flag::find_nearest_inventory_for_res_producer() {
 
   return -1;
 }
+*/
 
 static bool
 flag_search_inventory_search_cb(Flag *flag, void *data) {
-  Log::Info["flag"] << "debug: inside Flag::flag_search_inventory_search_cb";
+  //Log::Info["flag"] << "debug: inside Flag::flag_search_inventory_search_cb";
   int *dest_index = static_cast<int*>(data);
   if (flag->accepts_serfs()) {
     Building *building = flag->get_building();
@@ -642,7 +644,7 @@ flag_search_inventory_search_cb(Flag *flag, void *data) {
 
 int
 Flag::find_nearest_inventory_for_serf() {
-  Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_serf";
+  //Log::Info["flag"] << "debug: inside Flag::find_nearest_inventory_for_serf";
   int dest_index = -1;
   FlagSearch::single(this, flag_search_inventory_search_cb, true, false,
                      &dest_index);
@@ -740,16 +742,16 @@ Flag::schedule_slot_to_known_dest(int slot_, unsigned int res_waiting[4]) {
       }
     }
   }
-  Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 3";
+  //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 3";
   if (tr != 0) {
-    Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 4 tr";
+    //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 4 tr";
     for (int j = 0; j < 3; j++) {
       flags = res_waiting[j] ^ res_waiting[j+1];
       for (Direction k : cycle_directions_ccw()) {
         if (BIT_TEST(flags, k)) {
           tr &= ~BIT(k);
           Flag *other_flag = other_endpoint.f[k];
-		  Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 4a, dir: " << k;
+		      //Log::Info["flag"] << "debug: inside Flag::schedule_slot_to_known_dest 4a, dir: " << k;
           if (other_flag->search_num != search.get_id()) {
             other_flag->search_dir = k;
             search.add_source(other_flag);

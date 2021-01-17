@@ -140,11 +140,11 @@ AI::update_building_counts() {
   game->get_mutex()->unlock();
   AILogDebug["util_update_building_counts"] << name << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex inside AI::update_building_counts";
   // reset all to zero
-  memset(building_count, 0, sizeof(building_count));
-  memset(completed_building_count, 0, sizeof(completed_building_count));
-  //memset(incomplete_building_count, 0, sizeof(incomplete_building_count));
-  memset(occupied_building_count, 0, sizeof(occupied_building_count));
-  memset(connected_building_count, 0, sizeof(connected_building_count));
+  memset(realm_building_count, 0, sizeof(realm_building_count));
+  memset(realm_completed_building_count, 0, sizeof(realm_completed_building_count));
+  //memset(realm_incomplete_building_count, 0, sizeof(incomplete_building_count));
+  memset(realm_occupied_building_count, 0, sizeof(realm_occupied_building_count));
+  memset(realm_connected_building_count, 0, sizeof(realm_connected_building_count));
   for (MapPos inventory_pos : stocks_pos) {
     AILogDebug["util_update_building_counts"] << name << " inside AI::update_building_counts, clearing counts for inventory_pos " << inventory_pos;
     memset(stock_buildings.at(inventory_pos).count, 0, sizeof(stock_buildings.at(inventory_pos).count));
@@ -164,110 +164,133 @@ AI::update_building_counts() {
   //  only bother if this function is taking a significant amount of time
   //  it does get called a lot, though
   for (Building *building : buildings) {
-    //AILogDebug["util_update_building_counts"] << name << " has a building";
+
     if (building == nullptr)
       continue;
-    //AILogDebug["util_update_building_counts"] << name << " has a building that is not nullptr";
     if (building->is_burning())
       continue;
-    //AILogDebug["util_update_building_counts"] << name << " has a building that is not on fire";
-    Building::Type type = building->get_type();
-    AILogDebug["util_update_building_counts"] << name << " has a building of type " << NameBuilding[type];
-
-    if (type == Building::TypeNone) {
-      AILogDebug["util_update_building_counts"] << name << " has a building of TypeNone!  why does this happen??";
-      continue;
-    }
-
-    if (type == Building::TypeCastle) {
-      //AILogDebug["util_update_building_counts"] << name << " has a castle";
-      if (!building->is_done()) {
-        AILogDebug["util_update_building_counts"] << name << "'s castle isn't finished building yet";
-        while (!building->is_done()) {
-          AILogDebug["util_update_building_counts"] << name << "'s castle isn't finished building yet.  Sleeping a bit";
-          std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        }
-        AILogDebug["util_update_building_counts"] << name << "'s castle is now built, updating stocks";
-        // does this logic rely on the Castle always being the first building?  does it matter?
-        update_stocks_pos();
-      }
-      //AILogDebug["util_update_building_counts"] << name << " has a completed castle at pos " << building->get_position() << " with flag pos " << map->move_down_right(building->get_position());
-      realm_occupied_military_pos.push_back(building->get_position());
-      stock_buildings.at(map->move_down_right(building->get_position())).occupied_military_pos.push_back(building->get_position());
-      continue;
-    }
     
-    // skip completed Stocks, they are tracked elsewhere
-    if (type == Building::TypeStock && building->is_done())
-      continue;
+    Building::Type type = building->get_type();
+	  if (type == Building::TypeNone) {
+		  AILogDebug["util_update_building_counts"] << name << " has a building of TypeNone!  why does this happen??";
+		  continue;
+	  }
 
-    // skip disconnected buildings, they cannot complete a FlagSearch (to find nearest Inventory)
-    if (!game->get_flag_at_pos(map->move_down_right(building->get_position()))->is_connected())
-      continue;
+	  MapPos pos = building->get_position();
+	  MapPos flag_pos = map->move_down_right(building->get_position());
+	  AILogDebug["util_update_building_counts"] << name << " has a building of type " << NameBuilding[type] << " at pos " << pos << ", with flag_pos " << flag_pos;
 
-    AILogDebug["util_update_building_counts"] << name << " about to call find_nearest_inventory for connected building at pos " << building->get_position() << " with type " << NameBuilding[type];
-    //MapPos inventory_pos = find_nearest_inventory(building->get_position());
-    // oh boy this is an ugly call chain
-    //MapPos inventory_pos = game->get_flag(game->get_flag(building->get_flag_index())->find_nearest_inventory_for_res_producer())->get_position();
-    // instead I am rewriting the find_nearest_inventory function to input/output MapPos and hide the flag stuff inside of it
-    MapPos inventory_pos = find_nearest_inventory(map, player_index, building->get_position(), &ai_mark_pos);
-    if (inventory_pos == bad_map_pos){
-      AILogDebug["util_update_building_counts"] << name << " find_nearest_inventory call for building pos " << building->get_position() << " returned bad_map_pos, skipping this building";
-      continue;
-    }
-    AILogDebug["util_update_building_counts"] << name << " nearest stock to this connected building is " << inventory_pos;
+      if (type == Building::TypeCastle) {
+        if (!building->is_done()) {
+          AILogDebug["util_update_building_counts"] << name << "'s castle isn't finished building yet";
+          while (!building->is_done()) {
+            AILogDebug["util_update_building_counts"] << name << "'s castle isn't finished building yet.  Sleeping a bit";
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+          }
+          AILogDebug["util_update_building_counts"] << name << "'s castle is now built, updating stocks";
+          // does the stocks_pos logic rely on the Castle always being the first building?  does it matter?
+          update_stocks_pos();
+        }
+        realm_occupied_military_pos.push_back(flag_pos);
+        stock_buildings.at(flag_pos).occupied_military_pos.push_back(flag_pos);
+        continue;
+      }
+    
+      // skip completed Stocks, they are tracked elsewhere
+      if (type == Building::TypeStock && building->is_done())
+        continue;
+
+	  // for military buildings, track the nearest Inventory by straight-line distance
+	  //  as these are used for general selection of nearby huts when looking for things
+	  //  in a certain area around an Inventory and its borders, duplicates are allowed.
+	  if (building->is_military() && building->is_done() && building->is_active()) {
+		  AILogDebug["util_update_building_counts"] << name << " adding occupied military building at " << pos << " to realm_occupied_military_pos list";
+		  realm_occupied_military_pos.push_back(flag_pos);
+		  AILogDebug["util_update_building_counts"] << name << " about to call find_nearest_inventories_to_military_building for connected building of type " << NameBuilding[type] << " at pos " << pos << ", with flag_pos " << flag_pos;
+		  for (MapPos inv_flag_pos : find_nearest_inventories_to_military_building(flag_pos)) {
+			  AILogDebug["util_update_building_counts"] << name << " adding occupied military building at " << pos << " to stock_buildings.at(" << inv_flag_pos << ")";
+			  stock_buildings.at(inv_flag_pos).occupied_military_pos.push_back(flag_pos);
+		  }
+		  // don't quit here, we still want to try to do a FlagSearch for military buildings so
+		  //  if they are incomplete, we can associate the unfinished building to an Inventory
+		  //  because the builder and building material source will come via FlagSearch. 
+		  // It might not be the closest-by-straightline-dist Inventory that is used
+		  //  to track occupied military buildings for border determination reasons
+	  }
+
+	  // skip disconnected buildings, they cannot complete a FlagSearch to find nearest Inventory
+	  if (!game->get_flag_at_pos(flag_pos)->is_connected()) {
+		  AILogDebug["util_update_building_counts"] << name << " building of type " << NameBuilding[type] << " at pos " << pos << ", with flag_pos " << flag_pos << " has no paths, cannot do FlagSearch, skipping";
+		  continue;
+	  }
+
+	  // do the FlagSearch
+	  AILogDebug["util_update_building_counts"] << name << " about to call find_nearest_inventory for connected building of type " << NameBuilding[type] << " at pos " << pos << ", with flag_pos " << flag_pos;
+	  MapPos inventory_pos = find_nearest_inventory(map, player_index, building->get_position(), &ai_mark_pos);
+	  if (inventory_pos == bad_map_pos) {
+		  AILogDebug["util_update_building_counts"] << name << " find_nearest_inventory call for building at pos " << pos << ", with flag_pos " << flag_pos << " returned bad_map_pos, skipping this building";
+		  continue;
+	  }
+	  AILogDebug["util_update_building_counts"] << name << " nearest Inventory (by flagsearch) to this connected building is " << inventory_pos;
+
+	  // count incomplete buildings (so AI can limit the number of outstanding unfinished buildings)
     if (!building->is_done()) {
       if (type == Building::TypeHut) {
         stock_buildings.at(inventory_pos).unfinished_hut_count++;
         AILogDebug["util_update_building_counts"] << name << " incrementing unfinished_hut_count for inventory_pos " << inventory_pos << ", is now: " << stock_buildings.at(inventory_pos).unfinished_hut_count;
       }
-      /* this works reliably, I don't think I need it
-      //   now that disconnected buildings are skipped
       else if (building->get_type() == Building::TypeCoalMine
         || building->get_type() == Building::TypeIronMine
         || building->get_type() == Building::TypeGoldMine
         || building->get_type() == Building::TypeStoneMine) {
         AILogDebug["util_update_building_counts"] << name << " unfinished building is a Mine, not incrementing unfinished_building_count";
       }
-      */
       else {
         stock_buildings.at(inventory_pos).unfinished_count++;
-        AILogDebug["util_update_building_counts"] << name << " found unfinished building of type " << NameBuilding[building->get_type()] << ", incrementing unfinished_building_count for inventory_pos " << inventory_pos << ", is now: " << stock_buildings.at(inventory_pos).unfinished_count;
+        AILogDebug["util_update_building_counts"] << name << " found unfinished building of type " << NameBuilding[type] << ", incrementing unfinished_building_count for inventory_pos " << inventory_pos << ", is now: " << stock_buildings.at(inventory_pos).unfinished_count;
       }
     }
-    building_count[type]++;
+    
+    // should this exclude military buildings to avoid confusion?
+    //  leaving it for now, the count of military buildings here
+    //  is based on FlagSearch dist, NOT straight-line dist as
+    //  is used for OCCUPIED_military_buildings counts
+	  realm_building_count[type]++;   // move this to before the FlagSearch so it has a chance to include buildings that are not connected?  nah, leave as-is for now
     stock_buildings.at(inventory_pos).count[type]++;
-    if (game->get_flag(building->get_flag_index())->is_connected()) {
-      connected_building_count[type]++;
-      stock_buildings.at(inventory_pos).connected_count[type]++;
-    }
+    // the difference between 'buildings' and 'connected_buildings' is now moot because the nearest inventory pos
+    //  is now determined by FlagSearch which requires that they be connected already to do the search
+    //  Should probably remove the 'building_count' entirely.  See if any of this is even used anymore, I don't think it is
+	  realm_connected_building_count[type]++;
+    stock_buildings.at(inventory_pos).connected_count[type]++;
     if (building->is_done()){
-      completed_building_count[type]++;
+	    realm_completed_building_count[type]++;
       stock_buildings.at(inventory_pos).completed_count[type]++;
       // has_serf is not a good enough test alone to see if occupied, as it seems to be true when a builder is constructing the building!
       //  so moved this check to inside building->is_done because if building is done the only serf there should be the professional (I think)
       if (building->has_serf()) {
-        occupied_building_count[type]++;
+        // this will include military buildings occupied by knights, also.  Which I guess is fine
+        //  however, again the counts may not match the occupied_military_building counts
+        //  which are determined by straight-line distance only
+	      realm_occupied_building_count[type]++;
         stock_buildings.at(inventory_pos).occupied_count[type]++;
       }
-      if (building->is_military() && building->is_active()) {
-        AILogDebug["util_update_building_counts"] << name << " adding occupied military building at " << building->get_position() << " to list for inventory_pos " << inventory_pos;
-        realm_occupied_military_pos.push_back(building->get_position());
-        stock_buildings.at(inventory_pos).occupied_military_pos.push_back(building->get_position());
-      }
     }
-  }
-  // debug
+  } // foreach Building : get_player_buildings
+
+  // debug, dump all inventory-to-building counts
   for (MapPos inventory_pos : stocks_pos) {
-    AILogDebug["util_update_building_counts"] << name << " stock at pos " << inventory_pos << " has all/completed/occupied buildings: ";
+    // this skips 'connected', which is moot anyway
+    AILogDebug["util_update_building_counts"] << name << " Inventory at pos " << inventory_pos << " has all/completed/occupied buildings: ";
     int type = 0;
-    for (int count : building_count) {
+    // why is this using realm_building_count instead of ... Types 0-25?
+    for (int count : realm_building_count) {
       AILogDebug["util_update_building_counts"] << name << " type " << type << " / " << NameBuilding[type] << ": " << stock_buildings.at(inventory_pos).count[type]
         << "/" << stock_buildings.at(inventory_pos).completed_count[type] << "/" << stock_buildings.at(inventory_pos).occupied_count[type];
       type++;
     }
   }
-  AILogDebug["util_update_building_counts"] << name << " done AI::update_building_counts";
+
+  //AILogDebug["util_update_building_counts"] << name << " done AI::update_building_counts";
   duration = (std::clock() - start) / static_cast<double>(CLOCKS_PER_SEC);
   AILogDebug["util_update_building_counts"] << name << " done AI::update_building_counts call took " << duration;
 }
@@ -918,12 +941,13 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
         continue;
       }
       // if this is "tracked economy building", ensure the end_pos flag is closest to the currently selected Inventory (castle/warehouse)
-      int flag_index_of_nearest_res_inventory_to_end_pos = game->get_flag_at_pos(end_pos)->find_nearest_inventory_for_res_producer();
-      if (flag_index_of_nearest_res_inventory_to_end_pos < 0){
+      //int flag_index_of_nearest_res_inventory_to_end_pos = game->get_flag_at_pos(end_pos)->find_nearest_inventory_for_res_producer();
+      int nearest_inventory = find_nearest_inventory(map, player_index, end_pos, &ai_mark_pos);
+      if (nearest_inventory < 0){
         AILogDebug["build_best_road"] << name << " inventory not found for flag at end_pos " << end_pos << ", maybe this flag isn't part of the road system??";
         continue;
       }
-      if (flag_index_of_nearest_res_inventory_to_end_pos != flag_index_of_selected_stock){
+      if (nearest_inventory != inventory_pos){
         AILogDebug["build_best_road"] << name << " flag at end_pos " << end_pos << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
         continue;
       }
@@ -966,12 +990,13 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
             AILogDebug["build_best_road"] << name << " found a path for splitting flag at split_end_pos " << split_end_pos << " in dir " << NameDirection[dir];
             MapPos adjacent_flag_pos = split_road.get_end(map.get());
             AILogDebug["build_best_road"] << name << " path for splitting flag at split_end_pos " << split_end_pos << " in dir " << NameDirection[dir] << " ends at flag at pos " << adjacent_flag_pos;
-            int flag_index_of_nearest_res_inventory_to_split_end_pos = game->get_flag_at_pos(adjacent_flag_pos)->find_nearest_inventory_for_res_producer();
-            if (flag_index_of_nearest_res_inventory_to_split_end_pos < 0){
+            //int flag_index_of_nearest_res_inventory_to_split_end_pos = game->get_flag_at_pos(adjacent_flag_pos)->find_nearest_inventory_for_res_producer();
+            int nearest_inventory = find_nearest_inventory(map, player_index, adjacent_flag_pos, &ai_mark_pos);
+            if (nearest_inventory < 0){
               AILogDebug["build_best_road"] << name << " inventory not found for potential split_road flag at split_end_pos " << split_end_pos << ", maybe this flag isn't part of the road system??";
               disqualified++;
             }
-            if (flag_index_of_nearest_res_inventory_to_split_end_pos != flag_index_of_selected_stock){
+            if (nearest_inventory != inventory_pos){
               AILogDebug["build_best_road"] << name << " potential split_road flag at split_end_pos " << split_end_pos << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
               disqualified++;
             }
@@ -1533,7 +1558,7 @@ AI::find_halfway_pos_between_buildings(Building::Type first, Building::Type seco
 
       }
     }
-    else if (completed_building_count[type[x]] >= 1) {
+    else if (realm_completed_building_count[type[x]] >= 1) {
       AILogDebug["util_find_halfway_pos_between_buildings"] << name << " searching for a COMPLETED building of type" << x << " " << NameBuilding[type[x]];
       for (MapPos center_pos : stock_buildings.at(inventory_pos).occupied_military_pos) {
         for (unsigned int i = 0; i < spiral_dist(9); i++) {
@@ -1559,7 +1584,7 @@ AI::find_halfway_pos_between_buildings(Building::Type first, Building::Type seco
 
       }
     }
-    else if (building_count[type[x]] >= 1) {
+    else if (realm_building_count[type[x]] >= 1) {
       AILogDebug["util_find_halfway_pos_between_buildings"] << name << " searching for ANY building of type" << x << " " << NameBuilding[type[x]];
       for (MapPos center_pos : stock_buildings.at(inventory_pos).occupied_military_pos) {
         AILogDebug["util_find_halfway_pos_between_buildings"] << name << " searching around center_pos " << center_pos;
@@ -2104,9 +2129,10 @@ AI::count_knights_affected_by_occupation_level_change(unsigned int current_level
   //   for long enough that the game update actually starts moving knights around.  Having a super accurate count is not critical here, it should
   //   be able to use whatever values were found during the most recent update, which I believe is happening at the start of each AI loop anyway
   //update_building_counts();
-  unsigned int hut_count = building_count[Building::TypeHut];
-  unsigned int tower_count = building_count[Building::TypeTower];
-  unsigned int garrison_count = building_count[Building::TypeFortress];
+  // note this includes incomplete buildings? I think.  I doubt it matters much, though
+  unsigned int hut_count = realm_building_count[Building::TypeHut];
+  unsigned int tower_count = realm_building_count[Building::TypeTower];
+  unsigned int garrison_count = realm_building_count[Building::TypeFortress];
   AILogDebug["util_count_knights_affected_by_occupation_level_change"] << name << " military building counts: huts " << hut_count << ", towers " << tower_count << ", garrisons " << garrison_count;
   unsigned int total_current = 0;
   total_current += slots_hut[current_level] * hut_count;
