@@ -138,13 +138,14 @@ class RoadBuilder {
     return scores.at(pos);
   }
   //unsigned int get_roads_built() { return roads_built; }
+  /*
   bool has_eroad(MapPos end1, Direction dir1, MapPos end2, Direction dir2) {
-    if (eroads.count(RoadEnds(end1, dir1, end2, dir2)) || eroads.count(RoadEnds(end1, dir1, end2, dir2))) { return true; }
+    if (eroads.count(RoadEnds(end1, dir1, end2, dir2)) || eroads.count(RoadEnds(end2, dir2, end1, dir1))) { return true; }
     return false;
   }
-  /*
+
   bool has_proad(MapPos end1, Direction dir1, MapPos end2, Direction dir2) {
-    if (proads.count(RoadEnds(end1, dir1, end2, dir2)) || proads.count(RoadEnds(end1, dir1, end2, dir2))) { return true; }
+    if (proads.count(RoadEnds(end1, dir1, end2, dir2)) || proads.count(RoadEnds(end2, dir2, end1, dir1))) { return true; }
     return false;
   }
   */

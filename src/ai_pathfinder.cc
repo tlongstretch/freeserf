@@ -56,6 +56,9 @@ flagsearch_node_less(const PFlagSearchNode &left, const PFlagSearchNode &right) 
 //    The set will include the original-specified-end direct Road if it is valid
 // is road_options actually used here??? or only by build_best_road??
 //   seems that RoadOptions is not used, but I think I need it to be for HoldBuildingPos
+// the road returned is the DIRECT road if found
+//  however, if no direct road is found the calling function could still check for the new-flag splitting
+//   options found
 Road
 // adding support for HoldBuildingPos
 //AI::plot_road(PMap map, unsigned int player_index, MapPos start_pos, MapPos end_pos, Roads * const &potential_roads) {

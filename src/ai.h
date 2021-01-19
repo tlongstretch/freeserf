@@ -146,7 +146,7 @@ class AI {
   MapPosVector sort_by_val_desc(MapPosSet);
   MapPos build_near_pos(MapPos, unsigned int, Building::Type);
   bool building_exists_near_pos(MapPos, unsigned int, Building::Type);
-  MapPos find_halfway_pos_between_buildings(Building::Type, Building::Type);
+  //MapPos find_halfway_pos_between_buildings(Building::Type, Building::Type);
   unsigned int count_stones_near_pos(MapPos, unsigned int);
   unsigned int count_knights_affected_by_occupation_level_change(unsigned int, unsigned int);
   MapPos expand_borders(MapPos);
