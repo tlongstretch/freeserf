@@ -124,7 +124,9 @@ class AI {
   void rebuild_all_roads();
   // changing these to support *planning* a road without actually building it, prior to placing a new building
   //bool build_best_road(MapPos, RoadOptions, Building::Type optional_affinity = Building::TypeNone, MapPos optional_target = bad_map_pos);
-  bool build_best_road(MapPos, RoadOptions, Building::Type optional_building_type = Building::TypeNone, Building::Type optional_affinity = Building::TypeNone, MapPos optional_target = bad_map_pos);
+  //bool build_best_road(MapPos, RoadOptions, Building::Type optional_building_type = Building::TypeNone, Building::Type optional_affinity = Building::TypeNone, MapPos optional_target = bad_map_pos);
+  // adding verify_stock checking
+  bool build_best_road(MapPos, RoadOptions, Building::Type optional_building_type = Building::TypeNone, Building::Type optional_affinity = Building::TypeNone, MapPos optional_target = bad_map_pos, bool verify_stock = false);
   //MapPosVector get_affinity(MapPos);
   MapPosVector get_affinity(MapPos, Building::Type optional_building_type = Building::TypeNone);
   /*

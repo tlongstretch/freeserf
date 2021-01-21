@@ -579,7 +579,7 @@ AI::rebuild_all_roads() {
 //  If any roads already exist from specified flag to each affinity building,
 //    build a better road if one is found.  Do not remove the old one
 bool
-AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type optional_building_type, Building::Type optional_affinity, MapPos optional_target) {
+AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type optional_building_type, Building::Type optional_affinity, MapPos optional_target, bool verify_stock) {
   // time this function for debugging
   std::clock_t start;
   double duration;
@@ -966,15 +966,11 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
           break;
         }
         // if this is "tracked economy building", ensure the end_pos flag is closest to the currently selected Inventory (castle/warehouse)
-        //int flag_index_of_nearest_res_inventory_to_end_pos = game->get_flag_at_pos(end_pos)->find_nearest_inventory_for_res_producer();
-        int nearest_inventory = find_nearest_inventory(map, player_index, end_pos, &ai_mark_pos);
-        if (nearest_inventory < 0){
-          AILogDebug["util_build_best_road"] << name << " DIRECT road - inventory not found for flag at end_pos " << end_pos << ", maybe this flag isn't part of the road system??";
-          break;
-        }
-        if (nearest_inventory != inventory_pos){
-          AILogDebug["util_build_best_road"] << name << " DIRECT road - flag at end_pos " << end_pos << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
-          break;
+        if (verify_stock == true){
+          if (find_nearest_inventory(map, player_index, end_pos, &ai_mark_pos) != inventory_pos){
+            AILogDebug["util_build_best_road"] << name << " DIRECT road - flag at end_pos " << end_pos << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
+            break;
+          }
         }
         AILogDebug["util_build_best_road"] << name << " this potential DIRECT road solution is acceptable so far in terms of NEW length only, adding to RoadBuilder potential_roads";
         RoadEnds potential_road_ends = get_roadends(map, potential_road);
@@ -1010,22 +1006,18 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
         // are closest to the current Inventory.  I am not sure what happens if two Inventories are equal flag distance apart, but I suspect
         // whichever is first in terms of path-Direction (0-5) wins
         int disqualified = 0;
-        for (Direction dir : cycle_directions_cw()) {
-          AILogVerbose["util_build_best_road"] << name << " looking for a path for splitting flag at split_end_pos " << split_end_pos << " in dir " << NameDirection[dir];
-          if (map->has_path(split_end_pos, dir)) {
-            Road split_road = trace_existing_road(map, split_end_pos, dir);
-            AILogDebug["util_build_best_road"] << name << " found a path for splitting flag at split_end_pos " << split_end_pos << " in dir " << NameDirection[dir];
-            MapPos adjacent_flag_pos = split_road.get_end(map.get());
-            AILogDebug["util_build_best_road"] << name << " path for splitting flag at split_end_pos " << split_end_pos << " in dir " << NameDirection[dir] << " ends at flag at pos " << adjacent_flag_pos;
-            //int flag_index_of_nearest_res_inventory_to_split_end_pos = game->get_flag_at_pos(adjacent_flag_pos)->find_nearest_inventory_for_res_producer();
-            int nearest_inventory = find_nearest_inventory(map, player_index, adjacent_flag_pos, &ai_mark_pos);
-            if (nearest_inventory < 0){
-              AILogDebug["util_build_best_road"] << name << " inventory not found for potential split_road flag at split_end_pos " << split_end_pos << ", maybe this flag isn't part of the road system??";
-              disqualified++;
-            }
-            if (nearest_inventory != inventory_pos){
-              AILogDebug["util_build_best_road"] << name << " potential split_road flag at split_end_pos " << split_end_pos << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
-              disqualified++;
+        if (verify_stock == true){
+          for (Direction dir : cycle_directions_cw()) {
+            AILogVerbose["util_build_best_road"] << name << " looking for a path for splitting flag at split_end_pos " << split_end_pos << " in dir " << NameDirection[dir];
+            if (map->has_path(split_end_pos, dir)) {
+              Road split_road = trace_existing_road(map, split_end_pos, dir);
+              AILogDebug["util_build_best_road"] << name << " found a path for splitting flag at split_end_pos " << split_end_pos << " in dir " << NameDirection[dir];
+              MapPos adjacent_flag_pos = split_road.get_end(map.get());
+              AILogDebug["util_build_best_road"] << name << " path for splitting flag at split_end_pos " << split_end_pos << " in dir " << NameDirection[dir] << " ends at flag at pos " << adjacent_flag_pos;
+              if (find_nearest_inventory(map, player_index, adjacent_flag_pos, &ai_mark_pos) != inventory_pos){
+                AILogDebug["util_build_best_road"] << name << " potential split_road flag at split_end_pos " << split_end_pos << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
+                disqualified++;
+              }
             }
           }
         }
@@ -2032,7 +2024,7 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
     MapPos flag_pos = map->move_down_right(pos);
     bool road_built = false;
 
-    if (is_mine){
+        if (is_mine){
       AILogDebug["util_build_near_pos"] << name << " this is a mine, skipping flag/road checks as this will not be connected to the road system yet";
     }else{
 
@@ -2052,93 +2044,25 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
         AILogDebug["util_build_near_pos"] << name << " the flag already at flag_pos " << flag_pos << " is already connected to road system.  For potential new building of type " << NameBuilding[building_type] << " at pos " << pos;
       }
 
-      bool rejected = false;
-      if (game->get_flag_at_pos(flag_pos)->is_connected()){
-        if (road_built){
-          AILogDebug["util_build_near_pos"] << name << " successfully connected flag at flag_pos " << flag_pos << " to road network.  For potential new building of type " << NameBuilding[building_type];
-        }
-        // make sure this pos is closest to the currently selected stock
-        if (verify_stock){
-          AILogDebug["util_build_near_pos"] << name << " checking that this tracked economy building is closest to inventory_pos " << inventory_pos;
-          //if (find_nearest_inventory(pos) == inventory_pos){
-          // changing this to use nearest-by-flag instead of nearest-by-straightline-dist
-          //  note that find_nearest_inventory_for_resource only considers Inventories that are accepting resources!
-          //
-          //   SHIT!  this doesn't work because flag->find_nearest_inventory_for_resource requires that this be a flag and it
-          //    be connected to the road system already!  there is no way to run this check against a *potential* building/flag
-          //   This might be the motivation needed to change the current logic of place-building-then-try-to-connect-to-road
-          //    with ensure-flag-can-connect-to-road-then-place-building
-          //
-          // THIS SHOULD WORK NOW!!!  jan20 2021
-          if (find_nearest_inventory(map, player_index, pos, &ai_mark_pos) != inventory_pos){
-            AILogDebug["util_build_near_pos"] << inventory_pos << " potential building pos " << pos << " for new building of type " << NameBuilding[building_type] << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
-            rejected = true;
-          }
-        }
-      }else{
-        AILogDebug["util_build_near_pos"] << name << " failed to connect flag at flag_pos " << flag_pos << " to road network! For potential new building of type " << NameBuilding[building_type];
-        rejected = true;
-      }
-
-      //===========================================================
-      //
-      //  this whole mess will not work, it results in too many flags/roads temp appearing
-      //   AND if a new road ends up with a flag having two paths, it won't remove it anymore
-      //   so it results in tons of junk roads and flags.  
-      //  NEED TO USE FAKE FLAG type solution so that it doesn't actually require a flag
-      //   or a path to do the find_nearest_inventory flagsearch!!!!!
-      //
-      //===========================================================
-      if (rejected) {
-
-        // NEED TO DESTROY THE ROAD FIRST!  because it had to be connected prior to flagsearch, but the result
-        //  of the flagsearch can invalidated the position.  Improve this process by making it do the flagsearch
-        //  on the connecting flag, not the new flag, and reject it before building the road or the flag
-        //  I THOUGHT I WAS ALREADY DOING THIS????  INVESTIGATE
-        if (road_built){
-          AILogDebug["util_build_near_pos"] << name << " attempting to remove road from failed placement at flag_pos " << flag_pos << " For potential new building of type " << NameBuilding[building_type];
-          unsigned int paths = 0;
-          Direction road_dir;
-          for (Direction dir : cycle_directions_cw()) {
-            if (!map->has_path(flag_pos, dir)) { continue; }
-            paths++;
-            if (paths > 1) {
-              AILogDebug["util_build_near_pos"] << name << " failed building placement with flag_pos " << flag_pos << " - flag has more than one path, not removing road";
-              break;
-            }
-            road_dir = dir;
-          }
-          if (paths == 1) {
-            AILogDebug["util_build_near_pos"] << name << " failed building placement with flag_pos " << flag_pos << " - flag has more than one path, not removing road";
-            AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->demolish_road";
-            game->get_mutex()->lock();
-            AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI has locked mutex before calling game->demolish_road";
-            game->demolish_road(map->move(flag_pos, road_dir), player);
-            AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI is unlocking mutex after calling game->demolish_road";
-            game->get_mutex()->unlock();
-            AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling game->demolish_road";
-          }
-        }
-
-        AILogDebug["util_build_near_pos"] << name << " removing flag from failed placement at flag_pos " << flag_pos << " For potential new building of type " << NameBuilding[building_type];
+      if (!road_built && !game->get_flag_at_pos(flag_pos)->is_connected()) {
+        AILogDebug["util_build_near_pos"] << name << " failed to connect flag at flag_pos " << flag_pos << " to road network! removing it.  For potential new building of type " << NameBuilding[building_type];
         // disabling this for now until I see more significant road building issues
         //  jan19 2021
         //AILogDebug["util_build_near_pos"] << name << " LOOK AT BUILDING AT POS " << pos << ", MARKED IN CYAN";
         //ai_mark_pos.erase(pos);
         //ai_mark_pos.insert(std::make_pair(pos, "cyan"));
         //std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-        AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->demolish_flag";
+        AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->demolish_flag (build_near_pos failed to connect)";
         game->get_mutex()->lock();
-        AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI has locked mutex before calling game->demolish_flag";
+        AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI has locked mutex before calling game->demolish_flag (build_near_pos failed to connect)";
         game->demolish_flag(flag_pos, player);
-        AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI is unlocking mutex after calling game->demolish_flag";
+        AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI is unlocking mutex after calling game->demolish_flag (build_near_pos failed to connect)";
         game->get_mutex()->unlock();
-        AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling game->demolish_flag";
+        AILogDebug["util_build_near_pos"] << name << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling game->demolish_flag (build_near_pos failed to connect)";
         // mark as bad pos, to avoid repeateadly rebuilding same building in same spot
         bad_building_pos.insert(std::make_pair(pos, building_type));
-
-        // try the next position
-        continue;
+		// try the next position
+		continue;
       }else{
         AILogDebug["util_build_near_pos"] << name << " successfully connected flag at flag_pos " << flag_pos << " to road network.  For potential new building of type " << NameBuilding[building_type];
         //if (building_type == Building::TypeHut) {

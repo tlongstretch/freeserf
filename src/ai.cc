@@ -2253,7 +2253,9 @@ AI::do_build_sawmill_lumberjacks() {
     for (MapPos center_pos : stock_buildings.at(inventory_pos).occupied_military_pos) {
       update_building_counts();
       sawmill_count = stock_buildings.at(inventory_pos).count[Building::TypeSawmill];
+      AILogDebug["do_build_sawmill_lumberjacks"] << inventory_pos << " DEBUG11111 sawmill_count for this inventory_pos is " << sawmill_count;
       lumberjack_count = stock_buildings.at(inventory_pos).count[Building::TypeLumberjack];
+      AILogDebug["do_build_sawmill_lumberjacks"] << inventory_pos << " DEBUG11111 lumberjack_count for this inventory_pos is " << lumberjack_count;
       if (sawmill_count >= 1 && lumberjack_count >= 2) {
         AILogDebug["do_build_sawmill_lumberjacks"] << inventory_pos << " Already placed sawmill and lumberjacks, not building more";
         return;
@@ -2288,6 +2290,7 @@ AI::do_build_sawmill_lumberjacks() {
       }
       update_building_counts();
       sawmill_count = stock_buildings.at(inventory_pos).count[Building::TypeSawmill];
+      AILogDebug["do_build_sawmill_lumberjacks"] << inventory_pos << " DEBUG222222 sawmill_count for this inventory_pos is " << sawmill_count;
       if (sawmill_count > 0) {
         AILogDebug["do_build_sawmill_lumberjacks"] << inventory_pos << " DEBUG have a sawmill";
         //
