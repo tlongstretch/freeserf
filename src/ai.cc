@@ -143,7 +143,6 @@ AI::next_loop(){
   //      rather it should be done after first few buildings/roads placed
   //-----------------------------------------------------------
 
-  do_promote_serfs_to_knights();
   do_connect_disconnected_flags(); // except unfinished mines
   do_build_better_roads_for_important_buildings();  // is this working?  I still see pretty inefficient roads for important buildings
   //do_spiderweb_roads1();   // this might be too close to the castle, do some more testing
@@ -177,9 +176,11 @@ AI::next_loop(){
     }
 
     do_get_inventory(inventory_pos);
+    do_promote_serfs_to_knights();
     do_demolish_excess_lumberjacks();
     do_demolish_excess_fishermen();
     do_send_geologists();
+
 
     // PLACE MINES EARLY - but do not connect them to roads so they do not actually get built until later
     //   this is to secure good placement when resources are found, before the signs fade
@@ -412,6 +413,9 @@ AI::do_debug_building_triggers() {
   }
 }
 
+// to be 100% "fair" this should use the global "promote all possible serfs to knights"
+//  function that human players can click on, but because there is no advantage gained
+//  by doing it per-stock I will leave this as it is for now.
 void
 AI::do_promote_serfs_to_knights() {
   AILogDebug["do_promote_serfs_to_knights"] << name << " inside do_promote_serfs_to_knights";
@@ -842,7 +846,8 @@ AI::do_fix_stuck_serfs() {
         // more info, saw case of a stuck Digger (leveller) that was on way to a construction site, but when stuck his walking_dest flag was a flag somewhere totally different
         //   in the realm and not a place where a Digger was even needed.  Maybe a bad pointer somewhere is causing the walking_dest to be set to someplace invalid and this is
         //     the cause of the stuck serf WAIT_IDLE_ON_PATH issue???
-        AILogDebug["do_fix_stuck_serfs"] << name << " about to boot serf with job type: " << serf->get_type() << " " << NameSerf[serf->get_type()] << name << " with walking_dest/flag_pos " << serf_dest_flag_pos;
+        AILogDebug["do_fix_stuck_serfs"] << name << " about to boot serf with job type: " << serf->get_type() << " " << NameSerf[serf->get_type()] << " with walking_dest/flag_pos " << serf_dest_flag_pos;
+        /*
         if (serf_job == Serf::TypeTransporter) {
           AILogDebug["do_fix_stuck_serfs"] << name << " WARNING - a transporter was booted, see if this causes flag at map_pos " << serf_dest_flag_pos << " to be without a transporter!";
         }
@@ -855,6 +860,7 @@ AI::do_fix_stuck_serfs() {
           AILogDebug["do_fix_stuck_serfs"] << name << " WARNING - a knight was booted, see if this causes military building with flag pos " << serf_dest_flag_pos << " to have a forever empty slot!";
           //::this_thread::sleep_for(std::chrono::milliseconds(6000));
         }
+        */
         AILogDebug["do_fix_stuck_serfs"] << name << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling serf->set_lost_state (for bug workaround stuck serfs)";
         game->get_mutex()->lock();
         AILogDebug["do_fix_stuck_serfs"] << name << " thread #" << std::this_thread::get_id() << " AI has locked mutex before calling serf->set_lost_state (for bug workaround stuck serfs)";
@@ -2654,18 +2660,26 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
         game->get_mutex()->unlock();
         AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling game->get_player_buildings(player) (for food buildings)";
         for (Building *building : buildings) {
+          if (building->get_type() == Building::TypeMill ||
+              building->get_type() == Building::TypeFarm ||
+              building->get_type() == Building::TypeBaker){
+            if (find_nearest_inventory(map, player_index, building->get_position(), &ai_mark_pos) != inventory_pos){
+              AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << inventory_pos << " food building of type " << NameBuilding[building->get_type()] << " at pos " << building->get_position() << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
+              continue;
+            }
+          }
           // do NOT simply insert them as they are found or they won't be in priority order
           if (building->get_type() == Building::TypeMill) {
             mill_pos = building->get_position();
-            AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << inventory_pos << " found mill at pos " << mill_pos;
+            AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << inventory_pos << " found mill at pos " << mill_pos << " with same closest inventory";
           }
           if (building->get_type() == Building::TypeFarm) {
             farm_pos = building->get_position();
-            AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << inventory_pos << " found farm at pos " << farm_pos;
+            AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << inventory_pos << " found farm at pos " << farm_pos << " with same closest inventory";
           }
           if (building->get_type() == Building::TypeBaker) {
             baker_pos = building->get_position();
-            AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << inventory_pos << " found baker at pos " << baker_pos;
+            AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << inventory_pos << " found baker at pos " << baker_pos << " with same closest inventory";
           }
         }
 
@@ -2696,8 +2710,6 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
       //    or one of the first few.  THIS WAS WRITTEN PRIOR TO MULTIPLE ECONOMIES - needs work?
       MapPosVector farm_centers = stock_buildings.at(inventory_pos).occupied_military_pos;
       // remove first element, which is always castle_pos  (NOT castle_flag_pos, which might make more sense)
-	    // EXCEPTION HERE, CANNOT SEEK VALUE INITIALIZED ITERATORS - right after building first warehouse
-	    //  look into stock_buildings.at for warehouses
       farm_centers.erase(farm_centers.begin(), farm_centers.begin() + 1);
       // add current inventory_pos back to the end
       farm_centers.push_back(inventory_pos);
@@ -2822,6 +2834,10 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
           continue;
         if (!building->is_done())
           continue;
+        if (find_nearest_inventory(map, player_index, building->get_position(), &ai_mark_pos) != inventory_pos){
+          AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << inventory_pos << " farm at pos " << building->get_position() << " is not closest to current inventory_pos " << inventory_pos << ", skipping and looking for another place for mill/baker";
+          continue;
+        }
         MapPos farm_pos = building->get_position();
         /*
         // I don't think this is needed now that there is a general check to avoid this condition inside 
@@ -2852,6 +2868,9 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
           if (built_pos != bad_map_pos && built_pos != notplaced_pos && built_pos != stopbuilding_pos) {
             AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << inventory_pos << " built grain mill at pos " << built_pos;
             need_mill = false;
+            // just increase it here rather than doing update_building_counts again
+            // this is needed because the stock_buildings.at(inv).count[Mill] won't be updated automatically!
+            stock_buildings.at(inventory_pos).count[Building::TypeMill]++;
           }
         }
         // need to find a simple way to disable this check so it tries to place the baker immedately, ignoring max incomplete buildings
