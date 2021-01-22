@@ -208,7 +208,7 @@ class AI {
   void do_demolish_unproductive_stonecutters();
   void do_demolish_unproductive_mines();
   void do_demolish_excess_lumberjacks();
-  void do_demolish_excess_fishermen();
+  void do_demolish_excess_food_buildings();
   void do_manage_tool_priorities();
   void do_manage_mine_food_priorities();
   void do_balance_sword_shield_priorities();
@@ -269,7 +269,7 @@ static const unsigned int near_trees_min = 4; // only place sawmills near at lea
 static const unsigned int stones_min = 10;
 static const unsigned int stones_max = 25;
 static const unsigned int near_stones_min = 5;  // don't place castle unless sufficient stones, considers pile size
-static const unsigned int food_max = 35;  // demolish all fisherman if stored food over this amount
+static const unsigned int food_max = 35;  // demolish all food buildings if stored food over this amount
 static const unsigned int min_openspace_farm = 25; // min open tiles in area to build farm (existing fields count favorably, though). FYI: there are 60 tiles in spiral_dist(4)
 static const unsigned int near_fields_min = 3; // don't build mill and baker until a farm has this man fields already sown
 static const unsigned int coal_min = 12;   // don't build blacksmith if under this value and no coal mine.  Also, de-prioritize coal miner's food supply if over this value

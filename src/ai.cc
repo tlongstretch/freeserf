@@ -178,7 +178,7 @@ AI::next_loop(){
     do_get_inventory(inventory_pos);
     do_promote_serfs_to_knights();
     do_demolish_excess_lumberjacks();
-    do_demolish_excess_fishermen();
+	do_demolish_excess_food_buildings();
     do_send_geologists();
 
 
@@ -1767,59 +1767,54 @@ AI::do_demolish_excess_lumberjacks() {
 }
 
 
-// burn ALL fisherman huts attached to this stock if stock food_max reached, to avoid clogging roads
+// burn ALL fisherman huts, wheat farms, pig farms(?) attached to this stock if stock food_max reached, to avoid clogging roads
+//  leave mills, bakers, butcheers
 void
-AI::do_demolish_excess_fishermen() {
-  AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " inside do_demolish_excess_fishermen for stock at pos " << inventory_pos;
-  ai_status.assign("HOUSEKEEPING - burn fishermen");
+AI::do_demolish_excess_food_buildings() {
+  AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " inside do_demolish_excess_food_buildings for stock at pos " << inventory_pos;
+  ai_status.assign("HOUSEKEEPING - burn excess food buildings");
   unsigned int food_count = 0;
   food_count += stock_inv->get_count_of(Resource::TypeBread);
   food_count += stock_inv->get_count_of(Resource::TypeMeat);
   food_count += stock_inv->get_count_of(Resource::TypeFish);
-  if (food_count >= food_max) {
-    AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " food_max reached at inventory_pos " << inventory_pos << ", burning all fishermen attached to this stock";
+  // also include pigs, wheat, and flour because they ultimately will become food
+  food_count += stock_inv->get_count_of(Resource::TypePig);
+  food_count += stock_inv->get_count_of(Resource::TypeWheat);
+  food_count += stock_inv->get_count_of(Resource::TypeFlour);
+  AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " food_count at inventory_pos " << inventory_pos << ": " << food_count;
+  if (food_count > food_max) {
+    AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " food_max reached at inventory_pos " << inventory_pos << ", burning all food buildings attached to this stock";
     int flag_index_of_selected_stock = game->get_flag_at_pos(inventory_pos)->get_index();
-    AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->get_player_buildings(player)";
+    AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->get_player_buildings(player)";
     game->get_mutex()->lock();
-    AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI has locked mutex before calling game->get_player_buildings(player)";
+    AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI has locked mutex before calling game->get_player_buildings(player)";
     Game::ListBuildings buildings = game->get_player_buildings(player);
-    AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI is unlocking mutex after calling game->get_player_buildings(player)";
+    AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI is unlocking mutex after calling game->get_player_buildings(player)";
     game->get_mutex()->unlock();
-    AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling game->get_player_buildings(player)";
+    AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling game->get_player_buildings(player)";
     for (Building *building : buildings) {
-      if (building->get_type() == Building::TypeFisher) {
-        MapPos pos = building->get_position();
-        //if (find_nearest_inventory(pos) != inventory_pos) {
-        // changing this to use nearest-by-flag instead of nearest-by-straightline-dist
-        //  note that find_nearest_inventory_for_resource only considers Inventories that are accepting resources!
-        //int flag_index_of_nearest_res_inventory = game->get_flag(building->get_flag_index())->find_nearest_inventory_for_res_producer();
-        int nearest_inventory = find_nearest_inventory(map, player_index, building->get_flag_index(), &ai_mark_pos);
-        if (nearest_inventory < 0){
-          AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " inventory not found, maybe this flag isn't part of the road system??";
+      if (building->get_type() == Building::TypeFisher ||
+		  building->get_type() == Building::TypeFarm ||
+		  building->get_type() == Building::TypePigFarm) {
+		if (find_nearest_inventory(map, player_index, building->get_position(), &ai_mark_pos) != inventory_pos){
+          AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " food building of type " << NameBuilding[building->get_type()] << " at pos " << building->get_position() << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
           continue;
         }
-        if (nearest_inventory != inventory_pos){
-          AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " fishermen at pos " << pos << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
-          continue;
-        }
-        AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " fishermen at pos " << pos << " *is* closest to current inventory_pos " << inventory_pos << ", skipping";
-        AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " burning fisherman at pos " << pos;
-        AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->get_player_buildings(player)";
+        AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " burning food building of type " << NameBuilding[building->get_type()] << " at pos " << building->get_position();
+        AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->get_player_buildings(player)";
         game->get_mutex()->lock();
-        AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI has locked mutex before calling game->get_player_buildings(player)";
-        game->demolish_building(pos, player);
-        AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI is unlocking mutex after calling game->get_player_buildings(player)";
+        AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI has locked mutex before calling game->get_player_buildings(player)";
+        game->demolish_building(building->get_position(), player);
+        AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI is unlocking mutex after calling game->get_player_buildings(player)";
         game->get_mutex()->unlock();
-        AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling game->get_player_buildings(player)";
-        // do NOT mark as bad pos, could use this spot again if food is needed later
-        //bad_building_pos.insert(std::make_pair(pos, Building::TypeStonecutter));
+        AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling game->get_player_buildings(player)";
       }
     }
   }
   else {
-    AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " food_max not yet reached at inventory_pos " << inventory_pos << ", skipping";
+    AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " food_max not yet reached at inventory_pos " << inventory_pos << ", skipping";
   }
-  AILogDebug["do_demolish_excess_fishermen"] << inventory_pos << " done do_demolish_excess_fishermen";
+  AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " done do_demolish_excess_food_buildings";
 }
 
 
