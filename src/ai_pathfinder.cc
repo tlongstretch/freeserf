@@ -858,32 +858,44 @@ AI::find_nearest_inventory(PMap map, unsigned int player_index, MapPos pos, Colo
     //AILogDebug["find_nearest_inventory"] << name << " fsearchnode - inside fnode search for flag_pos " << flag_pos << ", inside while-open-list-not-empty loop";
 
 		if (game->get_flag_at_pos(fnode->pos)->accepts_resources()) {
-			// an Inventory building's flag reached, solution found
-			AILogDebug["find_nearest_inventory"] << name << " flagsearch complete, found solution from flag_pos " << flag_pos << " to an Inventory building's flag";
-			//
-			// NONE of this backtracking is required for this type of search because all that matters is the dest pos, NOT the path to reach it
-			// HOWEVER, if we want to track the flag_dist to the Inventory all that needs to be done is:
-			// ***********************************
-			//		while (fnode->parent){
-			//			fnode = fnode->parent;
-			//			flag_dist++;
-			//		}
-			// ***********************************
-			//while (fnode->parent) {
-				//MapPos end1 = fnode->parent->pos;
-				//MapPos end2 = bad_map_pos;
-				//Direction dir1 = fnode->parent->dir;
-				//Direction dir2 = DirectionNone;
-				// is this needed?
-				//existing_road = trace_existing_road(map, end1, dir1);
-				//end2 = existing_road.get_end(map.get());
-				//fnode = fnode->parent;
-				//flag_dist++;
-			//}
-			AILogDebug["find_nearest_inventory"] << name << " done find_nearest_inventory, found solution, returning Inventory flag pos " << fnode->pos;
-			//return true;
-			// this needs to return the MapPos of the inventory flag (update it later to get rid of all these conversions)
-			return fnode->pos;
+      // to avoid crashes, handle discovering a newly built warehouse that just now became active
+      //  after the most recent update_stocks run, and doesn't exist in stocks_pos yet
+      if (stock_buildings.count(fnode->pos) == 0){
+        //update_stocks_pos();
+        // hmm this seems like a bad place to put this.. for now just skip this Inventory
+        //  and let the next AI loop find it
+        AILogDebug["find_nearest_inventory"] << name << " found a newly active Inventory building at " << fnode->pos << " that is not tracked yet, skipping it for now.";
+      }else{
+        // an Inventory building's flag reached, solution found
+        AILogDebug["find_nearest_inventory"] << name << " flagsearch complete, found solution from flag_pos " << flag_pos << " to an Inventory building's flag";
+        //
+        // NONE of this backtracking is required for this type of search because all that matters is the dest pos, NOT the path to reach it
+        // HOWEVER, if we want to track the flag_dist to the Inventory all that needs to be done is:
+        // ***********************************
+        //		while (fnode->parent){
+        //			fnode = fnode->parent;
+        //			flag_dist++;
+        //		}
+        // ***********************************
+        //while (fnode->parent) {
+          //MapPos end1 = fnode->parent->pos;
+          //MapPos end2 = bad_map_pos;
+          //Direction dir1 = fnode->parent->dir;
+          //Direction dir2 = DirectionNone;
+          // is this needed?
+          //existing_road = trace_existing_road(map, end1, dir1);
+          //end2 = existing_road.get_end(map.get());
+          //fnode = fnode->parent;
+          //flag_dist++;
+        //}
+
+        
+
+        AILogDebug["find_nearest_inventory"] << name << " done find_nearest_inventory, found solution, returning Inventory flag pos " << fnode->pos;
+        //return true;
+        // this needs to return the MapPos of the inventory flag (update it later to get rid of all these conversions)
+        return fnode->pos;
+      }
 		}
 
     //AILogDebug["find_nearest_inventory"] << name << " fsearchnode - fnode->pos " << fnode->pos << " is not at an Inventory building flag yet, adding fnode to closed list";

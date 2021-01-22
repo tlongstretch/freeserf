@@ -105,7 +105,7 @@ GameInitBox::GameInitBox(Interface *interface)
   // tlongstretch - set all AI players to default to full intelligence because the slider does nothing yet
   //   and also set full reproduction because low reproduction is confusing and the mechanism adds little to the game
   //custom_mission->add_player(1, {0xcf, 0x63, 0x63}, 20, 30, 40);
-  custom_mission->add_player(1, { 0xcf, 0x63, 0x63 }, 40, 30, 40);
+  custom_mission->add_player(1, { 0xcf, 0x63, 0x63 }, 40, 19, 40);
   mission = custom_mission;
 
   minimap->set_displayed(true);
@@ -511,7 +511,10 @@ GameInitBox::handle_player_click(unsigned int player_index, int cx, int cy) {
     player->set_character(get_next_character(player_index));
   } else if ((cx > 16 + 32) && (cy < 24)) {
     if (player_index >= mission->get_player_count()) {
-      mission->add_player(0, {0, 0, 0}, 20, 20, 20);
+      // tlongstretch - set all AI players to default to full intelligence because the slider does nothing yet
+      //   and also set full reproduction because low reproduction is confusing and the mechanism adds little to the game
+      //mission->add_player(0, {0, 0, 0}, 20, 20, 20);
+      mission->add_player(0, {0, 0, 0}, 40, 19, 40);
       player_index = static_cast<unsigned int>(mission->get_player_count() - 1);
       PPlayerInfo player = mission->get_player(player_index);
       player->set_character(get_next_character(player_index));

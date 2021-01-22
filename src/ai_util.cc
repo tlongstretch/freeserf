@@ -2024,7 +2024,7 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
     MapPos flag_pos = map->move_down_right(pos);
     bool road_built = false;
 
-        if (is_mine){
+    if (is_mine){
       AILogDebug["util_build_near_pos"] << name << " this is a mine, skipping flag/road checks as this will not be connected to the road system yet";
     }else{
 
@@ -2039,7 +2039,13 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
 
       if (!game->get_flag_at_pos(flag_pos)->is_connected()) {
         AILogDebug["util_build_near_pos"] << name << " the flag already at flag_pos " << flag_pos << " is not yet connected.  For potential new building of type " << NameBuilding[building_type] << " at pos " << pos << ", trying to connect it to road system";
-        road_built = AI::build_best_road(flag_pos, road_options, building_type);
+        //
+        // build road to connect this potential building
+        //
+        //  this may include a check for nearest inventory and disqualify the build if
+        //  the closest Inventory building by flagsearch is not the current one
+        //
+        road_built = AI::build_best_road(flag_pos, road_options, building_type, Building::TypeNone, bad_map_pos, verify_stock);
       }else{
         AILogDebug["util_build_near_pos"] << name << " the flag already at flag_pos " << flag_pos << " is already connected to road system.  For potential new building of type " << NameBuilding[building_type] << " at pos " << pos;
       }
