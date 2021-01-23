@@ -110,7 +110,7 @@ class AI {
   // stupid way to pass game speed and AI loop count to viewport for AI overlay
   unsigned int get_game_speed() { return game->get_game_speed(); }
   unsigned int get_loop_count() { return loop_count; }
-  std::set<std::string> get_ai_expansion_goals() { return expand_towards; }
+  //std::set<std::string> get_ai_expansion_goals() { return expand_towards; }
 
  protected:
   //
@@ -184,6 +184,7 @@ class AI {
     MapPosVector occupied_military_pos;
   };
   std::map<MapPos, StockBuildings> stock_buildings;
+  std::map<MapPos, ResourceMap> stock_res_sitting_at_flags;
 
   //
   // ai.cc
@@ -230,6 +231,7 @@ class AI {
   void do_build_blacksmith();
   void do_build_gold_smelter_and_connect_gold_mines();
   void do_build_warehouse();
+  void do_count_resources_sitting_at_flags(MapPos);
 
   //
   // ai_pathfinder.cc

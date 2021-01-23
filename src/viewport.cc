@@ -2531,6 +2531,7 @@ Viewport::draw_ai_grid_overlay() {
   //frame->draw_string(50, 50, "FOO\n", game->get_mark_color("white"));
   frame->draw_string(1, 1, "Player" + std::to_string(current_player_index) + " " + status, ai->get_mark_color("white"));
 
+  /*
   // draw AI expansion goals text box
   int row = 1;   // text rows are 10 pixels apart, start at row 1 (2nd row, after ai_status row)
   frame->draw_string(1, row * 10, "expansion_goals:", ai->get_mark_color("white"));
@@ -2538,6 +2539,7 @@ Viewport::draw_ai_grid_overlay() {
     row++;
     frame->draw_string(1, row * 10, "   " + goal, ai->get_mark_color("white"));
   }
+  */
 
   // draw cursor map click position
   if (ai_overlay_clicked_pos != bad_map_pos) {

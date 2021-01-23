@@ -47,6 +47,7 @@ AI::AI(PGame current_game, unsigned int _player_index, AIPlusOptions _aiplus_opt
   stocks_pos = {};
   realm_inv = {};
   stock_buildings = {};
+  stock_res_sitting_at_flags = {};
   scoring_attack = false;
   scoring_warehouse = false;
   cannot_expand_borders_this_loop = false;
@@ -176,9 +177,10 @@ AI::next_loop(){
     }
 
     do_get_inventory(inventory_pos);
+    do_count_resources_sitting_at_flags(inventory_pos);
     do_promote_serfs_to_knights();
     do_demolish_excess_lumberjacks();
-	do_demolish_excess_food_buildings();
+	  do_demolish_excess_food_buildings();
     do_send_geologists();
 
 
@@ -332,9 +334,8 @@ AI::do_update_clear_reset() {
   unfinished_building_count = 0;
   realm_inv = player->get_stats_resources();
   scoring_attack = false;
-  scoring_warehouse = false;
+  scoring_warehouse = false;  // this is deprecated right now
   cannot_expand_borders_this_loop = false;
-  AILogDebug["do_update_clear_reset"] << name << " done do_update_clear_reset";
 }
 
 
@@ -1118,16 +1119,14 @@ AI::do_send_geologists() {
   ai_status.assign("HOUSEKEEPING - send geologists");
   MapPosSet count_by_corner;
   MapPosVector geologist_positions;
-  // don't send geologists if already have enough mines
+  // don't send geologists if already have enough mines for this Inventory pos
   update_building_counts();
-  // these consider entire REALM, not per-stock, should this be made per-stock?
-  // probably so...
-  int completed_coalmine_count = realm_completed_building_count[Building::TypeCoalMine];
-  int completed_ironmine_count = realm_completed_building_count[Building::TypeIronMine];
-  int completed_goldmine_count = realm_completed_building_count[Building::TypeGoldMine];
-  int total_coalmine_count = realm_building_count[Building::TypeCoalMine];
-  int total_ironmine_count = realm_building_count[Building::TypeIronMine];
-  int total_goldmine_count = realm_building_count[Building::TypeGoldMine];
+  int completed_coalmine_count = stock_buildings.at(inventory_pos).completed_count[Building::TypeCoalMine];
+  int completed_ironmine_count = stock_buildings.at(inventory_pos).completed_count[Building::TypeIronMine];
+  int completed_goldmine_count = stock_buildings.at(inventory_pos).completed_count[Building::TypeGoldMine];
+  int total_coalmine_count = stock_buildings.at(inventory_pos).count[Building::TypeCoalMine];
+  int total_ironmine_count = stock_buildings.at(inventory_pos).count[Building::TypeIronMine];
+  int total_goldmine_count = stock_buildings.at(inventory_pos).count[Building::TypeGoldMine];
   // true if at least one COMPLETED mine of each type, plus type-specific max which includes placed-but-incomplete mines
   if ((completed_coalmine_count >= 1 && completed_ironmine_count >= 1 && completed_goldmine_count) &&
     (total_coalmine_count >= max_coalmines && total_ironmine_count >= max_ironmines && total_goldmine_count >= max_goldmines)) {
@@ -2450,11 +2449,9 @@ AI::do_build_stonecutter() {
             AILogDebug["do_build_stonecutter"] << inventory_pos << " built stonecutter at pos " << built_pos;
             break;
           }
+          if (built_pos == stopbuilding_pos) { return; }
         }
-        if (built_pos != bad_map_pos && built_pos != notplaced_pos && built_pos != stopbuilding_pos) {
-          break;
-        }
-        if (built_pos == stopbuilding_pos) { return; }
+        if (built_pos != bad_map_pos && built_pos != notplaced_pos && built_pos != stopbuilding_pos) { break; }
       }
     } // foreach military building
     update_building_counts();
@@ -2539,6 +2536,7 @@ AI::do_build_toolmaker_steelsmelter() {
         }
         if (built_pos == stopbuilding_pos) { return; }
       }
+      if (built_pos != bad_map_pos && built_pos != notplaced_pos && built_pos != stopbuilding_pos) { break; }
     } // for each military building
   }
   else {
@@ -2591,6 +2589,7 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
             if (built_pos == stopbuilding_pos) { return; }
           }
         }
+        if (built_pos != bad_map_pos && built_pos != notplaced_pos && built_pos != stopbuilding_pos) { break; }
       }
     } // fisherman
 
@@ -2737,6 +2736,7 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
           }
           if (built_pos == stopbuilding_pos) { return; }
         }
+        if (built_pos != bad_map_pos && built_pos != notplaced_pos && built_pos != stopbuilding_pos) { break; }
       } // foreach military building
     } // if needing farm
 
@@ -2946,6 +2946,7 @@ AI::do_connect_coal_mines() {
         AILogDebug["do_connect_coal_mines"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI is unlocking mutex after calling demolish flag&building (failed to connect coal mine)";
         game->get_mutex()->unlock();
         AILogDebug["do_connect_coal_mines"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling demolish flag&building (failed to connect coal mine)";
+        update_building_counts();
       }
       else {
         AILogDebug["do_connect_coal_mines"] << inventory_pos << " successfully connected unfinished coal mine to road network";
@@ -3019,6 +3020,7 @@ AI::do_connect_iron_mines() {
         AILogDebug["do_connect_iron_mines"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI is unlocking mutex after calling demolish flag&building (failed to connect iron mine)";
         game->get_mutex()->unlock();
         AILogDebug["do_connect_iron_mines"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI has unlocked mutex after calling demolish flag&building (failed to connect iron mine)";
+        update_building_counts();
       }
       else {
         AILogDebug["do_connect_iron_mines"] << inventory_pos << " successfully connected unfinished iron mine to road network";
@@ -3082,6 +3084,7 @@ AI::do_build_steelsmelter() {
       }
       if (built_pos == stopbuilding_pos) { return; }
     }
+    if (built_pos != bad_map_pos && built_pos != notplaced_pos && built_pos != stopbuilding_pos) { break; }
   } //foreach military building
   AILogDebug["do_build_steelsmelter"] << inventory_pos << " done do_build_steelsmelter";
 }
@@ -3119,6 +3122,7 @@ AI::do_build_blacksmith() {
           }
           if (built_pos == stopbuilding_pos) { return; }
         } // for each corner
+        if (built_pos != bad_map_pos && built_pos != notplaced_pos && built_pos != stopbuilding_pos) { break; }
       } // for each military building
     } // if have sufficient coal, iron, steel
     else {
@@ -3168,6 +3172,7 @@ AI::do_build_gold_smelter_and_connect_gold_mines() {
             }
             if (built_pos == stopbuilding_pos) { return; }
           }
+          if (built_pos != bad_map_pos && built_pos != notplaced_pos && built_pos != stopbuilding_pos) { break; }
         } // foreach military pos
       } // if have gold smelter
     } // if need gold smelter
@@ -3347,92 +3352,35 @@ AI::do_build_warehouse() {
   update_building_counts();
   // don't build warehouses until territory reaches a certain size
   unsigned int completed_huts = realm_completed_building_count[Building::TypeHut];
-  if (completed_huts < 12) {
-    AILogDebug["do_build_warehouse"] << name << " not considering building warehouses (stocks) until a significant number of huts completed";
+  if (loop_count % 10 != 0 || completed_huts < 12) {
+    AILogDebug["do_build_warehouse"] << name << " not considering building warehouses (stocks) until a significant number of huts completed, and only every X loops";
     return;
   }
   int warehouse_count = realm_building_count[Building::TypeStock];
   int completed_warehouse_count = realm_completed_building_count[Building::TypeStock];
   if (warehouse_count > completed_warehouse_count) {
-    AILogDebug["do_build_warehouse"] << name << " already placed new warehouse (stock), not building another until previous one is built";
+    AILogDebug["do_build_warehouse"] << name << " already placed a new warehouse (stock), not building another until previous one is built";
     return;
   }
   unsigned int planks_count = realm_inv[Resource::TypePlank];
   unsigned int stones_count = realm_inv[Resource::TypeStone];
-  if (planks_count < planks_min || stones_count < stones_min) {
-    AILogDebug["do_build_warehouse"] << name << " not building warehouse, not enough planks or stones";
+  // increase the requirements a bit for each warehouse because it is realm-wide check
+  if (planks_count < planks_min + ( 4 * warehouse_count) || stones_count < stones_min + ( 2 * warehouse_count)) {
+    AILogDebug["do_build_warehouse"] << name << " not building warehouse, not enough planks or stones in realm";
     return;
   }
-  MapPosVector corners = AI::get_corners(castle_pos, 21);
-  MapPosSet count_by_corner;
-  MapPosVector warehouse_positions;
-  scoring_warehouse = true;
-  for (MapPos corner_pos : corners) {
-    AILogDebug["do_build_warehouse"] << name << " considering building warehouse near corner_pos " << corner_pos;
-    // using expand_towards logic because it scores based on number of civ buildings, which is good for placing warehouse
-    /// hack - save a copy of the last expand_towards to use for attacks  (which happen at the beginning of the AI loop, before
-    ///   the expansion goals are defined.  The better approach is to have a "stuff that happens at the end of the AI loop" code section
-    ///   but right now when we shortcut the end of the loop it is doing "return" instead of goto or similar
-    last_expand_towards = expand_towards;
-    expand_towards.clear();
-    expand_towards.insert("create_buffer");
-    unsigned int score = AI::score_area(corner_pos, AI::spiral_dist(6));
-    AILogDebug["do_build_warehouse"] << name << " corner " << corner_pos << " has score " << score;
-    count_by_corner.insert(std::make_pair(corner_pos, score));
-  }
-  scoring_warehouse = false;
-  MapPosVector search_positions = AI::sort_by_val_desc(count_by_corner);
-  MapPos built_pos;
-  for (MapPos search_pos : search_positions) {
-    //ai_mark_pos.clear();
-    if (find_nearest_building(search_pos, CompletionLevel::Unfinished, Building::TypeStock, AI::spiral_dist(15)) != nullptr) {
-      AILogDebug["do_build_warehouse"] << name << " there is already a stock near search_pos " << search_pos << ", skipping this area";
-      continue;
-    }
-    AILogDebug["do_build_warehouse"] << name << " try to build warehouse near pos " << search_pos;
-    built_pos = bad_map_pos;
-    built_pos = AI::build_near_pos(search_pos, AI::spiral_dist(5), Building::TypeStock);
-    if (built_pos != bad_map_pos && built_pos != notplaced_pos && built_pos != stopbuilding_pos) {
-      //ai_mark_pos.clear();
-      AILogDebug["do_build_warehouse"] << name << " built warehouse (stock) at pos " << built_pos;
-      return;
-    }
-    if (built_pos == stopbuilding_pos) {
-      return;
-    }
-  }
-  // if a warehouse wasn't able to be built by now, try building one around existing warehouses
-  //  instead of around castle center
-  AILogDebug["do_build_warehouse"] << name << " no warehouse could be placed around castle, trying around any existing warehouses";
-  for (MapPos this_inventory_pos : stocks_pos) {
-    inventory_pos = this_inventory_pos;
-    AILogDebug["do_build_warehouse"] << name << " considering building warehouse around existing warehouse/stock at pos " << inventory_pos;
-    // this is a cut/paste, make it a proper function
-    MapPosVector corners = AI::get_corners(this_inventory_pos, 21);
-    MapPosSet count_by_corner;
-    MapPosVector warehouse_positions;
+  for (MapPos center_pos : realm_occupied_military_pos) {
+    AILogDebug["do_build_warehouse"] << name << " considering building warehouse near corners around realm_occupied_military_pos " << center_pos;
+    MapPosVector corners = AI::get_corners(center_pos);
     for (MapPos corner_pos : corners) {
-      AILogDebug["do_build_warehouse"] << name << " considering building warehouse near corner_pos " << corner_pos;
-      // using expand_towards logic because it scores based on number of civ buildings, which is good for placing warehouse
-      expand_towards.clear();
-      expand_towards.insert("create_buffer");
-      unsigned int score = AI::score_area(corner_pos, AI::spiral_dist(6));
-      AILogDebug["do_build_warehouse"] << name << " corner " << corner_pos << " has score " << score;
-      count_by_corner.insert(std::make_pair(corner_pos, score));
-    }
-    MapPosVector search_positions = AI::sort_by_val_desc(count_by_corner);
-    MapPos built_pos;
-    for (MapPos search_pos : search_positions) {
-      //ai_mark_pos.clear();
-      if (find_nearest_building(search_pos, CompletionLevel::Unfinished, Building::TypeStock, AI::spiral_dist(15)) != nullptr) {
-        AILogDebug["do_build_warehouse"] << name << " there is already a stock near search_pos " << search_pos << ", skipping this area";
+      if (find_nearest_building(corner_pos, CompletionLevel::Unfinished, Building::TypeStock, 20) != nullptr) {
+        AILogDebug["do_build_warehouse"] << name << " there is already a stock near corner_pos " << corner_pos << ", skipping this area";
         continue;
       }
-      AILogDebug["do_build_warehouse"] << name << " try to build warehouse near pos " << search_pos;
-      built_pos = bad_map_pos;
-      built_pos = AI::build_near_pos(search_pos, AI::spiral_dist(5), Building::TypeStock);
+      AILogDebug["do_build_warehouse"] << name << " try to build warehouse near pos " << corner_pos;
+      MapPos built_pos = bad_map_pos;
+      built_pos = AI::build_near_pos(corner_pos, AI::spiral_dist(5), Building::TypeStock);
       if (built_pos != bad_map_pos && built_pos != notplaced_pos && built_pos != stopbuilding_pos) {
-        //ai_mark_pos.clear();
         AILogDebug["do_build_warehouse"] << name << " built warehouse (stock) at pos " << built_pos;
         return;
       }
@@ -3475,5 +3423,60 @@ AI::do_get_inventory(MapPos inventory_pos) {
   for (int i = 0; i < 26; i++) {
     AILogDebug["do_get_inventory"] << name << "'s stock at pos " << inventory_pos << " has " << NameResource[i] << ": " << stock_inv->get_count_of(Resource::Type(i));
   }
+
+  //AILogDebug["do_get_inventory"] << name << "foo0";
+  //stock_res_sitting_at_flags[inventory_pos] = {};
+  //AILogDebug["do_get_inventory"] << name << "foo1";
+  //ResourceMap flag_res_map = stock_res_sitting_at_flags.at(inventory_pos);
+  //do_count_resources_sitting_at_flags();
+  for (int i = 0; i < 26; i++) {
+    //AILogDebug["do_get_inventory"] << name << "fooi" << i;
+    //flag_res_map.at(Resource::Type(i)) = 0;
+    //stock_res_sitting_at_flags.at(inventory_pos)[i] = 0;
+    stock_res_sitting_at_flags[inventory_pos][Resource::Type(i)] = 0;
+  }
+  //AILogDebug["do_get_inventory"] << name << "foo2";
+
   AILogDebug["do_get_inventory"] << name << " done get_inventory";
+}
+
+
+// count all Resources sitting at Flags-that-are-closest-to-this-inventory_pos
+//  so they can be included in max_XXX checks
+void
+AI::do_count_resources_sitting_at_flags(MapPos inv_pos) {
+  // time this function for debugging
+  std::clock_t start;
+  double duration;
+  start = std::clock();
+  AILogDebug["do_count_resources_sitting_at_flags"] << inv_pos << " inside do_count_resources_sitting_at_flags";
+  AILogDebug["do_count_resources_sitting_at_flags"] << inv_pos << " HouseKeeping: count resources sitting at flag";
+  ai_status.assign("HOUSEKEEPING - count resources sitting at flags");
+  ResourceMap res_at_flags;
+  flags_static_copy = *(game->get_flags());
+  flags = &flags_static_copy;
+  for (Flag *flag : *flags) {
+    if (flag->get_owner() != player_index)
+      continue;
+    if (!flag->is_connected())
+      continue;
+    if (find_nearest_inventory(map, player_index, flag->get_position(), &ai_mark_pos) != inv_pos)
+      continue;
+    for (int i = 0; i < FLAG_MAX_RES_COUNT; i++) {
+      Resource::Type type = flag->get_resource_at_slot(i);
+      if (type != Resource::TypeNone){
+        AILogDebug["do_count_resources_sitting_at_flags"] << name << " flag at pos " << flag->get_position() << " has a resource of type " << NameResource[type] << " at slot " << i;
+        stock_res_sitting_at_flags[inv_pos][type]++;
+      }
+    }
+  }
+  // dump stock_res_sitting_at_flags every loop for debugging
+  for (int i = 0; i < 26; i++) {
+    //AILogDebug["do_count_resources_sitting_at_flags"] << inv_pos << " flags nearest to stock at pos " << inv_pos << " have " << NameResource[i] << ": " << stock_res_sitting_at_flags.at(inv_pos).count(Resource::Type(i));
+    AILogDebug["do_count_resources_sitting_at_flags"] << inv_pos << " flags nearest to stock at pos " << inv_pos << " have " << NameResource[i] << ": " << stock_res_sitting_at_flags[inv_pos][Resource::Type(i)];
+  }
+
+
+  duration = (std::clock() - start) / static_cast<double>(CLOCKS_PER_SEC);
+  AILogDebug["do_count_resources_sitting_at_flags"] << inv_pos << " done do_count_resources_sitting_at_flags call took " << duration;
 }

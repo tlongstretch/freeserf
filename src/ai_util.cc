@@ -753,7 +753,6 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
 
   unsigned int roads_built = 0;
   unsigned int target_count = static_cast<unsigned int>(targets.size());
-  int flag_index_of_selected_stock = game->get_flag_at_pos(inventory_pos)->get_index();
   //
   // change this to its own function so there isn't a foreach loop for hundreds of lines to handle two targets
   //
@@ -1532,8 +1531,9 @@ AI::find_nearest_completed_building(MapPos center_pos, unsigned int distance, Bu
 }
 */
 
-// return true if any building of the specified type exists within specified distance from pos
-//  only considers this player's buildings
+// return true if any building of the specified type exists within specified spiral 
+//  distance from pos only considers this player's buildings
+//  IS THIS DEPRECATED NOW???
 bool
 AI::building_exists_near_pos(MapPos center_pos, unsigned int distance, Building::Type building_type) {
   AILogDebug["util_building_exists_near_pos"] << name << " inside AI::building_exists_near_pos with type " << NameBuilding[building_type] << ", distance " << distance << ", and target pos " << center_pos;
@@ -2356,6 +2356,7 @@ AI::score_area(MapPos center_pos, unsigned int distance) {
       pos_value += expand_towards.count("stones") * stone_signs_weight * stone_signs;
       AILogDebug["util_score_area"] << name << " adding stones count " << stone_signs << " with value " << expand_towards.count("stones") * stone_signs_weight * stone_signs;
     }
+    // I think scoring_warehouse is deprecated for now, could bring it back if it really helps
     if (!scoring_warehouse) {
       //
       // defense - build knight huts to buffer borders
