@@ -3368,11 +3368,11 @@ AI::do_build_warehouse() {
     AILogDebug["do_build_warehouse"] << name << " considering building warehouse near corners around realm_occupied_military_pos " << center_pos;
     MapPosVector corners = AI::get_corners(center_pos);
     for (MapPos corner_pos : corners) {
-      if (get_straightline_tile_dist(map, corner_pos, castle_pos) <= 25){
+      if (get_straightline_tile_dist(map, corner_pos, castle_pos) <= 30){
         AILogDebug["do_build_warehouse"] << name << " corner_pos " << corner_pos << " is too close to the castle, skipping this area";
         continue;
       }
-      if (find_nearest_building(corner_pos, CompletionLevel::Unfinished, Building::TypeStock, 25) != nullptr) {
+      if (find_nearest_building(corner_pos, CompletionLevel::Unfinished, Building::TypeStock, 30) != nullptr) {
         AILogDebug["do_build_warehouse"] << name << " there is already a stock near corner_pos " << corner_pos << ", skipping this area";
         continue;
       }

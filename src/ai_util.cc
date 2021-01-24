@@ -1954,6 +1954,18 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
     return stopbuilding_pos;
   }
 
+  // don't build large civilian buildings, including stocks, near enemy borders
+  if (building_type >= Building::TypeStock && building_type != Building::TypeHut &&
+      building_type != Building::TypeTower && building_type != Building::TypeForester){
+    AILogDebug["util_build_near_pos"] << name << " this is a Large Civilian building, checking to see if enemy borders are near";
+    for (unsigned int i = 0; i < AI::spiral_dist(8); i++) {
+      MapPos pos = map->pos_add_extended_spirally(center_pos, i);
+      if (map->get_owner(pos) != player_index) {
+        AILogDebug["util_build_near_pos"] << name << " found enemy borders near this potential build_near_pos center and this is a Large Civilian building!  Not building in this area, returning";
+        return bad_map_pos;
+      }
+    }
+  }
   // if this is an economy building (except Fisher which isn't counted), make sure the actual building position 
   //  is closest to the currently "selected" stock so that this building becomes "attached" to the stock.
   //  Otherwise, the stock doesn't see this building as part of its range and will keep building more
@@ -2214,6 +2226,17 @@ AI::expand_borders(MapPos center_pos) {
     AILogDebug["util_expand_borders"] << name << " cannot_expand_borders_this_loop is true, not trying again until next loop";
     // should be returning not_built_pos or bad_map pos?? stopbuilding is less appropriate with separate counts set up for huts vs other buildings
     return stopbuilding_pos;
+  }
+  // don't expand borders if running out of knights AND already have all 3 mine types
+  unsigned int idle_knights = serfs_idle[Serf::TypeKnight0] + serfs_idle[Serf::TypeKnight1] + serfs_idle[Serf::TypeKnight2] + serfs_idle[Serf::TypeKnight3] + serfs_idle[Serf::TypeKnight4];
+  if (idle_knights <= knights_min) {
+    AILogDebug["util_expand_borders"] << name << " running low on idle_knights, checking to see if already have all three mine types";
+    if (realm_building_count[Building::TypeCoalMine] > 0 &&
+        realm_building_count[Building::TypeIronMine] > 0 &&
+        realm_building_count[Building::TypeGoldMine] > 0){
+      AILogDebug["util_expand_borders"] << name << " running low on idle_knights and have at least one of each mine type, not expanding borders";
+      return stopbuilding_pos;
+    }
   }
 
   MapPos built_pos = bad_map_pos;
