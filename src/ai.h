@@ -185,6 +185,7 @@ class AI {
   };
   std::map<MapPos, StockBuildings> stock_buildings;
   std::map<MapPos, ResourceMap> stock_res_sitting_at_flags;
+  ResourceMap realm_res_sitting_at_flags;
 
   //
   // ai.cc
