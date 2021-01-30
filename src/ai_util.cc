@@ -1960,7 +1960,8 @@ AI::build_near_pos(MapPos center_pos, unsigned int distance, Building::Type buil
     AILogDebug["util_build_near_pos"] << name << " this is a Large Civilian building, checking to see if enemy borders are near";
     for (unsigned int i = 0; i < AI::spiral_dist(8); i++) {
       MapPos pos = map->pos_add_extended_spirally(center_pos, i);
-      if (map->get_owner(pos) != player_index) {
+      // if not mine and not unowned (i.e. owned by somebody else)
+      if (map->get_owner(pos) != player_index && map->get_owner(pos) != -1) {
         AILogDebug["util_build_near_pos"] << name << " found enemy borders near this potential build_near_pos center and this is a Large Civilian building!  Not building in this area, returning";
         return bad_map_pos;
       }

@@ -544,7 +544,7 @@ AI::do_spiderweb_roads2() {
   AILogDebug["do_spiderweb_roads2"] << inventory_pos << " HouseKeeping: creating spider-web2 roads";
   // only do this every X loops, and only add one new road per run
   update_building_counts();
-  unsigned int completed_huts = stock_buildings.at(inventory_pos).count[Building::TypeHut];
+  unsigned int completed_huts = realm_completed_building_count[Building::TypeHut];
   if (loop_count % 10 != 0 || completed_huts < 9 || completed_huts > 16) {
     AILogDebug["do_spiderweb_roads2"] << inventory_pos << " skipping spider-web2 roads, only running this every X loops and >Y, <Z knight huts built";
   }
@@ -637,10 +637,10 @@ AI::do_spiderweb_roads2() {
     }
 
     //AILogDebug["do_spiderweb_roads2"] << name << " sanity check: there were " << tried_pairs.size() << " tried pairs";
-    AILogDebug["do_spiderweb_roads2"] << name << " done with building spider-web roads2";
+    AILogDebug["do_spiderweb_roads2"] << inventory_pos << " done with building spider-web roads2";
   }
   duration = (std::clock() - start) / static_cast<double>(CLOCKS_PER_SEC);
-  AILogDebug["do_spiderweb_roads2"] << name << " done with building spider-web roads2 call took " << duration;
+  AILogDebug["do_spiderweb_roads2"] << inventory_pos << " done with building spider-web roads2 call took " << duration;
 }
 
 // after the game has progressed a bit, add a bunch of flags to the roads immediately surrounding the castle
@@ -1774,6 +1774,11 @@ AI::do_demolish_excess_food_buildings() {
   food_count += stock_inv->get_count_of(Resource::TypeMeat) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypeMeat];
   food_count += stock_inv->get_count_of(Resource::TypeFish) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypeFish];
   // also include pigs, wheat, and flour because they ultimately will become food
+  //
+  //   NOTE - potential bug here: in the rare case that no mill & baker or butcher exists
+  //    these unprocessed food resources won't become usable food, should probably add a check of
+  //   "only include unprocessed if processing building in place" for each
+  //
   food_count += stock_inv->get_count_of(Resource::TypePig) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypePig];
   food_count += stock_inv->get_count_of(Resource::TypeWheat) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypeWheat];
   food_count += stock_inv->get_count_of(Resource::TypeFlour) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypeFlour];
@@ -2822,6 +2827,9 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
   //
   if (food_count < (food_max - anti_flapping_buffer)){
     // build mill & baker near *already productive* wheat farms
+    //  MODIFIED - will build near unproductive wheat farm solely because the delay
+    //   in waiting for wheat fields results in unacceptable road congestion and poor
+    //   road connections between the mill/baker and wheat farm sometimes
     update_building_counts();
     farm_count = stock_buildings.at(inventory_pos).count[Building::TypeFarm];
     if (farm_count >= 1) {
