@@ -111,7 +111,8 @@ class AI {
   unsigned int get_game_speed() { return game->get_game_speed(); }
   unsigned int get_loop_count() { return loop_count; }
   //std::set<std::string> get_ai_expansion_goals() { return expand_towards; }
-
+  void set_serf_lost();
+  
  protected:
   //
  private:
@@ -257,6 +258,15 @@ class AI {
 //  these compiled fine on visual studio community 2017 on windows
 //  maybe this is because of g++ switch to C++14 and not the compiler?
 static const int serfs_min = 5;  // don't convert serfs to knights below this value
+ // the ${resource}_max values below are modified by this buffer to avoid constantly flipping between not enough and too many
+ // when determining if AI should gather more resources, the buffer is subtracted from resource_max so it stops building early
+ // when determining if AI should demolish resource producing buildings, the buffer is added to resource_max so it delays demo
+ // so, far example with a buffer of 5 and resource_max of 30:
+ //  resource production buildings will be placed if res < 25
+ //  no changes made if res count 25 - 35
+ //  resource production buildings will be destroyed if res > 35
+ //  if stored res count drops below 25 again it will build res buildings
+static const unsigned int anti_flapping_buffer = 5;
 static const unsigned int knights_min = 3;
 static const unsigned int knights_med = 18;
 static const unsigned int knights_max = 50;

@@ -1462,9 +1462,6 @@ AI::do_build_rangers() {
 void
 AI::do_demolish_unproductive_3rd_lumberjacks() {
   AILogDebug["do_demolish_unproductive_3rd_lumberjacks"] << name << " inside do_demolish_unproductive_3rd_lumberjacks";
-  //
-  // build ranger near lumberjacks that have few trees and no ranger nearby
-  //
   ai_status.assign("HOUSEKEEPING - burn unproductive 3rd lumberjacks");
   AILogDebug["do_demolish_unproductive_3rd_lumberjacks"] << name << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->get_player_buildings(player)";
   game->get_mutex()->lock();
@@ -1726,7 +1723,7 @@ AI::do_demolish_excess_lumberjacks() {
   int lumberjack_count = stock_buildings.at(inventory_pos).count[Building::TypeLumberjack];
   unsigned int wood_count = stock_inv->get_count_of(Resource::TypePlank) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypePlank];
   wood_count += stock_inv->get_count_of(Resource::TypeLumber) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypeLumber];
-  if (wood_count >= planks_max && lumberjack_count > 1) {
+  if (wood_count >= (planks_max + anti_flapping_buffer) && lumberjack_count > 1) {
     AILogDebug["do_demolish_excess_lumberjacks"] << inventory_pos << " planks_max reached and lumberjack_count is " << lumberjack_count << ".  Burning all but one lumberjack (nearest to this stock)";
     bool first_one_found = false;
     AILogDebug["do_demolish_excess_lumberjacks"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->get_player_buildings(player)";
@@ -1781,7 +1778,7 @@ AI::do_demolish_excess_food_buildings() {
   food_count += stock_inv->get_count_of(Resource::TypeWheat) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypeWheat];
   food_count += stock_inv->get_count_of(Resource::TypeFlour) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypeFlour];
   AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " food_count at inventory_pos " << inventory_pos << ": " << food_count;
-  if (food_count > food_max) {
+  if (food_count > (food_max + anti_flapping_buffer)) {
     AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " food_max reached at inventory_pos " << inventory_pos << ", burning all food buildings attached to this stock";
     AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->get_player_buildings(player)";
     game->get_mutex()->lock();
@@ -2163,6 +2160,25 @@ AI::do_place_mines(std::string type, Building::Type building_type, Map::Object l
         if (sign_density >= sign_density_min) {
           AILogVerbose["do_place_mines"] << inventory_pos << " sign density " << sign_density << " is over sign_density_min " << sign_density_min;
         }
+        // don't place a mine if there are already two other mines of the same type nearby, it looks messy
+        int found = 0;
+        for (unsigned int i = 0; i < AI::spiral_dist(12); i++) {
+          MapPos pos = map->pos_add_extended_spirally(corner_pos, i);
+          if (map->has_building(pos) && map->get_owner(pos) == player_index){
+            Building *building = game->get_building_at_pos(pos);
+            if (building != nullptr){
+              if (building->get_type() == building_type){
+                AILogVerbose["do_place_mines"] << inventory_pos << " found another mine of type " << NameBuilding[building_type] << " near where looking to place another";
+                found++;
+              }
+            }
+          }
+          if (found >= 2){ break; }
+        }
+        if (found >= 2){
+          AILogDebug["do_place_mines"] << inventory_pos << " found at least two other mines of same type " << NameBuilding[building_type] << " nearby, not placing another.  Skipping this corner area";
+          continue;
+        }
         // try to build a mine on a Large resource sign if found,
         //    or if a Small resource find and sign_ratio is high enough
         // note - because we are checking even if blank signs found, this is sub-optimal.
@@ -2238,7 +2254,7 @@ AI::do_build_sawmill_lumberjacks() {
   wood_count += stock_inv->get_count_of(Resource::TypeLumber) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypeLumber];
   int sawmill_count = 0;
   int lumberjack_count = 0;
-  if (wood_count < planks_max) {
+  if (wood_count < (planks_max - anti_flapping_buffer)) {
     AILogDebug["do_build_sawmill_lumberjacks"] << inventory_pos << " AI: desire more planks";
     // count trees around corners of each military building, starting with castle
     MapPosSet count_by_corner;
@@ -2561,13 +2577,13 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
   ai_status.assign("MAIN LOOP - food");
   update_building_counts();
   unsigned int food_count = 0;
-  food_count += stock_inv->get_count_of(Resource::TypeBread);
-  food_count += stock_inv->get_count_of(Resource::TypeMeat);
-  food_count += stock_inv->get_count_of(Resource::TypeFish);
+  food_count += stock_inv->get_count_of(Resource::TypeBread) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypeBread];
+  food_count += stock_inv->get_count_of(Resource::TypeMeat) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypeMeat];
+  food_count += stock_inv->get_count_of(Resource::TypeFish) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypeFish]; 
   MapPos built_pos = bad_map_pos;
   bool need_farm = false;
   bool need_mill = false;
-  if (food_count < food_max) {
+  if (food_count < (food_max - anti_flapping_buffer)) {
     //
     // build fisherman if water found with no nearby fisherman
     //
@@ -2760,9 +2776,9 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
   unsigned int farm_count = stock_buildings.at(inventory_pos).count[Building::TypeFarm];
   unsigned int lumberjack_count = stock_buildings.at(inventory_pos).count[Building::TypeLumberjack];
   unsigned int planks_count = stock_inv->get_count_of(Resource::TypePlank);
-  if (sawmill_count > 0 && farm_count > 0 && planks_count < planks_max && lumberjack_count < 3) {
+  AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << inventory_pos << " DEBUG current lumberjack count: " << lumberjack_count << ", sawmill_count: " << sawmill_count << ", farm_count: " << farm_count << ", panks_count: " << planks_count << ", planks_max: " << planks_max;
+  if (sawmill_count > 0 && farm_count > 0 && planks_count < (planks_max - anti_flapping_buffer) && lumberjack_count < 3) {
     AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << inventory_pos << " planks not maxed and < 3 lumberjacks, build a third";
-    //AILogDebug["do_build_food_buildings_and_3rd_lumberjack"] << inventory_pos << " debug, current lumberjack count: " << building_count[Building::TypeLumberjack];
     // count trees near military buildings,
     //   the third lumberjack doesn't need to be near sawmill, if there is a spot with many trees that is fine
     MapPosSet count_by_corner;
@@ -2804,7 +2820,7 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
   //
   // back to food - grain mills and baker
   //
-  if (food_count < food_max){
+  if (food_count < (food_max - anti_flapping_buffer)){
     // build mill & baker near *already productive* wheat farms
     update_building_counts();
     farm_count = stock_buildings.at(inventory_pos).count[Building::TypeFarm];
@@ -2888,7 +2904,7 @@ AI::do_connect_coal_mines() {
   ai_status.assign("MAIN LOOP - coal");
   AILogDebug["do_connect_coal_mines"] << inventory_pos << " inside do_connect_coal_mines()";
   unsigned int coal_count = stock_inv->get_count_of(Resource::TypeCoal) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypeCoal];
-  if (coal_count < coal_max) {
+  if (coal_count < coal_max - anti_flapping_buffer) {
     AILogDebug["do_connect_coal_mines"] << inventory_pos << " AI: desire more coal";
     // note that expanding towards hills when territory already contains unmarked hills
     //    may be sub-optimal... but is probably good enough
@@ -2902,6 +2918,19 @@ AI::do_connect_coal_mines() {
     }else{
       AILogDebug["do_connect_coal_mines"] << inventory_pos << " coalmine_count " << coalmine_count << " is >= max_coalmines " << max_coalmines << ", max_coalmines reached, not connecting more";
       return;
+    }
+    // don't connect a second coalmine until have at least two non-coal mines
+    // don't conenct a third coalmine until have at least three non-coal mines
+    if (coalmine_count > 0){
+      int other_mine_count = stock_buildings.at(inventory_pos).connected_count[Building::TypeIronMine] + stock_buildings.at(inventory_pos).connected_count[Building::TypeGoldMine];
+      if (other_mine_count < 2){
+        AILogDebug["do_connect_coal_mines"] << inventory_pos << " already have a connected coal mine and do not yet have two other non-coal mines, not connecting another coal mine yet";
+        return;
+      }
+      if (other_mine_count < 3 && coalmine_count > 2){
+        AILogDebug["do_connect_coal_mines"] << inventory_pos << " already have two connected coal mines and do not yet have three other non-coal mines, not connecting another coal mine yet";
+        return;
+      }
     }
     //  if low on miners/pickaxes, don't build a second/third coal mine unless already having
     //   at least one occupied iron and gold mine to avoid depleting pickaxes/miners
@@ -2962,7 +2991,7 @@ AI::do_connect_iron_mines() {
   ai_status.assign("MAIN LOOP - iron");
   AILogDebug["do_connect_iron_mines"] << inventory_pos << " inside do_connect_iron_mines()";
   unsigned int iron_count = stock_inv->get_count_of(Resource::TypeIronOre) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypeIronOre];
-  if (iron_count < iron_ore_max) {
+  if (iron_count < (iron_ore_max - anti_flapping_buffer)) {
     AILogDebug["do_connect_iron_mines"] << inventory_pos << " AI: desire more iron";
     // note that expanding towards hills when territory already contains unmarked hills
     //    may be sub-optimal... but is probably good enough
@@ -2976,6 +3005,14 @@ AI::do_connect_iron_mines() {
     }else{
       AILogDebug["do_connect_iron_mines"] << inventory_pos << " ironmine_count " << ironmine_count << " is >= max_ironmines " << max_ironmines << ", max_ironmines reached, not connecting more";
       return;
+    }
+    // don't connect a second ironmine until have at least one coal mines
+    if (ironmine_count > 0){
+      int coalmine_count = stock_buildings.at(inventory_pos).connected_count[Building::TypeCoalMine];
+      if (coalmine_count < 1){
+        AILogDebug["do_connect_iron_mines"] << inventory_pos << " already have a connected iron mine and do not yet have a conneted coal mine, not connecting another iron mine yet";
+        return;
+      }
     }
     //  if low on miners/pickaxes, don't build a second iron mine unless already having
     //   at least one occupied coal and gold mine to avoid depleting pickaxes/miners
@@ -3041,7 +3078,7 @@ AI::do_build_steelsmelter() {
   update_building_counts();
   int steelsmelter_count = stock_buildings.at(inventory_pos).count[Building::TypeSteelSmelter];
   MapPos built_pos = bad_map_pos;
-  if (steelsmelter_count > 1 || steel_count > steel_max) {
+  if (steelsmelter_count > 1 || steel_count > (steel_max - anti_flapping_buffer)) {
     AILogDebug["do_build_steelsmelter"] << inventory_pos << " have steel smelter or sufficient steel, skipping";
     return;
   }
@@ -3144,7 +3181,7 @@ AI::do_build_gold_smelter_and_connect_gold_mines() {
   AILogDebug["do_build_gold_smelter_and_connect_gold_mines"] << inventory_pos << " inside do_build_gold_smelter_and_connect_gold_mines()";
   unsigned int gold_bars_count = stock_inv->get_count_of(Resource::TypeGoldBar);
   MapPos built_pos = bad_map_pos;
-  if (gold_bars_count < gold_bars_max) {
+  if (gold_bars_count < ( gold_bars_max - anti_flapping_buffer)) {
     AILogDebug["do_build_gold_smelter_and_connect_gold_mines"] << inventory_pos << " AI: desire more gold";
     unsigned int gold_ore_count = stock_inv->get_count_of(Resource::TypeGoldOre) + stock_res_sitting_at_flags.at(inventory_pos)[Resource::TypeGoldOre];
     update_building_counts();

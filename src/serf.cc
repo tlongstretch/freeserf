@@ -1426,17 +1426,17 @@ Serf::handle_serf_walking_state_search_cb(Flag *flag, void *data) {
 
 void
 Serf::start_walking(Direction dir, int slope, int change_pos) {
-  //Log::Info["serf"] << "debug: inside start_walking";
+  Log::Info["serf"] << "debug: inside start_walking";
   PMap map = game->get_map();
   MapPos new_pos = map->move(pos, dir);
-  //Log::Info["serf"] << "debug: inside start_walking, old pos: " << pos << ", new pos: " << new_pos;
+  Log::Info["serf"] << "debug: inside start_walking, old pos: " << pos << ", new pos: " << new_pos;
   animation = get_walking_animation(map->get_height(new_pos) -
                                     map->get_height(pos), dir, 0);
   counter += (slope * counter_from_animation[animation]) >> 5;
 
-  //Log::Info["serf"] << "debug: inside start_walking, animation = " << animation;
+  Log::Info["serf"] << "debug: inside start_walking, animation = " << animation;
   if (change_pos) {
-    //Log::Info["serf"] << "debug: inside start_walking, change_pos is TRUE, moving serf to new_pos " << new_pos;
+    Log::Info["serf"] << "debug: inside start_walking, change_pos is TRUE, moving serf to new_pos " << new_pos;
     map->set_serf_index(pos, 0);
     map->set_serf_index(new_pos, get_index());
   }
@@ -1458,11 +1458,11 @@ static const int road_building_slope[] = {
    serf index cleared. */
 void
 Serf::enter_building(int field_B, int join_pos) {
-  //Log::Info["serf"] << "debug: inside enter_building, setting state to StateEnteringBuilding";
+  Log::Info["serf"] << "debug: inside enter_building, setting state to StateEnteringBuilding";
   set_state(StateEnteringBuilding);
-  //Log::Info["serf"] << "debug: inside enter_building, calling start_walking, join_pos = " << join_pos;
+  Log::Info["serf"] << "debug: inside enter_building, calling start_walking, join_pos = " << join_pos;
   start_walking(DirectionUpLeft, 32, !join_pos);
-  //Log::Info["serf"] << "debug: inside enter_building, back from start_walking";
+  Log::Info["serf"] << "debug: inside enter_building, back from start_walking";
   if (join_pos) game->get_map()->set_serf_index(pos, get_index());
 
   Building *building = game->get_building_at_pos(pos);
@@ -1996,16 +1996,16 @@ Serf::enter_inventory() {
 
 void
 Serf::handle_serf_entering_building_state() {
-  //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter was = " << counter;
+  Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter was = " << counter;
   uint16_t delta = game->get_tick() - tick;
   tick = game->get_tick();
   counter -= delta;
-  //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter now = " << counter;
+  Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter now = " << counter;
   if (counter < 0 || counter <= s.entering_building.slope_len) {
-    //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter <0 or <= s.entering_building.slope_len";
+    Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter <0 or <= s.entering_building.slope_len";
     if (game->get_map()->get_obj_index(pos) == 0 ||
         game->get_building_at_pos(pos)->is_burning()) {
-      //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, setting Lost state and returning";
+      Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, setting Lost state and returning";
       /* Burning */
       set_state(StateLost);
       s.lost.field_B = 0;
@@ -2015,7 +2015,30 @@ Serf::handle_serf_entering_building_state() {
 
     counter = s.entering_building.slope_len;
     PMap map = game->get_map();
-    //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, switching, this serf type is " << NameSerf[get_type()];
+    Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, switching, this serf type is " << NameSerf[get_type()];
+
+    // support allowing Lost serfs to enter any nearby friendly building
+    if ((get_type() == Serf::TypeTransporter || get_type() == Serf::TypeGeneric || get_type() == Serf::TypeNone)){
+      PMap map = game->get_map();
+      if (map->has_building(pos)){
+        Building *building = game->get_building_at_pos(pos);
+        if (building->get_type() != Building::TypeStock && building->get_type() != Building::TypeCastle){
+          Log::Info["serf"] << "Debug - a generic serf at pos " << pos << " has arrived in a non-inventory building of type " << NameBuilding[building->get_type()] << ", assuming this was a Lost Serf";
+          //game->delete_serf(this);  // this crashes, didn't check why
+          //enter_inventory();  // this crashes because it calls get_inventory() on attached building, but it isn't an Inventory
+          // this is needed so the serf stops appearing at the building entrance, but does it affect a serf already
+          //  occupying this building???   so far with knight huts it causes no issue
+          game->get_map()->set_serf_index(pos, 0);
+          // this might not be necessary, but seems like a decent idea to make it clear this serf is in limbo
+          set_state(StateNull);
+          // should we set the serf's pos to bad_map_pos or something?
+          // might be easier to just teleport it back to the nearest inv
+          // or find a way to delete it
+          return;
+        }
+      }
+    }
+
     switch (get_type()) {
       case TypeTransporter:
         if (s.entering_building.field_B == -2) {
@@ -2942,6 +2965,23 @@ void
 Serf::handle_serf_free_walking_state_dest_reached() {
   if (s.free_walking.neg_dist1 == -128 &&
       s.free_walking.neg_dist2 < 0) {
+    Log::Info["serf"] << "debug : Serf::handle_serf_free_walking_state_dest_reached s.free_walking.neg_dist1: " << s.free_walking.neg_dist1 << ", s.free_walking.neg_dist2: " << s.free_walking.neg_dist2;
+    // support allowing Lost serfs to enter any nearby friendly building
+    if ((get_type() == Serf::TypeTransporter || get_type() == Serf::TypeGeneric || get_type() == Serf::TypeNone)){
+      PMap map = game->get_map();
+      MapPos upleft_pos = map->move_up_left(pos);
+      if (map->has_building(upleft_pos)){
+        Building *building = game->get_building_at_pos(upleft_pos);
+        if (building->is_done() && building->get_type() != Building::TypeStock && building->get_type() != Building::TypeCastle){
+          Log::Info["serf"] << "Debug - a generic serf at pos " << pos << " is about to enter a non-inventory building of type " << NameBuilding[building->get_type()] << " at pos " << upleft_pos << ", assuming this was a Lost Serf";
+          set_state(StateReadyToEnter);
+          s.ready_to_enter.field_B = 0;
+          counter = 0;
+          return;
+        }
+      }
+    }
+    // otherwise, find nearest inventory and send the serf there
     find_inventory();
     return;
   }
@@ -3887,10 +3927,36 @@ Serf::handle_serf_lost_state() {
 
       if (map->has_flag(dest)) {
         Flag *flag = game->get_flag(map->get_obj_index(dest));
+        // this check is basically
+        // "if this serf has reached a PATH (land only), enter StateFreeWalking"
+        // "OR if this is an Inventory flag with NO PATHS (such as a lone castle), that is okay too"
+        // 99% of the time this will be "any land path reached"
+        // more important stuff happens at Serf::handle_serf_free_walking_state_dest_reached
         if ((flag->land_paths() != 0 ||
-             (flag->has_inventory() && flag->accepts_serfs())) &&
+              /*
+              (flag->has_inventory() && flag->accepts_serfs())) &&
               map->has_owner(dest) &&
               map->get_owner(dest) == get_owner()) {
+                */
+            // tlongstretch - allow generic serfs to enter ANY completed friendly building
+            //  just to get them off the map.  For now, simply delete them on arrival,
+            //  could also be possible to "teleport" them to the nearest Inventory
+            // generic serfs go to nearest building
+            ///
+            /// UGH - it seems that the destination is not handled how you would expect
+            ///   Rather, the serf enters FreeWalking state here, and FreeWalking state
+            ///   does not go by a MapPos dest, but instead uses a "dist from col/row" 
+            ///   that it constantly updates using bit-math.  Cannot simply set a serf.dest
+            ///   because FreeWalking state ignores it
+            ///  MAYBE... is it possible to simply get the col/row of the MapPos dest we 
+            ///   desire?  Or is it relative to the serf's current position???
+            /// 
+            ((type == Serf::TypeGeneric || type == Serf::TypeTransporter || type == Serf::TypeNone) && flag->has_building() && flag->get_building()->is_done()) || 
+            // non-generic serfs still have to go to nearest Inventory, we can't afford to delete them 
+            //  and teleporting them doesn't seem fair
+            (flag->has_inventory() && flag->accepts_serfs())) &&           
+            // usual test to ensure this is a friendly pos/building
+            map->has_owner(dest) && map->get_owner(dest) == get_owner()) {
           if (get_type() >= TypeKnight0 &&
               get_type() <= TypeKnight4) {
             set_state(StateKnightFreeWalking);

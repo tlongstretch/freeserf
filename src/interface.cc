@@ -986,6 +986,19 @@ Interface::handle_key_pressed(char key, int modifier) {
       break;
     }
 
+    case 'l': {
+      if (modifier & 1) {
+        Log::Info["interface"] << "CTRL-L pressed, telling AI to make any selected serf StateLost, for debugging";
+        AI *ai_ptr = get_ai_ptr(player->get_index());
+        if (ai_ptr == nullptr){
+          Log::Warn["interface"] << "got nullptr for get_ai_ptr(player->get_index()); for player index " << player->get_index();
+          break;
+        }else{
+          ai_ptr->set_serf_lost();
+        }
+      }
+    }
+
     case 'j': {
     unsigned int current_index = player->get_index();
     unsigned int next_index = game->get_next_player(player)->get_index();

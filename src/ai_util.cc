@@ -2731,3 +2731,21 @@ AI::count_geologist_sign_density(MapPos pos, unsigned int distance) {
   AILogDebug["count_geologist_sign_density"] << name << " done, area around pos " << pos << " has signs_count: " << signs_count << ", empty_hills_count: " << empty_hills_count << ", sign_density: " << sign_density << ", deprioritize at " << geologist_sign_density_deprio;
   return sign_density;
 }
+
+// set any serf that is part of current ai_mark_serf to LostState
+//  for debugging
+void
+AI::set_serf_lost() {
+  AILogInfo["set_serf_lost"] << " inside set_serf_lost";
+  for (int serf_index : ai_mark_serf){
+    Serf *serf = game->get_serf(serf_index);
+    if (serf == nullptr){
+      Log::Info["set_serf_lost"] << "ai_mark_serf with index " << serf_index << " is nullptr!";
+      continue;
+    }
+    Log::Info["set_serf_lost"] << "setting lost state for ai_mark_serf with index " << serf_index << " at pos " << serf->get_pos();
+    serf->set_lost_state();
+    Log::Info["set_serf_lost"] << "debug - done setting lost state for ai_mark_serf with index " << serf_index << " at pos " << serf->get_pos();
+  }
+  Log::Info["set_serf_lost"] << "debug - done setting lost state for ai_mark_serf list";
+}
