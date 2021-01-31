@@ -658,7 +658,7 @@ flag_search_building_for_lost_generic_serf_search_cb(Flag *flag, void *data) {
   int *dest_index = static_cast<int*>(data);
   if (flag->has_building()) {
     Building *building = flag->get_building();
-    if (building->is_done() &&
+    if (building->is_done() && !building->is_burning() &&
       // disallow mines because they can deadlock when miner runs out of food and holds the pos
        (building->get_type() < Building::TypeStoneMine || building->get_type() > Building::TypeGoldMine)){
       Log::Info["flag"] << "debug: inside Flag::flag_search_building_for_lost_generic_serf_search_cb, found a valid complete building at flag pos " << flag->get_position();

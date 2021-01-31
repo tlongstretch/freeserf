@@ -198,7 +198,7 @@ Game::update_inventories_cb(Flag *flag, void *d) {
     if (bld_prio > data->max_prio[inv]) {
       data->max_prio[inv] = bld_prio;
       data->flags[inv] = flag;
-      Log::Info["game"] << "DEBUG: setting data->dists_so_far[" << inv << "] = " << data->dist_so_far;
+      //Log::Info["game"] << "DEBUG: setting data->dists_so_far[" << inv << "] = " << data->dist_so_far;
       data->dists_from_inv[inv] = data->dist_so_far;
     }
   }

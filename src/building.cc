@@ -565,6 +565,10 @@ Building::burnup() {
 
   stop_playing_sfx();
 
+  // why is first_knight sometimes still serf index 0??
+  //  seeing issue when burning buildings, the serf->castle_deleted
+  //  call below fails because the serf is invalid.  For now trying
+  //  to simply work around it and skip that if serf index is zero
   unsigned int _serf_index = first_knight;
   burning_counter = 2047;
   //
@@ -617,12 +621,17 @@ Building::burnup() {
         serf->castle_deleted(pos, false);
       }
     } else {
-      Serf *serf = game->get_serf(_serf_index);
-      if (serf->get_type() == Serf::TypeTransporterInventory) {
-        serf->set_type(Serf::TypeTransporter);
+      // avoid crash when first_knight serf index is zero causing nullptr below
+      //  not sure of root cause of that, see it when burning buildings
+      if (_serf_index < 1){
+        Log::Warn["building"] << "ERROR:  _serf_index / first_knight has serf index zero, invalid!  for building at pos " << pos << " of type " << NameBuilding[type] << "!  not calling serf->castle_deleted function";
+      }else{
+        Serf *serf = game->get_serf(_serf_index);
+        if (serf->get_type() == Serf::TypeTransporterInventory) {
+          serf->set_type(Serf::TypeTransporter);
+        }
+        serf->castle_deleted(pos, false);
       }
-
-      serf->castle_deleted(pos, false);
     }
   }
 

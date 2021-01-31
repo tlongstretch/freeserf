@@ -2290,9 +2290,17 @@ Viewport::draw_serf_row(MapPos pos, int y_base, int cols, int x_base) {
         body = arr_2[((interface->get_game()->get_tick() +
                        arr_1[pos & 0xf]) >> 3) & 0x7f];
       }
-
-      Color color = interface->get_player_color(map->get_owner(pos));
-      draw_row_serf(lx, ly, true, color, body);
+      // when deleting lots of buildings, seeing exception here
+      //  on get_player_color->get_color because player/owner index is -1
+      //  which is "nobody".  Not sure of cause, thinking I could just have
+      //  get_color return black as default??
+      // actually, for now just don't draw this serf it pos has owner of -1
+      if (map->get_owner(pos) == -1){
+        Log::Warn["viewport"] << "got owner nobody / -1 for pos " << pos << " inside draw_row_serf call, not drawing this serf to avoid crash on get_color";
+      }else{
+        Color color = interface->get_player_color(map->get_owner(pos));
+        draw_row_serf(lx, ly, true, color, body);
+      }
     }
   }
 }

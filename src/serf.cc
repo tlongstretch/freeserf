@@ -1436,17 +1436,17 @@ Serf::handle_serf_walking_state_search_cb(Flag *flag, void *data) {
 
 void
 Serf::start_walking(Direction dir, int slope, int change_pos) {
-  Log::Info["serf"] << "debug: inside start_walking";
+  //Log::Info["serf"] << "debug: inside start_walking";
   PMap map = game->get_map();
   MapPos new_pos = map->move(pos, dir);
-  Log::Info["serf"] << "debug: inside start_walking, old pos: " << pos << ", new pos: " << new_pos;
+  //Log::Info["serf"] << "debug: inside start_walking, old pos: " << pos << ", new pos: " << new_pos;
   animation = get_walking_animation(map->get_height(new_pos) -
                                     map->get_height(pos), dir, 0);
   counter += (slope * counter_from_animation[animation]) >> 5;
 
-  Log::Info["serf"] << "debug: inside start_walking, animation = " << animation;
+  //Log::Info["serf"] << "debug: inside start_walking, animation = " << animation;
   if (change_pos) {
-    Log::Info["serf"] << "debug: inside start_walking, change_pos is TRUE, moving serf to new_pos " << new_pos;
+    //Log::Info["serf"] << "debug: inside start_walking, change_pos is TRUE, moving serf to new_pos " << new_pos;
     map->set_serf_index(pos, 0);
     map->set_serf_index(new_pos, get_index());
   }
@@ -1468,11 +1468,11 @@ static const int road_building_slope[] = {
    serf index cleared. */
 void
 Serf::enter_building(int field_B, int join_pos) {
-  Log::Info["serf"] << "debug: inside enter_building, setting state to StateEnteringBuilding";
+  //Log::Info["serf"] << "debug: inside enter_building, setting state to StateEnteringBuilding";
   set_state(StateEnteringBuilding);
-  Log::Info["serf"] << "debug: inside enter_building, calling start_walking, join_pos = " << join_pos;
+  //Log::Info["serf"] << "debug: inside enter_building, calling start_walking, join_pos = " << join_pos;
   start_walking(DirectionUpLeft, 32, !join_pos);
-  Log::Info["serf"] << "debug: inside enter_building, back from start_walking";
+  //Log::Info["serf"] << "debug: inside enter_building, back from start_walking";
   if (join_pos) game->get_map()->set_serf_index(pos, get_index());
 
   Building *building = game->get_building_at_pos(pos);
@@ -2019,16 +2019,16 @@ Serf::enter_inventory() {
 
 void
 Serf::handle_serf_entering_building_state() {
-  Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter was = " << counter;
+  //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter was = " << counter;
   uint16_t delta = game->get_tick() - tick;
   tick = game->get_tick();
   counter -= delta;
-  Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter now = " << counter;
+  //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter now = " << counter;
   if (counter < 0 || counter <= s.entering_building.slope_len) {
-    Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter <0 or <= s.entering_building.slope_len";
+    //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, counter <0 or <= s.entering_building.slope_len";
     if (game->get_map()->get_obj_index(pos) == 0 ||
         game->get_building_at_pos(pos)->is_burning()) {
-      Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, setting Lost state and returning";
+      //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, setting Lost state and returning";
       /* Burning */
       set_state(StateLost);
       s.lost.field_B = 0;
@@ -2038,14 +2038,15 @@ Serf::handle_serf_entering_building_state() {
 
     counter = s.entering_building.slope_len;
     PMap map = game->get_map();
-    Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, switching, this serf type is " << NameSerf[get_type()];
+    //Log::Info["serf"] << "debug: inside handle_serf_entering_building_state, switching, this serf type is " << NameSerf[get_type()];
 
     // support allowing Lost serfs to enter any nearby friendly building
     if ((get_type() == Serf::TypeTransporter || get_type() == Serf::TypeGeneric || get_type() == Serf::TypeNone)){
       PMap map = game->get_map();
       if (map->has_building(pos)){
         Building *building = game->get_building_at_pos(pos);
-        if (building->get_type() != Building::TypeStock && building->get_type() != Building::TypeCastle){
+        if (building->is_done() && !building->is_burning() &&
+            building->get_type() != Building::TypeStock && building->get_type() != Building::TypeCastle){
           Log::Info["serf"] << "Debug - a generic serf at pos " << pos << " has arrived in a non-inventory building of type " << NameBuilding[building->get_type()] << ", assuming this was a Lost Serf";
           //game->delete_serf(this);  // this crashes, didn't check why
           //enter_inventory();  // this crashes because it calls get_inventory() on attached building, but it isn't an Inventory
@@ -2995,7 +2996,8 @@ Serf::handle_serf_free_walking_state_dest_reached() {
       MapPos upleft_pos = map->move_up_left(pos);
       if (map->has_building(upleft_pos)){
         Building *building = game->get_building_at_pos(upleft_pos);
-        if (building->is_done() && building->get_type() != Building::TypeStock && building->get_type() != Building::TypeCastle){
+        if (building->is_done() && !building->is_burning() &&
+            building->get_type() != Building::TypeStock && building->get_type() != Building::TypeCastle){
           Log::Info["serf"] << "Debug - a generic serf at pos " << pos << " is about to enter a non-inventory building of type " << NameBuilding[building->get_type()] << " at pos " << upleft_pos << ", assuming this was a Lost Serf";
           set_state(StateReadyToEnter);
           s.ready_to_enter.field_B = 0;
