@@ -658,7 +658,9 @@ flag_search_building_for_lost_generic_serf_search_cb(Flag *flag, void *data) {
   int *dest_index = static_cast<int*>(data);
   if (flag->has_building()) {
     Building *building = flag->get_building();
-    if (building->is_done()){
+    if (building->is_done() &&
+      // disallow mines because they can deadlock when miner runs out of food and holds the pos
+       (building->get_type() < Building::TypeStoneMine || building->get_type() > Building::TypeGoldMine)){
       Log::Info["flag"] << "debug: inside Flag::flag_search_building_for_lost_generic_serf_search_cb, found a valid complete building at flag pos " << flag->get_position();
       *dest_index = building->get_flag_index();
       return true;
@@ -670,6 +672,8 @@ flag_search_building_for_lost_generic_serf_search_cb(Flag *flag, void *data) {
 
 // support allowing LostSerfs of generic type to enter ANY friendly building
 //  so they can get off the map faster
+//  EXCEPT mines, as they can deadlock when the miner runs out of food and 
+//  holds the pos, disallowing serfs entry
 int
 Flag::find_nearest_building_for_lost_generic_serf() {
   Log::Info["flag"] << "debug: inside Flag::find_nearest_building_for_lost_generic_serf";

@@ -984,6 +984,8 @@ Serf::change_direction(Direction dir, int alt_end) {
   // BUG - I am seeing serfs walking on water paths as of jan14 2021
   //   this is happening when CanTransportSerfsInBoats is *not* true!
   // hmm... I cannot reproduce this now using a human player  jan14 2021
+  //  I could reproduce, and fixed it by adding to ensure the AIPlusOption::CanTransportSerfsInBoats is set
+  // however I still see some issues, such as a land serf "switching" positions with a sailor!
 
   // handle sailor carrying a passenger in his boat
   if (type == Serf::TypeSailor && state == State::StateTransporting
@@ -1151,6 +1153,7 @@ Serf::change_direction(Direction dir, int alt_end) {
         // this sailor is probably the new transporter for this water path
         //  let him go on, and do not put him in WaitForBoat state
       }else{
+        Log::Error["serf"] << "serf of type " << NameSerf[get_type()] << " at pos " << pos << " with state " << get_state() << " expecting flag with water path to have sailor! but dose not, crashing";
         throw ExceptionFreeserf("expecting flag with water path to have a (sailor) transporter!  to direct serf to WaitForBoat state");
       }
     }
@@ -1243,19 +1246,26 @@ Serf::change_direction(Direction dir, int alt_end) {
         //if (type == Serf::TypeSailor && state == State::StateTransporting){
          //Log::Info["serf"] << "debug: a transporting sailor inside change_direction, serf at next pos is eligible for switching";
         //}
-      /* Do the switch */
-      other_serf->pos = pos;
-      map->set_serf_index(other_serf->pos, other_serf->get_index());
-      other_serf->animation =
-           get_walking_animation(map->get_height(other_serf->pos) -
-                                 map->get_height(new_pos),
-                                 reverse_direction(dir), 1);
-      other_serf->counter = counter_from_animation[other_serf->animation];
+      // trying to fix issue where land serfs are "switching" with sailor rather than entering
+      //  WaitForBoat state
+      //    note, do not use is_water_tile because it returns true if any adjacent tile is water!
+      //    but is_in_water only returns true if pos is entirely in water
+      if (map->has_path(pos, dir) && map->is_in_water(new_pos)){
+        Log::Info["serf"] << "debug: NOT ALLOWING serf switch because path from pos " << pos << " in dir " << NameDirection[dir] << " to new_pos " << new_pos << " is_water_tile";
+      }else{
+        other_serf->pos = pos;
+        map->set_serf_index(other_serf->pos, other_serf->get_index());
+        other_serf->animation =
+            get_walking_animation(map->get_height(other_serf->pos) -
+                                  map->get_height(new_pos),
+                                  reverse_direction(dir), 1);
+        other_serf->counter = counter_from_animation[other_serf->animation];
 
-      animation = get_walking_animation(map->get_height(new_pos) -
-                                        map->get_height(pos),
-                                        (Direction)dir, 1);
-      s.walking.dir = reverse_direction(dir);
+        animation = get_walking_animation(map->get_height(new_pos) -
+                                          map->get_height(pos),
+                                          (Direction)dir, 1);
+        s.walking.dir = reverse_direction(dir);
+      }
     } else {
       //if (type == Serf::TypeSailor && state == State::StateTransporting){
        //Log::Info["serf"] << "debug: a transporting sailor inside change_direction, serf at next pos is NOT eligible for switching, waiting";
@@ -1617,6 +1627,8 @@ Serf::handle_serf_walking_state() {
         Flag *src = game->get_flag(flag_index);
 
         // support allowing Lost serfs to enter any nearby friendly building
+        //  EXCEPT mines, as they can deadlock when the miner runs out of food and 
+        //  holds the pos, disallowing serfs entry
         int r = -1;
         if ((get_type() == Serf::TypeTransporter || get_type() == Serf::TypeGeneric || get_type() == Serf::TypeNone)){
           r = src->find_nearest_building_for_lost_generic_serf();
@@ -1698,7 +1710,9 @@ Serf::handle_serf_walking_state() {
           // WARNING - is_water_path can only be uses to check a path that is certain to exist, it will return true if there is no path at all!
           //if (!src->is_water_path(i)) {
           if (!src->is_water_path(i) ||
-              (src->has_path(i) && src->is_water_path(i) && src->has_transporter(i))){
+             // adding support for AIPlusOption::CanTransportSerfsInBoats
+             (game->get_ai_options_ptr()->test(AIPlusOption::CanTransportSerfsInBoats) &&
+              src->has_path(i) && src->is_water_path(i) && src->has_transporter(i))){
             Flag *other_flag = src->get_other_end_flag(i);
             other_flag->set_search_dir(i);
             search.add_source(other_flag);
