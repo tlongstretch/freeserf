@@ -1612,9 +1612,18 @@ Serf::handle_serf_walking_state() {
          Search for a destination if none is known. */
       if (s.walking.dest == 0) {
        //Log::Info["serf"] << "debug: inside handle_serf_walking_state, s.walking.dest == 0";
+
         int flag_index = game->get_map()->get_obj_index(pos);
         Flag *src = game->get_flag(flag_index);
-        int r = src->find_nearest_inventory_for_serf();
+
+        // support allowing Lost serfs to enter any nearby friendly building
+        int r = -1;
+        if ((get_type() == Serf::TypeTransporter || get_type() == Serf::TypeGeneric || get_type() == Serf::TypeNone)){
+          r = src->find_nearest_building_for_lost_generic_serf();
+        }else{
+          r = src->find_nearest_inventory_for_serf();
+        }
+
         if (r < 0) {
          //Log::Info["serf"] << "debug: inside handle_serf_walking_state, making serf lost";
           set_state(StateLost);
@@ -3422,6 +3431,33 @@ Serf::handle_free_walking_follow_edge() {
 
 void
 Serf::handle_free_walking_common() {
+
+/* this doesn't work because these serfs are already in Walking state once
+  they reach a road, not FreeWalking!  move this code there
+  // support allowing Lost serfs to enter any nearby friendly building
+  // hack, doing this at the beginning because I can't figure out how the FreeWalking
+  // dest/pathfinding works.  It seems serfs will go to the nearest flag that has a road
+  //  and then start walking to nearest Inventory that accepts serfs.
+  // because I cannot figure out how to route them to a nearby non-Inventory building
+  // I should at least be able to have them try to enter any building they happen across
+  // while walking on paths back to nearest Inventory building
+  if ((get_type() == Serf::TypeTransporter || get_type() == Serf::TypeGeneric || get_type() == Serf::TypeNone)){
+    PMap map = game->get_map();
+    MapPos upleft_pos = map->move_up_left(pos);
+    if (map->has_flag(pos) && map->has_building(upleft_pos) && map->get_owner(pos) == get_owner()){
+      Building *building = game->get_building_at_pos(upleft_pos);
+      //if (building->is_done() && building->get_type() != Building::TypeStock && building->get_type() != Building::TypeCastle){
+      if (building->is_done()){
+        Log::Info["serf"] << "Debug - handle_free_walking_common_hack - a generic serf at pos " << pos << " is about to enter a non-inventory building of type " << NameBuilding[building->get_type()] << " at pos " << upleft_pos << ", assuming this was a Lost Serf";
+        set_state(StateReadyToEnter);
+        s.ready_to_enter.field_B = 0;
+        counter = 0;
+        return;
+      }
+    }
+  }
+  */
+
   const Direction dir_from_offset[] = {
     DirectionUpLeft, DirectionUp,   DirectionNone,
     DirectionLeft,   DirectionNone, DirectionRight,
@@ -3969,6 +4005,14 @@ Serf::handle_serf_lost_state() {
           s.free_walking.neg_dist1 = -128;
           s.free_walking.neg_dist2 = -1;
           s.free_walking.flags = 0;
+
+          //*****************************************************************
+          // wait, is it really this simple?  just set it here?  adding this
+          // no... this results in all the serfs walking southwest ??
+          // try doing it once they reach a road instead
+          //s.walking.dest = flag->get_index();
+          //*****************************************************************
+
           counter = 0;
           return;
         }
@@ -5268,7 +5312,7 @@ Serf::handle_state_knight_free_walking() {
         Serf *other = game->get_serf_at_pos(pos_);
         if (get_owner() != other->get_owner()) {
           if (other->state == StateKnightFreeWalking) {
-            pos = map->move_left(pos_);
+            pos_ = map->move_left(pos_);  // added fix from sternezaehler for Freeserf issue#460, pos becomes pos_
             if (can_pass_map_pos(pos_)) {
               int dist_col = s.free_walking.dist_col;
               int dist_row = s.free_walking.dist_row;

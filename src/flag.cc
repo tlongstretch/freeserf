@@ -652,6 +652,34 @@ Flag::find_nearest_inventory_for_serf() {
   return dest_index;
 }
 
+static bool
+flag_search_building_for_lost_generic_serf_search_cb(Flag *flag, void *data) {
+  Log::Info["flag"] << "debug: inside Flag::flag_search_building_for_lost_generic_serf_search_cb";
+  int *dest_index = static_cast<int*>(data);
+  if (flag->has_building()) {
+    Building *building = flag->get_building();
+    if (building->is_done()){
+      Log::Info["flag"] << "debug: inside Flag::flag_search_building_for_lost_generic_serf_search_cb, found a valid complete building at flag pos " << flag->get_position();
+      *dest_index = building->get_flag_index();
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// support allowing LostSerfs of generic type to enter ANY friendly building
+//  so they can get off the map faster
+int
+Flag::find_nearest_building_for_lost_generic_serf() {
+  Log::Info["flag"] << "debug: inside Flag::find_nearest_building_for_lost_generic_serf";
+  int dest_index = -1;
+  FlagSearch::single(this, flag_search_building_for_lost_generic_serf_search_cb, true, false,
+                     &dest_index);
+
+  return dest_index;
+}
+
 typedef struct ScheduleKnownDestData {
   Flag *src;
   Flag *dest;

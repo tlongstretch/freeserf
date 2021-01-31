@@ -246,6 +246,10 @@ class Flag : public GameObject {
   //int find_nearest_inventory_for_res_producer();  // replacing this with new find_nearest_inventoryXXXX() functions
   int find_nearest_inventory_for_serf();
 
+  // support allowing generic serfs in StateLost to enter any nearby friendly building to
+  //  get them off the map quickly to avoid clogging roads
+  int find_nearest_building_for_lost_generic_serf();
+
   void link_with_flag(Flag *dest_flag, bool water_path, size_t length,
                       Direction in_dir, Direction out_dir);
 
