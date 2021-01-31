@@ -2163,7 +2163,9 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
       serf->get_state() == Serf::StateKnightPrepareAttackingFree ||
       serf->get_state() == Serf::StateKnightAttackingFree ||
       serf->get_state() == Serf::StateKnightAttackingVictoryFree ||
-      serf->get_state() == Serf::StateKnightAttackingDefeatFree) {
+      serf->get_state() == Serf::StateKnightAttackingDefeatFree ||
+      serf->get_state() == Serf::StateKnightAttackingVictory) {
+    Log::Info["viewport"] << "DEBUG: inside draw_active_serf ADDITIONAL_SERF CALLED! serf state " << NameSerf[serf->get_state()];
     int index = serf->get_attacking_def_index();
     if (index != 0) {
       Serf *def_serf = interface->get_game()->get_serf(index);
@@ -2175,7 +2177,7 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
       int lx = x_base + animation.x;
       int ly = y_base + animation.y - 4 * map->get_height(pos);
       int body = serf_get_body(def_serf);
-
+     
       if (body > -1) {
         Color color = interface->get_player_color(def_serf->get_owner());
         draw_row_serf(lx, ly, true, color, body);

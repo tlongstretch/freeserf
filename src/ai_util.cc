@@ -2702,7 +2702,9 @@ AI::attack_nearest_target(MapPosSet *scored_targets) {
     AILogDebug["util_attack_nearest_target"] << name << " my military_score = " << player->get_military_score() << ", knight_morale = " << player->get_knight_morale();
     //AILogDebug["util_attack_nearest_target"] << name << " ENEMY military_score = " << game->get_player(target_player_index)->get_military_score() << ",  ENEMY knight_morale = " << game->get_player(target_player_index)->get_knight_morale();
     AILogDebug["util_attack_nearest_target"] << name << " my morale is " << player->get_knight_morale() << ", min_knight_morale_attack is " << min_knight_morale_attack;
-    if (player->get_knight_morale() > min_knight_morale_attack) {
+   // TEMPORARILY DISABLING THIS to debug fighting bugs
+   if (true){
+   //if (player->get_knight_morale() > min_knight_morale_attack) {
       AILogDebug["util_attack_nearest_target"] << name << " my morale " << player->get_knight_morale() << " is at least min_knight_morale_attack of " << min_knight_morale_attack;
       int defending_knights = 2;  // TEMP hardcoded
       double attack_ratio = static_cast<double>(attacking_knights) / static_cast<double>(defending_knights);

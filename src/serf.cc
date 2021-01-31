@@ -283,7 +283,7 @@ static const char *serf_type_name[] = {
   "KNIGHT_2",  // TypeKnight2,
   "KNIGHT_3",  // TypeKnight3,
   "KNIGHT_4",  // TypeKnight4,
-  "DEAD",  // TypeDead
+  "DEAD",  // 
 };
 
 const char *
