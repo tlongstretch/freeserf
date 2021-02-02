@@ -424,7 +424,10 @@ const unsigned int slots_garrison[5] = { 1,3,6,9,12 };
 
 typedef std::set<std::pair<MapPos, unsigned int>> MapPosSet;
 typedef std::vector<MapPos> MapPosVector;
-typedef std::map<std::pair<int, Direction>, Road> FlagDirToRoadMap;
+
+// key pos/dir -> val ordered list of flags, assume starting at the Inventory
+//typedef std::map<std::pair<MapPos, Direction>, Flag *[]> FlagDirToFlagPathMap;
+typedef std::map<std::pair<MapPos, Direction>, MapPosVector> FlagDirToFlagPathMap;
 
 // for AI overlay debugging markers
 typedef const std::map<std::string, Color> Colors;

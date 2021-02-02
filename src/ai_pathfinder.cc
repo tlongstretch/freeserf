@@ -1275,6 +1275,50 @@ AI::identify_arterial_roads(PMap map){
     }
   }
 
+  // 
+  for (std::pair<MapPos,std::map<Direction,std::map<MapPos, unsigned int>>>  inv_pair : flag_counts){
+    MapPos inv_pos = inv_pair.first;
+    AILogDebug["util_identify_arterial_roads"] << name << " MEDIAN inv_pos " << inv_pos;
+    for (std::pair<Direction,std::map<MapPos, unsigned int>> dir_pair : inv_pair.second){
+      Direction dir = dir_pair.first;
+      AILogDebug["util_identify_arterial_roads"] << name << " MEDIAN         dir " << NameDirection[dir] << " / " << dir;
+
+      // find the median "number of times a flag appears in the Inventory flag's road network in this direction"
+      //  and use this as the cutoff for a flag to be "arterial"
+      std::vector<unsigned int> counts = {};
+      for (std::pair<MapPos, unsigned int> flag_count_pair : dir_pair.second){
+        MapPos flag_pos = flag_count_pair.first;
+        unsigned int count = flag_count_pair.second;
+        counts.push_back(count);
+        AILogDebug["util_identify_arterial_roads"] << name << " MEDIAN                 flag_pos " << flag_pos << " count " << count;
+      }
+      sort(counts.begin(), counts.end());
+      size_t size = counts.size();
+      size_t median = 0;
+      // middle record is median value
+      median = counts[size / 2];
+      AILogDebug["util_identify_arterial_roads"] << name << " the median count " << median;
+
+      // build MapPosVector of all flags that are > median, this is the arterial flag-path 
+      //  in this direction from this Inventory
+      MapPosVector art_flags = {};
+      for (std::pair<MapPos, unsigned int> flag_count_pair : dir_pair.second){
+        MapPos flag_pos = flag_count_pair.first;
+        unsigned int count = flag_count_pair.second;
+        if (count > median){
+          AILogDebug["util_identify_arterial_roads"] << name << " MEDIAN                 flag_pos " << flag_pos << " count " << count << " is above median, including";
+          /// key pos/dir -> val ordered list of flags, assume starting at the Inventory
+          //typedef std::map<std::pair<MapPos, Direction>, MapPosVector> FlagDirToFlagPathMap;
+          //ai_mark_arterial_roads->insert(std::make_pair(std::make_pair(inv_pos, dir), {});
+          //ai_mark_arterial_roads->[std::pair<MapPos, Direction>(inv_pos, dir)] = {};
+          //ai_mark_arterial_roads->at(std::make_pair(inv_pos, dir)).push_back(flag_pos);
+          art_flags.push_back(flag_pos);
+        }
+      }
+      ai_mark_arterial_roads->insert(std::make_pair(std::make_pair(inv_pos, dir), art_flags));
+    }
+  }
+
   start = std::clock();
   duration = (std::clock() - start) / static_cast<double>(CLOCKS_PER_SEC);
   AILogDebug["util_identify_arterial_roads"] << name << " done AI::identify_arterial_roads, call took " << duration;

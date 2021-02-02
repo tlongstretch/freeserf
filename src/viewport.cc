@@ -2511,6 +2511,9 @@ Viewport::draw_ai_grid_overlay() {
     base_pos = map->move_right(base_pos);
   }
 
+  // did I forget this somewhere when copying?
+  PGame game = interface->get_game();
+  
   /*
   // draw road pathfinding
   //Road *p_mark_road = game->get_ai_mark_road();
@@ -2534,6 +2537,28 @@ Viewport::draw_ai_grid_overlay() {
           prevpos = thispos;
   }
   */
+
+  // highlight arterial roads
+  FlagDirToFlagPathMap ai_mark_arterial_roads = *(interface->get_ai_ptr(current_player_index)->get_ai_mark_arterial_roads());
+  //typedef std::map<std::pair<MapPos, Direction>, MapPosVector> FlagDirToFlagPathMap;
+  for (std::pair<std::pair<MapPos, Direction>, MapPosVector> record : ai_mark_arterial_roads){
+    std::pair<MapPos, Direction> flag_dir = record.first;
+    MapPos inv_flag_pos = flag_dir.first;
+    Direction dir = flag_dir.second;
+    Log::Info["viewport"] << "inside draw_ai_grid_overlay - arterial roads - Inventory at pos " << inv_flag_pos << " has a path in Dir " << NameDirection[dir] << " / " << dir;
+    MapPos prev_pos = inv_flag_pos;
+    for (MapPos flag_pos : ai_mark_arterial_roads.at(flag_dir)){
+      Log::Info["viewport"] << "inside draw_ai_grid_overlay - arterial roads - flag_pos " << flag_pos;
+      int prev_sx = 0;
+      int prev_sy = 0;
+      screen_pix_from_map_coord(prev_pos, &prev_sx, &prev_sy);
+      int this_sx = 0;
+      int this_sy = 0;
+      screen_pix_from_map_coord(flag_pos, &this_sx, &this_sy);
+      frame->draw_line(prev_sx, prev_sy, this_sx, this_sy, interface->get_ai_ptr(current_player_index)->get_mark_color("lime"));
+      prev_pos = flag_pos;
+    }
+  }
 
   // draw AI status text box
   std::string status = ai->get_ai_status();

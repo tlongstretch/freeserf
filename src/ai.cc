@@ -141,7 +141,7 @@ AI::next_loop(){
   //DEBUG DEBUG DEBUG
   if (realm_building_count[Building::TypeHut] > 1){
     AI::identify_arterial_roads(map);
-    return;
+    //return;
   }
   //DEBUG DEBUG DEBUG
   //DEBUG DEBUG DEBUG
