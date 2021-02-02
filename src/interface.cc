@@ -912,6 +912,10 @@ bool
 Interface::handle_key_pressed(char key, int modifier) {
   switch (key) {
     /* Interface control */
+
+    /* disabling TAB key control for now because it triggers when
+      alt-tabbing and I am wondering if it is responsible for frequent
+      crashes seen when alt-tabbing and multitasking - when game is otherwise stable
     case '\t': {
       if (modifier & 2) {
         return_from_message();
@@ -920,6 +924,7 @@ Interface::handle_key_pressed(char key, int modifier) {
       }
       break;
     }
+    */
     case 27: {
       if ((notification_box != nullptr) && notification_box->is_displayed()) {
         close_message();

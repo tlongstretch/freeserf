@@ -424,6 +424,7 @@ const unsigned int slots_garrison[5] = { 1,3,6,9,12 };
 
 typedef std::set<std::pair<MapPos, unsigned int>> MapPosSet;
 typedef std::vector<MapPos> MapPosVector;
+typedef std::map<std::pair<int, Direction>, Road> FlagDirToRoadMap;
 
 // for AI overlay debugging markers
 typedef const std::map<std::string, Color> Colors;
@@ -615,9 +616,21 @@ typedef enum CompletionLevel {
 } CompletionLevel;
 
 const std::string NameCompletionLevel[] = {
-        "Unfinished",
-        "Connected",
-        "Completed",
+  "Unfinished",
+  "Connected",
+  "Completed",
+};
+
+typedef enum DistType {
+  FlagOnly = 0,
+  StraightLineOnly = 1,
+  FlagAndStraightLine = 2,
+} DistType;
+
+const std::string NameDistType[] = {
+  "FlagOnly",
+  "StraightLineOnly",
+  "FlagAndStraightLine",
 };
 
 

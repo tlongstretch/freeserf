@@ -135,6 +135,18 @@ AI::next_loop(){
   inventory_pos = castle_flag_pos;  // need to set this so various functions work on the very first AI loop, before the loop over Inventories starts
   update_building_counts();
   do_get_inventory(castle_flag_pos);
+
+  //DEBUG DEBUG DEBUG
+  //DEBUG DEBUG DEBUG
+  //DEBUG DEBUG DEBUG
+  if (realm_building_count[Building::TypeHut] > 1){
+    AI::identify_arterial_roads(map);
+    return;
+  }
+  //DEBUG DEBUG DEBUG
+  //DEBUG DEBUG DEBUG
+  //DEBUG DEBUG DEBUG
+
   do_get_serfs();
   //do_debug_building_triggers();   // not using these right now
 
@@ -1736,7 +1748,7 @@ AI::do_demolish_excess_lumberjacks() {
     for (Building *building : buildings) {
       if (building->get_type() == Building::TypeLumberjack) {
         MapPos pos = building->get_position();
-        if (find_nearest_inventory(map, player_index, building->get_position(), &ai_mark_pos) != inventory_pos)
+        if (find_nearest_inventory(map, player_index, building->get_position(), DistType::FlagOnly, &ai_mark_pos) != inventory_pos)
           continue;
         if (building->is_done() && building->has_serf() && !first_one_found) {
           AILogDebug["do_demolish_excess_lumberjacks"] << inventory_pos << " the lumberjack at pos " << pos << " will be preserved and the rest destroyed";
@@ -1796,7 +1808,7 @@ AI::do_demolish_excess_food_buildings() {
       if (building->get_type() == Building::TypeFisher ||
 		  building->get_type() == Building::TypeFarm ||
 		  building->get_type() == Building::TypePigFarm) {
-		    if (find_nearest_inventory(map, player_index, building->get_position(), &ai_mark_pos) != inventory_pos)
+		    if (find_nearest_inventory(map, player_index, building->get_position(), DistType::FlagOnly, &ai_mark_pos) != inventory_pos)
           continue;
         AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " burning food building of type " << NameBuilding[building->get_type()] << " at pos " << building->get_position();
         AILogDebug["do_demolish_excess_food_buildings"] << inventory_pos << " thread #" << std::this_thread::get_id() << " AI is locking mutex before calling game->get_player_buildings(player)";
@@ -2672,7 +2684,7 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
           if (building->get_type() == Building::TypeMill ||
               building->get_type() == Building::TypeFarm ||
               building->get_type() == Building::TypeBaker){
-            if (find_nearest_inventory(map, player_index, building->get_position(), &ai_mark_pos) != inventory_pos)
+            if (find_nearest_inventory(map, player_index, building->get_position(), DistType::FlagAndStraightLine, &ai_mark_pos) != inventory_pos)
               continue;
           }
           // do NOT simply insert them as they are found or they won't be in priority order
@@ -2845,7 +2857,7 @@ AI::do_build_food_buildings_and_3rd_lumberjack() {
           continue;
         if (!building->is_done())
           continue;
-        if (find_nearest_inventory(map, player_index, building->get_position(), &ai_mark_pos) != inventory_pos)
+        if (find_nearest_inventory(map, player_index, building->get_position(), DistType::FlagAndStraightLine, &ai_mark_pos) != inventory_pos)
           continue;
         MapPos farm_pos = building->get_position();
         /*
@@ -3514,7 +3526,7 @@ AI::do_count_resources_sitting_at_flags(MapPos inv_pos) {
     }
     if (!has_res)
       continue;
-    if (find_nearest_inventory(map, player_index, flag->get_position(), &ai_mark_pos) != inv_pos)
+    if (find_nearest_inventory(map, player_index, flag->get_position(), DistType::FlagOnly, &ai_mark_pos) != inv_pos)
       continue;
     for (int i = 0; i < FLAG_MAX_RES_COUNT; i++) {
       Resource::Type type = flag->get_resource_at_slot(i);

@@ -56,6 +56,8 @@ class AI {
   ColorDotMap ai_mark_pos;      // used to mark spots on map with various colored dots.  For debugging, when AI overlay is on
   std::vector<int> ai_mark_serf;    // used to mark serfs on map with status text.  For debugging, when AI overlay is on
   Road *ai_mark_road = (new Road);  // used to trace roads on map as pathfinding runs.  For debugging, when AI overlay is on
+  FlagDirToRoadMap *ai_mark_arterial_roads = (new FlagDirToRoadMap);    // used to highlight discovered arterial roads for AI overlay for debugging.  int is a flag index
+  FlagDirToRoadMap *ai_mark_spiderweb_roads = (new FlagDirToRoadMap);   // used to highlight spiderweb-built roads for AI overlay for debugging.  int is a flag index
   std::set<std::string> expand_towards;
   std::set<std::string> last_expand_towards;  // quick hack to save a copy for attack scoring
   MapPos stopbuilding_pos;
@@ -105,6 +107,8 @@ class AI {
   ColorDotMap * get_ai_mark_pos() { return &ai_mark_pos; }
   std::vector<int> * get_ai_mark_serf() { return &ai_mark_serf; }
   Road * get_ai_mark_road() { return ai_mark_road; }
+  FlagDirToRoadMap * get_ai_mark_arterial_roads() { return ai_mark_arterial_roads; }
+  FlagDirToRoadMap * get_ai_mark_spiderweb_roads() { return ai_mark_spiderweb_roads; }
   Color get_mark_color(std::string color) { return colors.at(color); }
   std::string get_ai_status() { return ai_status; }
   // stupid way to pass game speed and AI loop count to viewport for AI overlay
@@ -138,6 +142,7 @@ class AI {
   */
   Building* find_nearest_building(MapPos, CompletionLevel, Building::Type, unsigned int max_dist = -1);
   Road trace_existing_road(PMap, MapPos, Direction);
+  void identify_arterial_roads(PMap);
   MapPosVector get_corners(MapPos);
   MapPosVector get_corners(MapPos, unsigned int distance);
   unsigned int count_terrain_near_pos(MapPos, unsigned int, Map::Terrain, Map::Terrain, std::string);
@@ -244,7 +249,9 @@ class AI {
   int get_straightline_tile_dist(PMap map, MapPos start_pos, MapPos end_pos);
   bool score_flag(PMap map, unsigned int player_index, RoadBuilder *rb, RoadOptions road_options, MapPos flag_pos, MapPos castle_flag_pos, ColorDotMap *ai_mark_pos);
   bool find_flag_and_tile_dist(PMap map, unsigned int player_index, RoadBuilder *rb, MapPos flag_pos, MapPos castle_flag_pos, ColorDotMap *ai_mark_pos);
-  MapPos find_nearest_inventory(PMap map, unsigned int player_index, MapPos flag_pos, ColorDotMap *ai_mark_pos);
+  MapPos find_nearest_inventory(PMap map, unsigned int player_index, MapPos flag_pos, DistType dist_type, ColorDotMap *ai_mark_pos);
+  MapPos find_nearest_inventory_by_straightline(PMap map, unsigned int player_index, MapPos flag_pos, ColorDotMap *ai_mark_pos);
+  MapPos find_nearest_inventory_by_flag(PMap map, unsigned int player_index, MapPos flag_pos, ColorDotMap *ai_mark_pos);
   MapPosVector find_nearest_inventories_to_military_building(MapPos pos);
   RoadEnds get_roadends(PMap map, Road road);
   Road reverse_road(PMap map, Road road);

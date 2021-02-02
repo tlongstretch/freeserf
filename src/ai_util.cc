@@ -226,7 +226,7 @@ AI::update_building_counts() {
 
 	  // do the FlagSearch
 	  AILogDebug["util_update_building_counts"] << name << " about to call find_nearest_inventory for connected building of type " << NameBuilding[type] << " at pos " << pos << ", with flag_pos " << flag_pos;
-	  MapPos inventory_pos = find_nearest_inventory(map, player_index, building->get_position(), &ai_mark_pos);
+	  MapPos inventory_pos = find_nearest_inventory(map, player_index, building->get_position(), DistType::FlagOnly, &ai_mark_pos);
 	  if (inventory_pos == bad_map_pos) {
 		  AILogDebug["util_update_building_counts"] << name << " find_nearest_inventory call for building at pos " << pos << ", with flag_pos " << flag_pos << " returned bad_map_pos, skipping this building";
 		  continue;
@@ -737,7 +737,7 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
       AILogDebug["util_build_best_road"] << name << " no valid target found from get_affinity, trying to find a nearest connected inventory";
       MapPos fallback_inv_pos = bad_map_pos;
       if (map->has_flag(start_pos) && map->has_building(map->move_up_left(start_pos))){
-        MapPos nearest_inv_pos = find_nearest_inventory(map, player_index, start_pos, &ai_mark_pos);
+        MapPos nearest_inv_pos = find_nearest_inventory(map, player_index, start_pos, DistType::FlagAndStraightLine, &ai_mark_pos);
         if (nearest_inv_pos != bad_map_pos){
           AILogDebug["util_build_best_road"] << name << " no valid target found, setting target to nearest_inv_pos " << nearest_inv_pos;
           fallback_inv_pos = nearest_inv_pos;
@@ -966,7 +966,7 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
         }
         // if this is "tracked economy building", ensure the end_pos flag is closest to the currently selected Inventory (castle/warehouse)
         if (verify_stock == true){
-          if (find_nearest_inventory(map, player_index, end_pos, &ai_mark_pos) != inventory_pos){
+          if (find_nearest_inventory(map, player_index, end_pos, DistType::FlagAndStraightLine, &ai_mark_pos) != inventory_pos){
             AILogDebug["util_build_best_road"] << name << " DIRECT road - flag at end_pos " << end_pos << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
             break;
           }
@@ -1013,7 +1013,7 @@ AI::build_best_road(MapPos start_pos, RoadOptions road_options, Building::Type o
               AILogDebug["util_build_best_road"] << name << " found a path for splitting flag at split_end_pos " << split_end_pos << " in dir " << NameDirection[dir];
               MapPos adjacent_flag_pos = split_road.get_end(map.get());
               AILogDebug["util_build_best_road"] << name << " path for splitting flag at split_end_pos " << split_end_pos << " in dir " << NameDirection[dir] << " ends at flag at pos " << adjacent_flag_pos;
-              if (find_nearest_inventory(map, player_index, adjacent_flag_pos, &ai_mark_pos) != inventory_pos){
+              if (find_nearest_inventory(map, player_index, adjacent_flag_pos, DistType::FlagAndStraightLine, &ai_mark_pos) != inventory_pos){
                 AILogDebug["util_build_best_road"] << name << " potential split_road flag at split_end_pos " << split_end_pos << " is not closest to current inventory_pos " << inventory_pos << ", skipping";
                 disqualified++;
               }
@@ -1437,7 +1437,7 @@ AI::find_nearest_building(MapPos pos, CompletionLevel level, Building::Type buil
         AILogDebug["util_find_nearest_building"] << name << " not performing flagsearch because this is a Stock";
       }else{
         AILogDebug["util_find_nearest_building"] << name << " performing flagsearch to find nearest inventory to this building of type " << NameBuilding[building_type] << " found at " << building_flag_pos;
-        int nearest_inventory = find_nearest_inventory(map, player_index, building_flag_pos, &ai_mark_pos);
+        int nearest_inventory = find_nearest_inventory(map, player_index, building_flag_pos, DistType::FlagAndStraightLine, &ai_mark_pos);
         if (nearest_inventory < 0){
           AILogDebug["util_find_nearest_building"] << name << " inventory not found for flag at building_flag_pos " << building_flag_pos << ", maybe this flag isn't part of the road system??";
           continue;
