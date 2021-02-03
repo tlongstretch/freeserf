@@ -110,6 +110,12 @@ class AI {
   FlagDirToFlagPathMap * get_ai_mark_arterial_roads() { return ai_mark_arterial_roads; }
   FlagDirToFlagPathMap * get_ai_mark_spiderweb_roads() { return ai_mark_spiderweb_roads; }
   Color get_mark_color(std::string color) { return colors.at(color); }
+  Color get_random_mark_color() {
+    auto it = colors.begin();
+    std::advance(it, rand() % colors.size());
+    std::string random_key = it->first;
+    return colors.at(random_key);
+  }
   std::string get_ai_status() { return ai_status; }
   // stupid way to pass game speed and AI loop count to viewport for AI overlay
   unsigned int get_game_speed() { return game->get_game_speed(); }

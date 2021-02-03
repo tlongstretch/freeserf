@@ -2547,6 +2547,7 @@ Viewport::draw_ai_grid_overlay() {
     Direction dir = flag_dir.second;
     Log::Info["viewport"] << "inside draw_ai_grid_overlay - arterial roads - Inventory at pos " << inv_flag_pos << " has a path in Dir " << NameDirection[dir] << " / " << dir;
     MapPos prev_pos = inv_flag_pos;
+    Color rand_color = interface->get_ai_ptr(current_player_index)->get_random_mark_color();
     for (MapPos flag_pos : ai_mark_arterial_roads.at(flag_dir)){
       Log::Info["viewport"] << "inside draw_ai_grid_overlay - arterial roads - flag_pos " << flag_pos;
       int prev_sx = 0;
@@ -2555,7 +2556,8 @@ Viewport::draw_ai_grid_overlay() {
       int this_sx = 0;
       int this_sy = 0;
       screen_pix_from_map_coord(flag_pos, &this_sx, &this_sy);
-      frame->draw_line(prev_sx, prev_sy, this_sx, this_sy, interface->get_ai_ptr(current_player_index)->get_mark_color("lime"));
+      //frame->draw_line(prev_sx, prev_sy, this_sx, this_sy, interface->get_ai_ptr(current_player_index)->get_mark_color("lime"));
+      frame->draw_line(prev_sx, prev_sy, this_sx, this_sy, rand_color);
       prev_pos = flag_pos;
     }
   }
