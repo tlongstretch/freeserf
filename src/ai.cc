@@ -338,7 +338,9 @@ AI::do_update_clear_reset() {
   ai_status.assign("CLEARING_AND_RESETTING");
   ai_mark_pos.clear();
   ai_mark_serf.clear();
-  ai_mark_arterial_roads->clear();
+  //ai_mark_arterial_roads->clear();
+  ai_mark_arterial_road_paths->clear();
+  ai_mark_arterial_road_flags->clear();
   ai_mark_spiderweb_roads->clear();
   last_expand_towards = expand_towards;
   expand_towards.clear();

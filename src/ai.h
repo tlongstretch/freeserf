@@ -56,7 +56,8 @@ class AI {
   ColorDotMap ai_mark_pos;      // used to mark spots on map with various colored dots.  For debugging, when AI overlay is on
   std::vector<int> ai_mark_serf;    // used to mark serfs on map with status text.  For debugging, when AI overlay is on
   Road *ai_mark_road = (new Road);  // used to trace roads on map as pathfinding runs.  For debugging, when AI overlay is on
-  FlagDirToFlagPathMap *ai_mark_arterial_roads = (new FlagDirToFlagPathMap);    // used to highlight discovered arterial roads for AI overlay for debugging.  int is a flag index
+  FlagDirToDirPathMap *ai_mark_arterial_road_paths = (new FlagDirToDirPathMap);    // used to highlight discovered arterial roads for AI overlay for debugging, ordered list of Dirs of entire path
+  FlagDirToFlagPathMap *ai_mark_arterial_road_flags = (new FlagDirToFlagPathMap);    // used to highlight discovered arterial roads for AI overlay for debugging, unordered list of flags
   FlagDirToFlagPathMap *ai_mark_spiderweb_roads = (new FlagDirToFlagPathMap);   // used to highlight spiderweb-built roads for AI overlay for debugging.  int is a flag index
   std::set<std::string> expand_towards;
   std::set<std::string> last_expand_towards;  // quick hack to save a copy for attack scoring
@@ -107,8 +108,12 @@ class AI {
   ColorDotMap * get_ai_mark_pos() { return &ai_mark_pos; }
   std::vector<int> * get_ai_mark_serf() { return &ai_mark_serf; }
   Road * get_ai_mark_road() { return ai_mark_road; }
-  FlagDirToFlagPathMap * get_ai_mark_arterial_roads() { return ai_mark_arterial_roads; }
-  FlagDirToFlagPathMap * get_ai_mark_spiderweb_roads() { return ai_mark_spiderweb_roads; }
+  // a "pseudo-Road" ordered list of Dirs from each Inventory flag-dir that follows
+  //  along the determined arterial flags in the dir, tracing each TILE-path
+  FlagDirToDirPathMap * get_ai_mark_arterial_road_paths() { return ai_mark_arterial_road_paths; }
+  // the unordered list of arterial flags for each Inventory flag-dir
+  FlagDirToFlagPathMap * get_ai_mark_arterial_road_flags() { return ai_mark_arterial_road_flags; }
+  //FlagDirToFlagPathMap * get_ai_mark_spiderweb_roads() { return ai_mark_spiderweb_roads; }
   Color get_mark_color(std::string color) { return colors.at(color); }
   Color get_random_mark_color() {
     auto it = colors.begin();

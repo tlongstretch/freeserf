@@ -428,6 +428,7 @@ typedef std::vector<MapPos> MapPosVector;
 // key pos/dir -> val ordered list of flags, assume starting at the Inventory
 //typedef std::map<std::pair<MapPos, Direction>, Flag *[]> FlagDirToFlagPathMap;
 typedef std::map<std::pair<MapPos, Direction>, MapPosVector> FlagDirToFlagPathMap;
+typedef std::map<std::pair<MapPos, Direction>, std::vector<Direction>> FlagDirToDirPathMap;
 
 // for AI overlay debugging markers
 typedef const std::map<std::string, Color> Colors;

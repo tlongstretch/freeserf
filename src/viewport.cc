@@ -2539,12 +2539,15 @@ Viewport::draw_ai_grid_overlay() {
   */
 
   // highlight arterial roads
-  FlagDirToFlagPathMap ai_mark_arterial_roads = *(interface->get_ai_ptr(current_player_index)->get_ai_mark_arterial_roads());
+  //FlagDirToFlagPathMap ai_mark_arterial_roads = *(interface->get_ai_ptr(current_player_index)->get_ai_mark_arterial_roads());
+  FlagDirToDirPathMap ai_mark_arterial_road_paths = *(interface->get_ai_ptr(current_player_index)->get_ai_mark_arterial_road_paths());
   //typedef std::map<std::pair<MapPos, Direction>, MapPosVector> FlagDirToFlagPathMap;
-  for (std::pair<std::pair<MapPos, Direction>, MapPosVector> record : ai_mark_arterial_roads){
+  //for (std::pair<std::pair<MapPos, Direction>, MapPosVector> record : ai_mark_arterial_road_paths){
+  for (std::pair<std::pair<MapPos, Direction>, std::vector<Direction>> record : ai_mark_arterial_road_paths){
     std::pair<MapPos, Direction> flag_dir = record.first;
     MapPos inv_flag_pos = flag_dir.first;
     Direction dir = flag_dir.second;
+    /* old way - lines straight from flag to flag (out of order, too)
     Log::Info["viewport"] << "inside draw_ai_grid_overlay - arterial roads - Inventory at pos " << inv_flag_pos << " has a path in Dir " << NameDirection[dir] << " / " << dir;
     MapPos prev_pos = inv_flag_pos;
     Color rand_color = interface->get_ai_ptr(current_player_index)->get_random_mark_color();
@@ -2560,6 +2563,30 @@ Viewport::draw_ai_grid_overlay() {
       frame->draw_line(prev_sx, prev_sy, this_sx, this_sy, rand_color);
       prev_pos = flag_pos;
     }
+    */
+
+    // new way, tile by tile in order, following paths
+    MapPos prevpos = inv_flag_pos;
+    Color rand_color = interface->get_ai_ptr(current_player_index)->get_random_mark_color();
+    for (Direction tmpdir : ai_mark_arterial_road_paths.at(flag_dir)) {
+    //for (const auto &dir : p_mark_road->get_dirs()) {
+      MapPos thispos = map->move(prevpos, tmpdir);
+      int prev_sx = 0;
+      int prev_sy = 0;
+      //Log::Info["viewport"] << "calling screen_pix_from_map_coord with FROM MapPos " << prevpos << ", empty x,y " << prev_sx << "," << prev_sy;
+      screen_pix_from_map_coord(prevpos, &prev_sx, &prev_sy);
+      //Log::Info["viewport"] << "called screen_pix_from_map_coord with FROM MapPos " << prevpos << ", got x,y " << prev_sx << "," << prev_sy;
+
+      int this_sx = 0;
+      int this_sy = 0;
+      //Log::Info["viewport"] << "calling screen_pix_from_map_coord with TO MapPos " << thispos << ", empty x,y " << this_sx << "," << this_sy;
+      screen_pix_from_map_coord(thispos, &this_sx, &this_sy);
+      //Log::Info["viewport"] << "called screen_pix_from_map_coord with TO MapPos " << thispos << ", got x,y " << this_sx << "," << this_sy;
+
+      frame->draw_line(prev_sx, prev_sy, this_sx, this_sy, rand_color);
+      prevpos = thispos;
+    }
+
   }
 
   // draw AI status text box
