@@ -2604,7 +2604,8 @@ Viewport::draw_ai_grid_overlay() {
                 int this_sx = 0;
                 int this_sy = 0;
                 screen_pix_from_map_coord(pos, &this_sx, &this_sy);
-                frame->draw_line(prev_sx, prev_sy, this_sx, this_sy, dir_color);
+                //frame->draw_line(prev_sx, prev_sy, this_sx, this_sy, dir_color);
+                frame->draw_thick_line(prev_sx, prev_sy, this_sx, this_sy, dir_color);
                 prev_pos = pos;
                 dir = new_dir;
                 break;
