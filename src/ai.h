@@ -56,9 +56,10 @@ class AI {
   ColorDotMap ai_mark_pos;      // used to mark spots on map with various colored dots.  For debugging, when AI overlay is on
   std::vector<int> ai_mark_serf;    // used to mark serfs on map with status text.  For debugging, when AI overlay is on
   Road *ai_mark_road = (new Road);  // used to trace roads on map as pathfinding runs.  For debugging, when AI overlay is on
-  FlagDirToDirPathMap *ai_mark_arterial_road_paths = (new FlagDirToDirPathMap);    // used to highlight discovered arterial roads for AI overlay for debugging, ordered list of Dirs of entire path
-  FlagDirToFlagPathMap *ai_mark_arterial_road_flags = (new FlagDirToFlagPathMap);    // used to highlight discovered arterial roads for AI overlay for debugging, unordered list of flags
-  FlagDirToFlagPathMap *ai_mark_spiderweb_roads = (new FlagDirToFlagPathMap);   // used to highlight spiderweb-built roads for AI overlay for debugging.  int is a flag index
+  //FlagDirToDirPathMap *ai_mark_arterial_road_paths = (new FlagDirToDirPathMap);    // used to highlight discovered arterial roads for AI overlay for debugging, ordered list of Dirs of entire path
+  FlagDirToFlagVectorMap *ai_mark_arterial_road_flags = (new FlagDirToFlagVectorMap);    // used to highlight discovered arterial roads for AI overlay for debugging, unordered(?) list of flags
+  FlagDirToFlagDirVectorMap *ai_mark_arterial_road_pairs = (new FlagDirToFlagDirVectorMap);    // used to highlight discovered arterial roads for AI overlay for debugging, unordered list of flag_pos-Dirs pairs
+  FlagDirToFlagVectorMap *ai_mark_spiderweb_roads = (new FlagDirToFlagVectorMap);   // used to highlight spiderweb-built roads for AI overlay for debugging.  int is a flag index
   std::set<std::string> expand_towards;
   std::set<std::string> last_expand_towards;  // quick hack to save a copy for attack scoring
   MapPos stopbuilding_pos;
@@ -110,9 +111,9 @@ class AI {
   Road * get_ai_mark_road() { return ai_mark_road; }
   // a "pseudo-Road" ordered list of Dirs from each Inventory flag-dir that follows
   //  along the determined arterial flags in the dir, tracing each TILE-path
-  FlagDirToDirPathMap * get_ai_mark_arterial_road_paths() { return ai_mark_arterial_road_paths; }
+  FlagDirToFlagDirVectorMap * get_ai_mark_arterial_road_pairs() { return ai_mark_arterial_road_pairs; }
   // the unordered list of arterial flags for each Inventory flag-dir
-  FlagDirToFlagPathMap * get_ai_mark_arterial_road_flags() { return ai_mark_arterial_road_flags; }
+  FlagDirToFlagVectorMap * get_ai_mark_arterial_road_flags() { return ai_mark_arterial_road_flags; }
   //FlagDirToFlagPathMap * get_ai_mark_spiderweb_roads() { return ai_mark_spiderweb_roads; }
   Color get_mark_color(std::string color) { return colors.at(color); }
   Color get_random_mark_color() {
@@ -120,6 +121,33 @@ class AI {
     std::advance(it, rand() % colors.size());
     std::string random_key = it->first;
     return colors.at(random_key);
+  }
+  Color get_dir_color(Direction dir) {
+    switch (dir) {
+      case DirectionNone:           // undef, should we throw error?
+        return colors.at("black");
+
+      case DirectionRight:          // 0 / East
+        return colors.at("red");
+
+      case DirectionDownRight:      // 1 / SouthEast
+        return colors.at("yellow");
+
+      case DirectionDown:           // 2 / SouthWest
+        return colors.at("blue");
+
+      case DirectionLeft:           // 3 / West
+        return colors.at("orange");
+
+      case DirectionUpLeft:         // 4 / NorthWest
+        return colors.at("purple");
+
+      case DirectionUp:             // 5 / NorthEast
+        return colors.at("green");
+        
+      default:                      // some bad dir, should we throw error?
+        return colors.at("white");
+    }
   }
   std::string get_ai_status() { return ai_status; }
   // stupid way to pass game speed and AI loop count to viewport for AI overlay
@@ -154,6 +182,7 @@ class AI {
   Building* find_nearest_building(MapPos, CompletionLevel, Building::Type, unsigned int max_dist = -1);
   Road trace_existing_road(PMap, MapPos, Direction);
   void identify_arterial_roads(PMap);
+  void arterial_road_depth_first_recursive_flagsearch(MapPos, std::pair<MapPos,Direction>, MapPosVector *, int *);
   MapPosVector get_corners(MapPos);
   MapPosVector get_corners(MapPos, unsigned int distance);
   unsigned int count_terrain_near_pos(MapPos, unsigned int, Map::Terrain, Map::Terrain, std::string);

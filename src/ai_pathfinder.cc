@@ -36,6 +36,10 @@ class FlagSearchNode {
   Direction dir = DirectionNone;  // this supports a search method I think is BROKEN!!! investigate and use the below way instead
   // the flag_pos of any path in each Direction from this fnode
   MapPos child_dir[6] = { bad_map_pos, bad_map_pos, bad_map_pos, bad_map_pos, bad_map_pos, bad_map_pos };
+  // used for arterial_road flagsearch only, because it traces from first to last 
+  //  when a solution is found, rather than last to first. This is so it can handle
+  //   forks because it is not a single path but a network ending at an Inventory flag pos
+  PFlagSearchNode child[6] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
 };
 
 static bool
@@ -1279,7 +1283,7 @@ AI::identify_arterial_roads(PMap map){
     }
   }
 
-  // record the arterial roads
+  // record the arterial flags
   for (std::pair<MapPos,std::map<Direction,std::map<MapPos, unsigned int>>>  inv_pair : flag_counts){
     MapPos inv_flag_pos = inv_pair.first;
     AILogDebug["util_identify_arterial_roads"] << name << " MEDIAN inv_flag_pos " << inv_flag_pos;
@@ -1319,29 +1323,28 @@ AI::identify_arterial_roads(PMap map){
           art_flags.push_back(flag_pos);
         }
       }
-      //ai_mark_arterial_roads->insert(std::make_pair(std::make_pair(inv_pos, dir), art_flags));
+      //    key pos/dir -> val unordered(?) list of flags, assume starting at the Inventory
+      //    typedef std::map<std::pair<MapPos, Direction>, MapPosVector> FlagDirToFlagVectorMap;
       ai_mark_arterial_road_flags->insert(std::make_pair(std::make_pair(inv_flag_pos, dir), art_flags));
+      //    key pos/dir -> val ordered list of flag-dir pairs, assume starting at the Inventory
+      //    typedef std::map<std::pair<MapPos, Direction>, std::vector<std::pair<MapPos,Direction>>> FlagDirToFlagDirVectorMap;
+      //ai_mark_arterial_road_pairs->insert(std::make_pair(std::make_pair(inv_flag_pos, dir), new std::vector<std::pair<MapPos,Direction>>));
+      std::vector<std::pair<MapPos,Direction>> foo = {};
+      ai_mark_arterial_road_pairs->insert(std::make_pair(std::make_pair(inv_flag_pos, dir), foo));
 
     } // foreach dir_pair : inv_pair.second
-  } // foreach inv_pair : flag_coutns
+  } // foreach inv_pair : flag_counts
 
-  // record all the path steps comprising the entire arterial Road in order
-  //  so it can be highlighted
-  // to do this, run a flagsearch from the inv_pos until all arterial flags reached
-  //  and then retrace the solution back to the starting pos
-  //
-  //
-  // THIS DOES NOT WORK because arterial roads can include forked paths, which means
-  //  it is not possible to draw lines between from by following a list of Directions
-  // Instead, change this function to create a Set of flag_pos,Direction pairs
-  //  and trace the paths of each one while drawing the lines inside Viewport
-  //  instead of trying to record the tile-path solution here
-  //
+  // record the flag->Dir combinations so they can be traced along tile-paths
+  //  and highlighted inside Viewport
+  // to do this, run a special depth-first flagsearch from the inv_pos until
+  //  all arterial flags reached and mark the Dir from each parent to child
+  // WHAT ABOUT CIRCULAR PATHS??  I dunno, let's see what happens
   for (std::pair<std::pair<MapPos, Direction>, MapPosVector> record : *(ai_mark_arterial_road_flags)){
     std::pair<MapPos, Direction> flag_dir = record.first;
     MapPos inv_flag_pos = flag_dir.first;
     Direction dir = flag_dir.second;
-    AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions - Inventory at pos " << inv_flag_pos << " has a path in Dir " << NameDirection[dir] << " / " << dir;
+    AILogDebug["util_identify_arterial_roads"] << name << " begin retracing solutions - Inventory at pos " << inv_flag_pos << " has a path in Dir " << NameDirection[dir] << " / " << dir;
 
     Flag *inv_flag = game->get_flag_at_pos(inv_flag_pos);
     if (inv_flag == nullptr)
@@ -1350,160 +1353,71 @@ AI::identify_arterial_roads(PMap map){
       continue;
     if (!inv_flag->is_connected())
       continue;
+
     AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - starting flagsearch from inv_flag_pos " << inv_flag_pos;
+    MapPosVector closed = {};
+    MapPosVector *closed_ptr = &closed;
+    int depth = 0;
+    int *depth_ptr = &depth;
+    arterial_road_depth_first_recursive_flagsearch(inv_flag_pos, flag_dir, closed_ptr, depth_ptr);
 
-    std::vector<PFlagSearchNode> open = {};
-    std::list<PFlagSearchNode> closed = {};
-    PFlagSearchNode fnode(new FlagSearchNode);
-    
-    fnode->pos = inv_flag_pos;
-    open.push_back(fnode);
-    std::push_heap(open.begin(), open.end(), flagsearch_node_less);
-    //int flag_dist = 0;
-    MapPosVector remaining_art_flags_this_dir = ai_mark_arterial_road_flags->at(flag_dir);
-    std::vector<Direction> arterial_path = {};  // this is the TILE-path from inv_flag_pos to the farthest art_flag_pos
-
-    while (!open.empty()) {
-      std::pop_heap(open.begin(), open.end(), flagsearch_node_less);
-      fnode = open.back();
-      open.pop_back();
-      if (remaining_art_flags_this_dir.size() == 0){
-        AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - flagsearch solution, last art_flag_pos reached at " << fnode->pos;
-        if (fnode->parent == nullptr){
-          AILogWarn["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - no parent flag node found!  is this a dir with no arterial road??  unexpected, breaking";
-          break;
-        }
-        AILogWarn["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - about to start path retrace from inv_flag_pos " << inv_flag_pos << " to last art_flag_pos " << fnode->pos;
-        while (fnode->parent) {
-
-          MapPos start_pos = fnode->parent->pos;
-
-          // find the Dir from prev flag to this flag
-          Direction start_dir = DirectionNone;
-          for (Direction d : cycle_directions_ccw()){
-            if (fnode->parent->child_dir[d] == fnode->pos){
-              start_dir = d;
-              break;
-            }
-          }
-          if (start_dir == DirectionNone){
-            AILogError["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " -could not find the Dir from fnode->parent->pos " << fnode->parent->pos << " to child fnode->pos " << fnode->pos << "! throwing exception";
-            //std::this_thread::sleep_for(std::chrono::milliseconds(120000));
-            throw ExceptionFreeserf("in AI::util_identify_arterial_roads, retracing solutions - could not find the Dir from fnode->parent->pos to child !fnode->pos!  it should be known");
-          }
-
-          // trace the tile-paths from start_pos flag to next flag encountered
-          if (!map->has_path(start_pos, start_dir)) {
-            AILogWarn["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " -retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - no path found at " << start_pos << " in direction " << NameDirection[start_dir] << "!  FIND OUT WHY";
-            break;
-          }
-          arterial_path.push_back(start_dir);
-          Direction tmp_dir = start_dir;
-          MapPos tmp_pos = start_pos;
-          while (true) {
-            AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - path has valid dir " << NameDirection[tmp_dir] << " / " << tmp_dir;
-            tmp_pos = map->move(tmp_pos, tmp_dir);
-            if (map->has_flag(tmp_pos)) {
-              AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - reached next flag in retrace, at pos " << tmp_pos << ", arterial_path now has " << arterial_path.size() << " elements";
-              break;
-            }
-            for (Direction new_dir : cycle_directions_cw()) {
-              if (map->has_path(tmp_pos, new_dir) && new_dir != reverse_direction(tmp_dir)) {
-                tmp_dir = new_dir;
-                AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[tmp_dir] << " / " << tmp_dir << " - found path from pos " << tmp_pos << " in dir " << NameDirection[dir] << " / " << dir;
-                arterial_path.push_back(tmp_dir);
-                break;
-              }
-            }
-          }
-
-          fnode = fnode->parent;
-
-        }
-        AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " -  done, found all arterial flags in this Inventory-Dir";
-        ai_mark_arterial_road_paths->insert(std::make_pair(std::make_pair(inv_flag_pos, dir), arterial_path));
-        break;
-      }
-
-      AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - fsearchnode - fnode->pos " << fnode->pos << " has not found all arterial flags yet, adding fnode to closed list";
-      closed.push_front(fnode);
-
-      // for each direction that has a path, trace the path until a flag is reached
-      for (Direction d : cycle_directions_cw()) {
-        if (map->has_path(fnode->pos, d)) {
-          // couldn't this use the internal flag->other_end_dir stuff instead of tracing it?
-          // maybe...  try that after this is stable
-          Road fsearch_road = trace_existing_road(map, fnode->pos, d);
-          MapPos new_pos = fsearch_road.get_end(map.get());
-          AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - fsearchnode - fsearch from fnode->pos " << fnode->pos << " and dir " << NameDirection[d] << " found flag at pos " << new_pos << " with return dir " << reverse_direction(fsearch_road.get_last());
-          // check if this flag is already in closed list
-          bool in_closed = false;
-          for (PFlagSearchNode closed_node : closed) {
-            if (closed_node->pos == new_pos) {
-              in_closed = true;
-              AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - fsearchnode - fnode at new_pos " << new_pos << ", breaking because in fnode already in_closed";
-              break;
-            }
-          }
-          if (in_closed) continue;
-
-          AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - fsearchnode - fnode at new_pos " << new_pos << ", continuing because fnode NOT already in_closed";
-
-          // check if this flag is already in open list
-          bool in_open = false;
-          for (std::vector<PFlagSearchNode>::iterator it = open.begin(); it != open.end(); ++it) {
-            PFlagSearchNode n = *it;
-            if (n->pos == new_pos) {
-              in_open = true;
-              AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - fnodesearch - fnode at new_pos " << new_pos << " is already in_open ";
-              if (n->flag_dist >= fnode->flag_dist + 1) {
-                AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - fnodesearch - new_pos " << new_pos << "'s flag_dist is >= fnode->flag_dist + 1";
-                n->flag_dist += 1;
-                n->parent = fnode;
-                iter_swap(it, open.rbegin());
-                std::make_heap(open.begin(), open.end(), flagsearch_node_less);
-              }
-              break;
-            }
-          }
-          // this pos has not been seen before, create a new fnode for it
-          if (!in_open) {
-            AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - fnodesearch - fnode at new_pos " << new_pos << " is NOT already in_open, considering creating a new fnode";
-            // if we have reached one of the arterial flags
-            std::vector<MapPos>::iterator it = std::find(remaining_art_flags_this_dir.begin(), remaining_art_flags_this_dir.end(), new_pos);
-            if (it != remaining_art_flags_this_dir.end()){
-              AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - fnodesearch - fnode at new_pos " << new_pos << " FOUND an arterial flag pos, creating a new fnode";
-              // remove it from the remaining list
-              remaining_art_flags_this_dir.erase(it);
-              // create a new node for it
-              PFlagSearchNode new_fnode(new FlagSearchNode);
-              new_fnode->pos = new_pos;
-              new_fnode->parent = fnode;
-              new_fnode->flag_dist = new_fnode->parent->flag_dist + 1;
-              // when doing a flag search, the parent node's direction *cannot* be inferred by reversing its child node dir
-              //   like when doing tile pathfinding, so it must be set explicitly set by associating the parent node Dir with the child node pos
-              fnode->child_dir[d] = new_pos;
-              open.push_back(new_fnode);
-              std::push_heap(open.begin(), open.end(), flagsearch_node_less);
-            }else{
-              // if this is NOT an arterial flag, don't even consider it
-              AILogDebug["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - fnodesearch - fnode at new_pos " << new_pos << " this flag is not on the arterial flag pos list, not creating a new node";
-            }
-            
-            
-          } // if !in_open
-        } // if map->has_path(node->pos, d)
-      } // foreach direction
-    } // while open flag-nodes remain to be checked
-
-    // this type of search should never fail, if it did either something is wrong or the road/flags were destroyed mid-function
-    //  throw a warning for now, don't crash/exception
-    if (remaining_art_flags_this_dir.size() > 0)
-      AILogWarn["util_identify_arterial_roads"] << name << " retracing solutions for inv_flag_pos " << inv_flag_pos << " dir " << NameDirection[dir] << " / " << dir << " - flagsearch never reached all arterial flags, did the road get destroyed just now?";
-
+    AILogDebug["util_identify_arterial_roads"] << name << " done retracing solutions - Inventory at pos " << inv_flag_pos << " has a path in Dir " << NameDirection[dir] << " / " << dir;
   }
 
   start = std::clock();
   duration = (std::clock() - start) / static_cast<double>(CLOCKS_PER_SEC);
   AILogDebug["util_identify_arterial_roads"] << name << " done AI::identify_arterial_roads, call took " << duration;
+}
+
+//  instead of retracing backwards from last node to parent node as is usual,
+//    start at oldest node and trace downwards to each child until it dead ends
+//    using a depth-first recursive walk
+//     and record the Set as parent->child flag pos  so each line only appears once
+//   otherwise, if we did something like this:
+//  for each arterial flag (start at Inventory) 
+//    foreach cycle_dirs
+//      if flag has path in dir that ends at another arterial flag
+//         draw the line
+//  .. this would result in drawing lines in both directions for each flag
+void
+AI::arterial_road_depth_first_recursive_flagsearch(MapPos flag_pos, std::pair<MapPos,Direction> inv_dir, MapPosVector *closed, int *depth){
+  (*depth)++;
+  AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " starting with flag_pos " << flag_pos << ", recusion depth " << *(depth);
+  MapPosVector arterial_flags = ai_mark_arterial_road_flags->at(inv_dir);
+  AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo0";
+  // find the Dir from this flag to the next flag and see if it is an arterial flag
+  for (Direction dir : cycle_directions_cw()){
+    AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo1, dir " << dir;
+    if (!map->has_path(flag_pos, dir))
+      continue;
+    if (!map->has_flag(flag_pos)){
+      AILogError["arterial_road_depth_first_recursive_flagsearch"] << name << " expecting that start_pos provided to this function is a flag pos, but game->get_flag_at_pos(" << flag_pos << ") returned nullptr!  throwing exception";
+      throw ExceptionFreeserf("expecting that start_pos provided to this function is a flag pos, but game->get_flag_at_pos(flag_pos)!");
+    }
+    Flag *flag = game->get_flag_at_pos(flag_pos);
+    Flag *other_end_flag = flag->get_other_end_flag(dir);
+    if (other_end_flag == nullptr){
+      AILogWarn["arterial_road_depth_first_recursive_flagsearch"] << name << " got nullptr for game->get_other_end_flag(" << NameDirection[dir] << ") from flag at pos " << flag_pos << " skipping this dir";
+      continue;
+    }
+    AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo2";
+    MapPos other_end_flag_pos = other_end_flag->get_position();
+    // if other_end_flag_pos is on the arterial flag list for this Inventory-Dir
+    AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo3";
+    if (std::find(arterial_flags.begin(), arterial_flags.end(), other_end_flag_pos) != arterial_flags.end()){
+      AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo4";
+      if (std::find(closed->begin(), closed->end(), other_end_flag_pos) == closed->end()){
+        AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo5+ closing pos";
+        closed->push_back(other_end_flag_pos);
+        AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo5+ pushing pair to vector";
+        ai_mark_arterial_road_pairs->at(inv_dir).push_back(std::make_pair(flag_pos,dir));
+        // recursively search this new flag_pos the same way
+        AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo6 entering recurse call";
+        arterial_road_depth_first_recursive_flagsearch(other_end_flag_pos, inv_dir, closed, depth);
+      }else{
+        AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo5- pos is already on closed list";
+      }
+    } 
+  }
+  AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " done with node pos " << flag_pos;
 }
