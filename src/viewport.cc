@@ -2511,7 +2511,7 @@ Viewport::draw_ai_grid_overlay() {
     base_pos = map->move_right(base_pos);
   }
 
-  // did I forget this somewhere when copying?
+  // did I forget this somewhere when copying from Freeserf to Freeserf-with-AI-Plus?
   PGame game = interface->get_game();
   
   /*
@@ -2538,6 +2538,7 @@ Viewport::draw_ai_grid_overlay() {
   }
   */
 
+  //
   // highlight arterial roads
   //
   // NOTE - if there are overlapping paths in an arterial branch, right one one "wins" and is drawn over the other
@@ -2545,7 +2546,8 @@ Viewport::draw_ai_grid_overlay() {
   // for now, trying random ordering so that it does flash back and forth
   //
   Log::Info["viewport"] << " inside draw_ai_grid_overlay, debug0";
-  FlagDirToFlagDirVectorMap ai_mark_arterial_road_pairs = *(interface->get_ai_ptr(current_player_index)->get_ai_mark_arterial_road_pairs());
+  //FlagDirToFlagDirVectorMap ai_mark_arterial_road_pairs = *(interface->get_ai_ptr(current_player_index)->get_ai_mark_arterial_road_pairs());
+  FlagDirToFlagDirVectorMap ai_mark_arterial_road_pairs = *(ai->get_ai_mark_arterial_road_pairs());
 
   // hack - randomize the starting Dir so that overlapping paths tend to flash two different colors
   //  this seems to work well enough, leaving it
@@ -2556,6 +2558,7 @@ Viewport::draw_ai_grid_overlay() {
 
   // non-hack way
   //for (std::pair<std::pair<MapPos, Direction>, std::vector<std::pair<MapPos,Direction>>> record : ai_mark_arterial_road_pairs){
+  //for (std::pair<std::pair<MapPos, Direction>, std::vector<std::pair<MapPos,Direction>>> record : *(ai->get_ai_mark_arterial_road_pairs())){
   
   for (MapPos inv_flag_pos : inv_flag_pos_v){
     for (Direction inv_flag_dir : cycle_directions_rand_cw()) {
@@ -2571,7 +2574,8 @@ Viewport::draw_ai_grid_overlay() {
         // iterate over the provided list of flag->dir pairs and walk
         //  the tile-path along each, and highlight it
         //Color rand_color = interface->get_ai_ptr(current_player_index)->get_random_mark_color();
-        Color dir_color = interface->get_ai_ptr(current_player_index)->get_dir_color(inv_flag_dir);
+        //Color dir_color = interface->get_ai_ptr(current_player_index)->get_dir_color(inv_flag_dir);
+        Color dir_color = ai->get_dir_color(inv_flag_dir);
 
         // non-hack way
         //for (std::pair<MapPos,Direction> art_key : record.second) {
@@ -2622,6 +2626,48 @@ Viewport::draw_ai_grid_overlay() {
       } // foreach foo_dir - randomization hack
     } // foreach foo_pos - randomization hack
 
+  }
+
+  //
+  // draw spider-web roads
+  //
+  //MapPosDirVector ai_mark_spiderweb_road_pairs = *(ai->get_ai_mark_spiderweb_road_pairs());
+  //for (std::pair<MapPos, Direction> pair : ai_mark_spiderweb_road_pairs){
+  Log::Info["viewport"] << " inside draw_ai_grid_overlay, draw spiderweb roads";
+  for (std::pair<MapPos, Direction> pair : *(ai->get_ai_mark_spiderweb_road_pairs())){
+    MapPos start_pos = pair.first;
+    Direction start_dir = pair.second;
+    Log::Info["viewport"] << " inside draw_ai_grid_overlay, draw spiderweb roads, start_pos " << start_pos << ", start_dir " << start_dir;
+    // trace the tile-path to the next flag
+    //  and highlight each tile-path as we go
+    MapPos pos = start_pos;
+    Direction dir = start_dir;
+    MapPos prev_pos = start_pos;
+    while (true) {
+      if (!map->has_path(pos, dir)){
+        Log::Error["viewport"] << " inside draw_ai_grid_overlay, draw spiderweb roads, start_pos " << start_pos << ", start_dir " << start_dir << ", NO PATH IN DIR " << dir << "!, crashing";
+        throw ExceptionFreeserf("inside draw_ai_grid_overlay, draw spiderweb roads, NO PATH IN DIR");
+      }
+      pos = map->move(pos, dir);
+      for (Direction new_dir : cycle_directions_cw()) {
+        if (map->has_path(pos, new_dir) && new_dir != reverse_direction(dir)) {
+          int prev_sx = 0;
+          int prev_sy = 0;
+          screen_pix_from_map_coord(prev_pos, &prev_sx, &prev_sy);
+          int this_sx = 0;
+          int this_sy = 0;
+          screen_pix_from_map_coord(pos, &this_sx, &this_sy);
+          //frame->draw_line(prev_sx, prev_sy, this_sx, this_sy, dir_color);
+          frame->draw_thick_line(prev_sx, prev_sy, this_sx, this_sy, ai->get_mark_color("cyan"));
+          prev_pos = pos;
+          dir = new_dir;
+          break;
+        }
+      }
+      if (map->has_flag(pos)) {
+        break;
+      }
+    }
   }
 
   // draw AI status text box

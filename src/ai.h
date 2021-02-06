@@ -59,7 +59,7 @@ class AI {
   //FlagDirToDirPathMap *ai_mark_arterial_road_paths = (new FlagDirToDirPathMap);    // used to highlight discovered arterial roads for AI overlay for debugging, ordered list of Dirs of entire path
   FlagDirToFlagVectorMap *ai_mark_arterial_road_flags = (new FlagDirToFlagVectorMap);    // used to highlight discovered arterial roads for AI overlay for debugging, unordered(?) list of flags
   FlagDirToFlagDirVectorMap *ai_mark_arterial_road_pairs = (new FlagDirToFlagDirVectorMap);    // used to highlight discovered arterial roads for AI overlay for debugging, unordered list of flag_pos-Dirs pairs
-  FlagDirToFlagVectorMap *ai_mark_spiderweb_roads = (new FlagDirToFlagVectorMap);   // used to highlight spiderweb-built roads for AI overlay for debugging.  int is a flag index
+  MapPosDirVector *ai_mark_spiderweb_road_pairs = (new MapPosDirVector);   // used to highlight spiderweb-built roads for AI overlay for debugging.  
   std::set<std::string> expand_towards;
   std::set<std::string> last_expand_towards;  // quick hack to save a copy for attack scoring
   MapPos stopbuilding_pos;
@@ -114,7 +114,7 @@ class AI {
   FlagDirToFlagDirVectorMap * get_ai_mark_arterial_road_pairs() { return ai_mark_arterial_road_pairs; }
   // the unordered list of arterial flags for each Inventory flag-dir
   FlagDirToFlagVectorMap * get_ai_mark_arterial_road_flags() { return ai_mark_arterial_road_flags; }
-  //FlagDirToFlagPathMap * get_ai_mark_spiderweb_roads() { return ai_mark_spiderweb_roads; }
+  MapPosDirVector * get_ai_mark_spiderweb_road_pairs() { return ai_mark_spiderweb_road_pairs; }
   Color get_mark_color(std::string color) { return colors.at(color); }
   Color get_random_mark_color() {
     auto it = colors.begin();

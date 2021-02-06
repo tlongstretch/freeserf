@@ -351,6 +351,7 @@ VideoSDL::draw_thick_line(int x, int y, int x1, int y1, const Video::Color color
   SDL_SetRenderTarget(renderer, dest->texture);
   SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, 0xff);
 
+/*
   // find the slope of a straight line 
   float fx = x;
   float fx1 = x1;
@@ -359,7 +360,11 @@ VideoSDL::draw_thick_line(int x, int y, int x1, int y1, const Video::Color color
   float slope = (fy1 - fy) / (fx1 - fx); 
   Log::Info["video-sdl"] << " slope of x " << fx << ", x1 " << fx1 << " to y " << fy << ", y1 " << fy1 << " = " << std::to_string(slope);
 
+*/
+
+  // draw the original thin line...
   SDL_RenderDrawLine(renderer, x, y, x1, y1);
+  
   /*
   if (slope >= 2.5 || slope <= -2.5){
     // up-down line, widen x axis by 2

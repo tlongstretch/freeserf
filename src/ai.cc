@@ -341,7 +341,7 @@ AI::do_update_clear_reset() {
   //ai_mark_arterial_roads->clear();
   ai_mark_arterial_road_pairs->clear();
   ai_mark_arterial_road_flags->clear();
-  ai_mark_spiderweb_roads->clear();
+  ai_mark_spiderweb_road_pairs->clear();
   last_expand_towards = expand_towards;
   expand_towards.clear();
   road_options.reset(RoadOption::Direct);
@@ -643,6 +643,29 @@ AI::do_spiderweb_roads2() {
             AILogDebug["do_spiderweb_roads2"] << inventory_pos << " successfully built spider-web2 road between area_flag_pos " << area_flag_pos << " to other_area_flag_pos " << other_area_flag_pos;
             // only create one road per run
             spider_web_roads_built++;
+            // find the new road and mark for highlighting on AI Overlay in Viewport
+            // assume the first road found directly between the two flags and NOT having a transporter yet is the new road
+            // CRAP, this doesn't work because it is not a direct road, but could be a split road or indirect connection
+            //  easiest way woul dbe to modify build_best_road to return the actual road built, or at least the Dir
+            //   this requires either passing a ref to a new variable it can set, or modifying the bool return to a Dir 
+            for (Direction d : cycle_directions_rand_cw()){
+              if (!map->has_path(area_flag_pos, d))
+                continue;
+              if (!map->has_flag(area_flag_pos)){
+                AILogWarn["do_spiderweb_roads2"] << inventory_pos << " map says there is no flag at area_flag_pos " << area_flag_pos << ", this is unexpected!";
+                continue;
+              }
+              if (game->get_flag_at_pos(area_flag_pos)->get_other_end_flag(d)->get_position() == other_area_flag_pos){
+                AILogDebug["do_spiderweb_roads2"] << inventory_pos << " found a direct path between area_flag_pos " << area_flag_pos << " and other_area_flag_pos " << other_area_flag_pos << " in dir " << NameDirection[d] << " / " << d;
+                if (game->get_flag_at_pos(area_flag_pos)->has_transporter(d)){
+                  AILogDebug["do_spiderweb_roads2"] << inventory_pos << " the direct path between area_flag_pos " << area_flag_pos << " and other_area_flag_pos " << other_area_flag_pos << " in dir " << NameDirection[d] << " / " << d << " already has a transporter!  this must not be the new road, skipping it";
+                  continue;
+                }
+                AILogDebug["do_spiderweb_roads2"] << inventory_pos << " adding MapPos-Dir pair " << area_flag_pos << ", " << d << " to ai_mark_spiderweb_roads MapDirVector";
+                //typedef std::vector<std::pair<MapPos, Direction>> MapDirVector;
+                ai_mark_spiderweb_road_pairs->push_back(std::make_pair(area_flag_pos, d));
+              }
+            }
             break;
           }
           else {

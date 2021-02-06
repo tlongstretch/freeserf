@@ -1123,7 +1123,7 @@ AI::identify_arterial_roads(PMap map){
     if (flag->accepts_resources())
       continue;
     MapPos flag_pos = flag->get_position();
-    AILogDebug["util_identify_arterial_roads"] << name << " checking flag at pos " << flag_pos;
+    //AILogDebug["util_identify_arterial_roads"] << name << " checking flag at pos " << flag_pos;
 
     std::vector<PFlagSearchNode> open = {};
     std::list<PFlagSearchNode> closed = {};
@@ -1139,7 +1139,7 @@ AI::identify_arterial_roads(PMap map){
       std::pop_heap(open.begin(), open.end(), flagsearch_node_less);
       fnode = open.back();
       open.pop_back();
-      AILogDebug["util_identify_arterial_roads"] << name << " fsearchnode - inside fnode search for flag_pos " << flag_pos << ", inside while-open-list-not-empty loop";
+      //AILogDebug["util_identify_arterial_roads"] << name << " fsearchnode - inside fnode search for flag_pos " << flag_pos << ", inside while-open-list-not-empty loop";
 
       if (game->get_flag_at_pos(fnode->pos)->accepts_resources()) {
         // to avoid crashes, handle discovering a newly built warehouse that just now became active
@@ -1150,7 +1150,7 @@ AI::identify_arterial_roads(PMap map){
           //  and let the next AI loop find it
           AILogDebug["util_identify_arterial_roads"] << name << " found a newly active Inventory building at " << fnode->pos << " that is not tracked yet, skipping it for now.";
         }else{
-          AILogDebug["util_identify_arterial_roads"] << name << " flagsearch solution found from flag_pos " << flag_pos << " to an Inventory building's flag";
+          //AILogDebug["util_identify_arterial_roads"] << name << " flagsearch solution found from flag_pos " << flag_pos << " to an Inventory building's flag";
           found_inv = true;
           // uniquely identify the connection point of each artery to the Flag-Dir it is coming from
           // this is the dir of 2nd last node, which leads to the last node (which has no dir)
@@ -1159,7 +1159,7 @@ AI::identify_arterial_roads(PMap map){
             break;
           }
           MapPos inv_flag_pos = fnode->pos;
-          AILogDebug["util_identify_arterial_roads"] << name << " DEBUG:::::::::   inv_flag_pos = " << inv_flag_pos << " when recording flag dirs with paths from inv";
+          //AILogDebug["util_identify_arterial_roads"] << name << " DEBUG:::::::::   inv_flag_pos = " << inv_flag_pos << " when recording flag dirs with paths from inv";
           /* wait, this doesn't even matter
             at this point we don't actually need to track the dirs between flags
             as we can just check the dir between the last two nodes
@@ -1188,19 +1188,19 @@ AI::identify_arterial_roads(PMap map){
           // actually, I take it back, tracking it the entire way is fine
           //  if the alternative is checking 6 dirs and potentially buggy
           //Direction inv_flag_conn_dir = trace...
-          AILogDebug["util_identify_arterial_roads"] << name << " reached an Inventory building's flag at pos " << inv_flag_pos << ", connecting from dir " << NameDirection[inv_flag_conn_dir] << " / " << inv_flag_conn_dir;
+          //AILogDebug["util_identify_arterial_roads"] << name << " reached an Inventory building's flag at pos " << inv_flag_pos << ", connecting from dir " << NameDirection[inv_flag_conn_dir] << " / " << inv_flag_conn_dir;
           while (fnode->parent){
             //AILogDebug["util_identify_arterial_roads"] << name << " fnode->pos = " << fnode->pos << ", fnode->parent->pos " << fnode->parent->pos << ", fnode->parent->dir = " << NameDirection[fnode->parent->dir] << " / " << fnode->parent->dir;
             fnode = fnode->parent;
             flag_counts[inv_flag_pos][inv_flag_conn_dir][fnode->pos]++;
             flag_dist++;
           }
-          AILogDebug["util_identify_arterial_roads"] << name << " flag_dist from flag_pos " << flag_pos << " to nearest Inventory pos " << inv_flag_pos << " is " << flag_dist;
+          //AILogDebug["util_identify_arterial_roads"] << name << " flag_dist from flag_pos " << flag_pos << " to nearest Inventory pos " << inv_flag_pos << " is " << flag_dist;
           break;
         }
       }
 
-      AILogDebug["util_identify_arterial_roads"] << name << " fsearchnode - fnode->pos " << fnode->pos << " is not at an Inventory building flag yet, adding fnode to closed list";
+      //AILogDebug["util_identify_arterial_roads"] << name << " fsearchnode - fnode->pos " << fnode->pos << " is not at an Inventory building flag yet, adding fnode to closed list";
       closed.push_front(fnode);
 
       // for each direction that has a path, trace the path until a flag is reached
@@ -1210,19 +1210,19 @@ AI::identify_arterial_roads(PMap map){
           // maybe...  try that after this is stable
           Road fsearch_road = trace_existing_road(map, fnode->pos, d);
           MapPos new_pos = fsearch_road.get_end(map.get());
-          AILogDebug["util_identify_arterial_roads"] << name << " fsearchnode - fsearch from fnode->pos " << fnode->pos << " and dir " << NameDirection[d] << " found flag at pos " << new_pos << " with return dir " << reverse_direction(fsearch_road.get_last());
+          //AILogDebug["util_identify_arterial_roads"] << name << " fsearchnode - fsearch from fnode->pos " << fnode->pos << " and dir " << NameDirection[d] << " found flag at pos " << new_pos << " with return dir " << reverse_direction(fsearch_road.get_last());
           // check if this flag is already in closed list
           bool in_closed = false;
           for (PFlagSearchNode closed_node : closed) {
             if (closed_node->pos == new_pos) {
               in_closed = true;
-              AILogDebug["util_identify_arterial_roads"] << name << " fsearchnode - fnode at new_pos " << new_pos << ", breaking because in fnode already in_closed";
+              //AILogDebug["util_identify_arterial_roads"] << name << " fsearchnode - fnode at new_pos " << new_pos << ", breaking because in fnode already in_closed";
               break;
             }
           }
           if (in_closed) continue;
 
-          AILogDebug["util_identify_arterial_roads"] << name << " fsearchnode - fnode at new_pos " << new_pos << ", continuing because fnode NOT already in_closed";
+          //AILogDebug["util_identify_arterial_roads"] << name << " fsearchnode - fnode at new_pos " << new_pos << ", continuing because fnode NOT already in_closed";
 
           // check if this flag is already in open list
           bool in_open = false;
@@ -1230,7 +1230,7 @@ AI::identify_arterial_roads(PMap map){
             PFlagSearchNode n = *it;
             if (n->pos == new_pos) {
               in_open = true;
-              AILogDebug["util_identify_arterial_roads"] << name << " fnodesearch - fnode at new_pos " << new_pos << " is already in_open ";
+              //AILogDebug["util_identify_arterial_roads"] << name << " fnodesearch - fnode at new_pos " << new_pos << " is already in_open ";
               if (n->flag_dist >= fnode->flag_dist + 1) {
                 AILogDebug["util_identify_arterial_roads"] << name << " fnodesearch - new_pos " << new_pos << "'s flag_dist is >= fnode->flag_dist + 1";
                 n->flag_dist += 1;
@@ -1246,7 +1246,7 @@ AI::identify_arterial_roads(PMap map){
           // SHOULD WE NOT CHECK FOR THE SUCCESS CONDITION (found inventory) AND QUIT IF SO???  OR AT LEAST BREAK EARLY
           //   maybe, but that could screw up the whole in_open  and flagsearch_node_less compare stuff?
           if (!in_open) {
-            AILogDebug["util_identify_arterial_roads"] << name << " fnodesearch - fnode at new_pos " << new_pos << " is NOT already in_open, creating a new fnode ";
+            //AILogDebug["util_identify_arterial_roads"] << name << " fnodesearch - fnode at new_pos " << new_pos << " is NOT already in_open, creating a new fnode ";
             PFlagSearchNode new_fnode(new FlagSearchNode);
             new_fnode->pos = new_pos;
             new_fnode->parent = fnode;
@@ -1382,12 +1382,12 @@ AI::identify_arterial_roads(PMap map){
 void
 AI::arterial_road_depth_first_recursive_flagsearch(MapPos flag_pos, std::pair<MapPos,Direction> inv_dir, MapPosVector *closed, int *depth){
   (*depth)++;
-  AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " starting with flag_pos " << flag_pos << ", recusion depth " << *(depth);
+  //AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " starting with flag_pos " << flag_pos << ", recusion depth " << *(depth);
   MapPosVector arterial_flags = ai_mark_arterial_road_flags->at(inv_dir);
-  AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo0";
+  //AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo0";
   // find the Dir from this flag to the next flag and see if it is an arterial flag
   for (Direction dir : cycle_directions_cw()){
-    AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo1, dir " << dir;
+    //AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo1, dir " << dir;
     if (!map->has_path(flag_pos, dir))
       continue;
     if (!map->has_flag(flag_pos)){
@@ -1400,24 +1400,24 @@ AI::arterial_road_depth_first_recursive_flagsearch(MapPos flag_pos, std::pair<Ma
       AILogWarn["arterial_road_depth_first_recursive_flagsearch"] << name << " got nullptr for game->get_other_end_flag(" << NameDirection[dir] << ") from flag at pos " << flag_pos << " skipping this dir";
       continue;
     }
-    AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo2";
+    //AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo2";
     MapPos other_end_flag_pos = other_end_flag->get_position();
     // if other_end_flag_pos is on the arterial flag list for this Inventory-Dir
-    AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo3";
+    //AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo3";
     if (std::find(arterial_flags.begin(), arterial_flags.end(), other_end_flag_pos) != arterial_flags.end()){
-      AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo4";
+      //AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo4";
       if (std::find(closed->begin(), closed->end(), other_end_flag_pos) == closed->end()){
-        AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo5+ closing pos";
+        //AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo5+ closing pos";
         closed->push_back(other_end_flag_pos);
-        AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo5+ pushing pair to vector";
+        //AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo5+ pushing pair to vector";
         ai_mark_arterial_road_pairs->at(inv_dir).push_back(std::make_pair(flag_pos,dir));
         // recursively search this new flag_pos the same way
-        AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo6 entering recurse call";
+        //AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo6 entering recurse call";
         arterial_road_depth_first_recursive_flagsearch(other_end_flag_pos, inv_dir, closed, depth);
       }else{
-        AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo5- pos is already on closed list";
+        //AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " foo5- pos is already on closed list";
       }
     } 
   }
-  AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " done with node pos " << flag_pos;
+  //AILogDebug["arterial_road_depth_first_recursive_flagsearch"] << name << " done with node pos " << flag_pos;
 }
